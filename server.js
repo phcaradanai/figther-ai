@@ -43,6 +43,11 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
+const MODULE_MOUNTS = [
+  { prefix: '/pixelfx/', root: path.join(__dirname, 'node_modules', 'pixelfx', 'src') },
+  { prefix: '/vendor/three/', root: path.join(__dirname, 'node_modules', 'three') }
+];
+
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
@@ -56,12 +61,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve patch-gg/pixelfx ES modules directly from node_modules/pixelfx/src/
-  if (parsedUrl.pathname.startsWith('/pixelfx/')) {
-    const relPath = parsedUrl.pathname.slice('/pixelfx/'.length);
-    const pfxRoot = path.join(__dirname, 'node_modules', 'pixelfx', 'src');
+  // Serve browser ES modules straight from node_modules (no bundler):
+  // /pixelfx/* -> pixelfx/src, /vendor/three/* -> three (build + examples/jsm)
+  const moduleMount = MODULE_MOUNTS.find(m => parsedUrl.pathname.startsWith(m.prefix));
+  if (moduleMount) {
+    const relPath = parsedUrl.pathname.slice(moduleMount.prefix.length);
+    const pfxRoot = moduleMount.root;
     const pfxPath = path.join(pfxRoot, relPath);
-    if (!pfxPath.startsWith(pfxRoot)) {
+    if (!pfxPath.startsWith(pfxRoot + path.sep)) {
       res.writeHead(403);
       res.end('Forbidden');
       return;

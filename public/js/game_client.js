@@ -1,10 +1,34 @@
 // ============================================================================
 // LOST SAGA 2.5D PIXEL ARENA - CLIENT CONTROLLER, HUD, AUDIO & LAN WEBSOCKET
 // ============================================================================
-(function () {
+(async function () {
   const GAME_DATA = window.GAME_DATA;
   const canvas = document.getElementById('gameCanvas');
-  const renderer = new window.PixelRenderer25D(canvas);
+
+  // Renderer: 2D canvas (default) or the Three.js prototype with ?renderer=3d
+  const pageParams = new URLSearchParams(location.search);
+  const use3D = pageParams.get('renderer') === '3d';
+  let renderer = null;
+  if (use3D) {
+    try {
+      const mod = await import('/js/three/renderer3d.js');
+      renderer = new mod.ThreeRenderer(canvas);
+    } catch (err) {
+      console.error('Three.js renderer failed to start, falling back to 2D:', err);
+    }
+  }
+  if (!renderer) renderer = new window.PixelRenderer25D(canvas);
+
+  const btnToggleRenderer = document.getElementById('btnToggleRenderer');
+  if (btnToggleRenderer) {
+    btnToggleRenderer.textContent = use3D ? '🎨 กลับไป 2D' : '🧊 3D (ทดลอง)';
+    btnToggleRenderer.addEventListener('click', () => {
+      if (use3D) pageParams.delete('renderer');
+      else pageParams.set('renderer', '3d');
+      const qs = pageParams.toString();
+      location.search = qs ? `?${qs}` : '';
+    });
+  }
 
   // --------------------------------------------------------------------------
   // RETRO ARCADE WEBAUDIO SOUND SYNTHESIZER (Zero external audio assets needed)
