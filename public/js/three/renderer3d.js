@@ -16,6 +16,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { Stage } from './stage.js';
 import { ChibiView, buildGearItem } from './chibi.js';
 import { FxSystem } from './fx.js';
+import { KnightThreeVFX } from './knight_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -80,6 +81,18 @@ export class ThreeRenderer {
       shake: (a) => this.addShake(a),
       floorY: (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     };
+
+    // Dedicated Iron Knight 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suite
+    this.knightVfx = new KnightThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    if (window.KnightEffekseerVFX) {
+      const efkCanvas = document.getElementById('effekseerCanvas');
+      if (efkCanvas) window.KnightEffekseerVFX.attachGameCanvas(efkCanvas);
+    }
 
     // Post-processing: render -> bloom -> tone map/sRGB -> warm grade + vignette
     this.composer = new EffectComposer(r);
@@ -171,7 +184,17 @@ export class ThreeRenderer {
           if (shooter.view.style === 'twingun') continue;
         }
       }
-      this.fx.handle(fx);
+      const handledByKnight = !!(this.knightVfx && this.knightVfx.handleServerFx(fx));
+      if (handledByKnight) {
+        // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
+        if (fx.type === 'skill_cast' && fx.skillNameTh) {
+          this.fx.text(fx.x, fx.y + 0.9, fx.z, fx.skillNameTh, fx.color || '#fde68a', 'callout');
+        } else if ((fx.type === 'parry' || fx.type === 'block') && fx.text) {
+          this.fx.text(fx.x, fx.y + 0.6, fx.z, fx.text, fx.color || '#7dd3fc', fx.type === 'parry' ? 'big' : 'info');
+        }
+      } else {
+        this.fx.handle(fx);
+      }
       if (shooter && shooter.view.style === 'gun') {
         // Recoil kick on the gun arm (both arms on the two-gun finisher)
         const clip = shooter.view.currentName;
@@ -715,7 +738,11 @@ export class ThreeRenderer {
     this.updateCamera(dt, me);
     this.stage.update(this.time, dt);
     this.fx.update(dt);
+    if (this.knightVfx) this.knightVfx.update(dt, state);
     this.composer.render(dt);
+    if (window.KnightEffekseerVFX) {
+      window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
+    }
     this.drawOverlay(state, localId);
   }
 }

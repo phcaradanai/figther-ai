@@ -462,6 +462,74 @@
       return true;
     }
 
+    /**
+     * Play via EffekseerForWebGL (.efkefc) ONLY — returns true if real 3D
+     * Effekseer runtime played the effect, or false so ThreeRenderer can run
+     * its native 3D HDR-Bloom Three.js mesh fallback instead of Canvas 2D!
+     */
+    playWebGLOnly(effectId, opts = {}) {
+      const meta = KNIGHT_VFX_CATALOG[effectId];
+      if (!meta || !this.ctx || !this.effects.has(effectId)) return false;
+
+      const x = opts.x || 0;
+      const y = opts.y || 0;
+      const z = opts.z || 0;
+      const scale = opts.scale !== undefined ? opts.scale : 1.0;
+      const speed = opts.speed !== undefined ? opts.speed : (meta.speed || 1.0);
+      const facing = typeof opts.facing === 'number' ? opts.facing : 0;
+      const yaw = opts.yaw !== undefined ? opts.yaw : (Math.PI * 0.5 - facing);
+
+      const eff = this.effects.get(effectId);
+      const handle = this.ctx.play(eff, x, y, z);
+      if (!handle) return false;
+
+      handle.setLocation(x, y, z);
+      handle.setRotation(opts.pitch || 0, yaw, opts.roll || 0);
+      handle.setScale(scale, scale, scale);
+      if (typeof handle.setSpeed === 'function') {
+        handle.setSpeed(speed);
+      }
+
+      this.activeHandles.push({
+        id: effectId,
+        handle,
+        meta,
+        playerId: opts.playerId || null,
+        attachToCaster: meta.attachToCaster && !!opts.playerId,
+        scale
+      });
+      return true;
+    }
+
+    /**
+     * Render WebGL 3D Effekseer overlay synchronized directly to a Three.js PerspectiveCamera.
+     */
+    renderForThreeCamera(dtSec, camera, gameState) {
+      this.syncAttachedHandles(gameState);
+
+      if (!this.overlayCanvas || !this.gl) return;
+      if (!this.ready || this.activeHandles.length === 0) {
+        this.gl.clearColor(0, 0, 0, 0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        return;
+      }
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const cw = Math.floor(window.innerWidth * dpr);
+      const ch = Math.floor(window.innerHeight * dpr);
+      if (this.overlayCanvas.width !== cw || this.overlayCanvas.height !== ch) {
+        this.overlayCanvas.width = cw;
+        this.overlayCanvas.height = ch;
+      }
+
+      this.gl.viewport(0, 0, cw, ch);
+      this.gl.clearColor(0, 0, 0, 0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+
+      camera.updateMatrixWorld();
+      this.updateAndDraw(dtSec, camera.projectionMatrix.elements, camera.matrixWorldInverse.elements);
+    }
+
     handleServerFx(fx) {
       const mapped = this.resolveServerFxMapping(fx);
       if (mapped) {
