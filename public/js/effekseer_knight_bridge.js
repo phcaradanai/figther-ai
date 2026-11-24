@@ -112,6 +112,108 @@
       attachToCaster: false,
       color: '#7dd3fc',
       desc: 'ม่านโล่หกเหลี่ยมฟ้าคราม + แสงสะท้อน Starburst + สะเก็ดไฟกระเด็น'
+    },
+
+    // ========================================================================
+    // 2. SHADOW NINJA (นินจาเงา) 7-MOVE EFFEKSEER VFX SUITE
+    // ========================================================================
+    ninja_basic_slash: {
+      id: 'ninja_basic_slash',
+      hero: 'ninja',
+      nameTh: 'คอมโบมีดสั้นคู่ (Dual Kunai Cross-Slash)',
+      file: '/assets/vfx/ninja/ninja_basic_slash.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_basic_slash.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_basic_slash.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.38,
+      attachToCaster: false,
+      color: '#a855f7',
+      desc: 'คมมีดสั้นคู่สีม่วงเงา-ฟ้าครามฟันไขว้ความเร็วสูง'
+    },
+    ninja_heavy_backstab: {
+      id: 'ninja_heavy_backstab',
+      hero: 'ninja',
+      nameTh: 'ก้าวพริบตาแทงหลัง (Shadow Backstab)',
+      file: '/assets/vfx/ninja/ninja_heavy_backstab.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_heavy_backstab.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_heavy_backstab.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.65,
+      attachToCaster: false,
+      color: '#f43f5e',
+      desc: 'รอยฟันกากบาทสีแดงเพลิง-ม่วงเงา + หมอกนินจา + ยันต์พื้น'
+    },
+    ninja_weapon: {
+      id: 'ninja_weapon',
+      hero: 'ninja',
+      nameTh: '[Q/SD] พายุเพลงดาบเงา (Izuna Blade Storm)',
+      file: '/assets/vfx/ninja/ninja_skill_weapon_izuna.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_skill_weapon_izuna.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_skill_weapon_izuna.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 1.08,
+      attachToCaster: false,
+      color: '#a855f7',
+      desc: 'ยันต์คุจิอิน + พายุเพลงดาบ 6 แนว + พายุหมุนเงาเสยศัตรูลอยฟ้า'
+    },
+    ninja_armor: {
+      id: 'ninja_armor',
+      hero: 'ninja',
+      nameTh: '[E/ASD] ระเบิดควันพรางตัว (Smoke Bomb Stealth)',
+      file: '/assets/vfx/ninja/ninja_skill_armor_smokebomb.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_skill_armor_smokebomb.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_skill_armor_smokebomb.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.35,
+      attachToCaster: false,
+      color: '#8b5cf6',
+      desc: 'โดมควันสีครามม่วงหนาแน่น + คลื่นสตั๊นรอบตัว + ยันต์พรางตัว'
+    },
+    ninja_helmet: {
+      id: 'ninja_helmet',
+      hero: 'ninja',
+      nameTh: '[R/AD] ดาวกระจายยักษ์ 5 แฉก (Fuuma Shuriken Fan)',
+      file: '/assets/vfx/ninja/ninja_skill_helmet_shuriken.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_skill_helmet_shuriken.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_skill_helmet_shuriken.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.78,
+      attachToCaster: false,
+      color: '#c084fc',
+      desc: 'วงเหวี่ยงพัด + ดาวกระจายยักษ์ 5 แฉกหมุนพุ่งกระจาย'
+    },
+    ninja_trinket: {
+      id: 'ninja_trinket',
+      hero: 'ninja',
+      nameTh: '[F/AS] คาถาสลับร่างขอนไม้ระเบิด (Explosive Substitution)',
+      file: '/assets/vfx/ninja/ninja_skill_trinket_substitution.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_skill_trinket_substitution.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_skill_trinket_substitution.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.05,
+      attachToCaster: false,
+      color: '#f43f5e',
+      desc: 'ควันสลับร่าง + ยันต์ระเบิด 6 แผ่นหมุนรอบขอนไม้ + ระเบิดสีแดงฉาน'
+    },
+    ninja_mobility_shadowstep: {
+      id: 'ninja_mobility_shadowstep',
+      hero: 'ninja',
+      nameTh: 'พริบตาเงา / ก้าวกลางอากาศ (Shadow Step)',
+      file: '/assets/vfx/ninja/ninja_mobility_shadowstep.efkefc',
+      fallbackFile: '/assets/vfx/ninja/ninja_mobility_shadowstep.efk',
+      sourceFile: '/assets/vfx/ninja/ninja_mobility_shadowstep.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.46,
+      attachToCaster: false,
+      color: '#a855f7',
+      desc: 'ยันต์เงา + หมอกม่วงดำ + สะเก็ดคุไนเมื่อพุ่ง/วาป/โดด 3 ชั้น'
     }
   };
 
@@ -126,6 +228,19 @@
     'soft_glow',
     'holy_spark',
     'heal_cross'
+  ];
+
+  const NINJA_TEX_NAMES = [
+    'kunai_slash',
+    'cross_fang',
+    'shinobi_seal',
+    'shadow_smoke',
+    'shuriken_glint',
+    'paper_talisman',
+    'shadow_vortex',
+    'shadow_ring',
+    'crimson_flare',
+    'kunai_spark'
   ];
 
   function easeOutCubic(t) {
@@ -203,14 +318,19 @@
         img.src = `/assets/vfx/knight/textures/${name}.png`;
         this.textures[name] = img;
       }
+      for (const name of NINJA_TEX_NAMES) {
+        const img = new Image();
+        img.src = `/assets/vfx/ninja/textures/${name}.png`;
+        this.textures[name] = img;
+      }
     }
 
-    getTintedTexture(name, hexColor) {
+    getTintedTexture(name, hexColor, preserveCore = true) {
       const img = this.textures[name];
       if (!img || !img.complete || img.naturalWidth === 0) return null;
       if (!hexColor || hexColor === '#ffffff') return img;
 
-      const key = `${name}_${hexColor}`;
+      const key = `${name}_${hexColor}_${preserveCore ? '1' : '0'}`;
       if (this.tintedCache.has(key)) return this.tintedCache.get(key);
 
       const size = 256;
@@ -222,10 +342,12 @@
       c.globalCompositeOperation = 'source-atop';
       c.fillStyle = hexColor;
       c.fillRect(0, 0, size, size);
-      // Preserve luminous white-hot core highlight by adding 40% original texture back
-      c.globalCompositeOperation = 'lighter';
-      c.globalAlpha = 0.42;
-      c.drawImage(img, 0, 0, size, size);
+      if (preserveCore) {
+        // Preserve luminous white-hot core highlight by adding 40% original texture back
+        c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = 0.42;
+        c.drawImage(img, 0, 0, size, size);
+      }
 
       this.tintedCache.set(key, off);
       return off;
@@ -344,7 +466,8 @@
     resolveServerFxMapping(fx) {
       if (!fx) return null;
 
-      if (fx.type === 'skill_cast' && KNIGHT_VFX_CATALOG[fx.skillId]) {
+      // --- IRON KNIGHT ---
+      if (fx.type === 'skill_cast' && ['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket'].includes(fx.skillId)) {
         return {
           effectId: fx.skillId,
           x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
@@ -370,7 +493,6 @@
         };
       }
 
-      // Shield Bash triggers once on heavy_impact (skip heavy_cast to avoid double burst)
       if (fx.type === 'heavy_impact' && fx.heroId === 'knight') {
         return {
           effectId: 'heavy_shield_bash',
@@ -396,21 +518,98 @@
         };
       }
 
+      // --- SHADOW NINJA ---
+      if (fx.type === 'blade_storm' && fx.fromSkill === 'ninja_weapon') {
+        return {
+          effectId: 'ninja_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && ['ninja_armor', 'ninja_helmet', 'ninja_trinket'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'slash' && (fx.heroId === 'ninja' || fx.weaponType === 'dual_kunai')) {
+        return {
+          effectId: 'ninja_basic_slash',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.isFinisher ? 1.25 : 1.0,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher
+        };
+      }
+
+      if (fx.type === 'teleport' && fx.heroId === 'ninja') {
+        return {
+          effectId: fx.isArrival ? 'ninja_heavy_backstab' : 'ninja_mobility_shadowstep',
+          x: fx.x || 0,
+          y: fx.y || 0,
+          z: fx.z || 0,
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_impact' && fx.heroId === 'ninja') {
+        return {
+          effectId: 'ninja_heavy_backstab',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'ninja') {
+        return {
+          effectId: 'ninja_mobility_shadowstep',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.9 : 0.8
+        };
+      }
+
       return null;
     }
 
     /**
-     * Returns true if this event is exclusively handled by Knight's new VFX
-     * (including secondary suppression for knight_armor / knight_helmet shockwaves
-     * and knight heavy_cast so legacy PixelFX doesn't double-render).
+     * Returns true if this event is exclusively handled by the dedicated
+     * Knight or Ninja VFX suite so legacy PixelFX doesn't double-render.
      */
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       if (this.resolveServerFxMapping(fx)) return true;
-      if (fx.type === 'heavy_cast' && fx.heroId === 'knight') return true;
+      if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet')) {
         return true;
       }
+      if (fx.type === 'skill_cast' && fx.skillId === 'ninja_weapon') return true;
+      if (fx.type === 'smoke' && fx.fromSkill === 'ninja_armor') return true;
+      if (fx.type === 'explosion' && fx.fromSkill === 'ninja_trinket') return true;
       return false;
     }
 
@@ -670,37 +869,46 @@
     }
 
     // ========================================================================
-    // HD TEXTURED CANVAS 2D KNIGHT VFX FALLBACK (Uses our 10 512x512 PNGs!)
+    // HD TEXTURED CANVAS 2D KNIGHT & NINJA VFX FALLBACK (512x512 PNGs!)
     // ========================================================================
     spawnFallbackEffect(effectId, meta, opts) {
       const now = performance.now();
       const sparks = [];
-      const sparkCount = effectId === 'basic_slash' ? 14 : (effectId === 'guard_parry' ? 16 : 24);
+      const isNinja = meta && meta.hero === 'ninja';
+      const sparkCount = (effectId === 'basic_slash' || effectId === 'ninja_basic_slash')
+        ? 14
+        : ((effectId === 'guard_parry' || effectId === 'ninja_mobility_shadowstep') ? 16 : 24);
       const dirX = Math.cos(opts.facing || 0);
       const dirZ = Math.sin(opts.facing || 0);
 
       for (let i = 0; i < sparkCount; i++) {
         const ang = Math.random() * Math.PI * 2;
         const spd = 2.0 + Math.random() * 5.2;
+        const forwardBias = (effectId === 'heavy_shield_bash' || effectId === 'basic_slash' || effectId === 'ninja_basic_slash' || effectId === 'ninja_helmet') ? 4.5 : 0;
+        const upBias = (effectId === 'knight_helmet' || effectId === 'knight_armor' || effectId === 'ninja_weapon' || effectId === 'ninja_trinket')
+          ? (2.4 + Math.random() * 4.2)
+          : (1.5 + Math.random() * 4.0);
         sparks.push({
           ox: (Math.random() - 0.5) * 0.6,
           oy: 0.25 + Math.random() * 1.1,
           oz: (Math.random() - 0.5) * 0.6,
-          vx: Math.cos(ang) * spd + (effectId === 'heavy_shield_bash' || effectId === 'basic_slash' ? dirX * 4.5 : 0),
-          vy: (effectId === 'knight_helmet' || effectId === 'knight_armor') ? (2.2 + Math.random() * 3.8) : (1.5 + Math.random() * 4.2),
-          vz: Math.sin(ang) * spd + (effectId === 'heavy_shield_bash' || effectId === 'basic_slash' ? dirZ * 4.5 : 0),
+          vx: Math.cos(ang) * spd + dirX * forwardBias,
+          vy: upBias,
+          vz: Math.sin(ang) * spd + dirZ * forwardBias,
           size: 0.45 + Math.random() * 0.55,
-          delay: Math.random() * 0.16,
-          isHeal: effectId === 'knight_helmet' && i < 12
+          delay: effectId === 'ninja_trinket' ? (0.42 + Math.random() * 0.14) : (Math.random() * 0.16),
+          isHeal: effectId === 'knight_helmet' && i < 12,
+          isNinja
         });
       }
 
-      if (this.fallbackInstances.length >= 24) {
+      if (this.fallbackInstances.length >= 28) {
         this.fallbackInstances.shift();
       }
 
       this.fallbackInstances.push({
         id: effectId,
+        hero: isNinja ? 'ninja' : 'knight',
         born: now,
         durationMs: (meta.durationSec || 0.9) * 1000,
         x: opts.x,
@@ -717,12 +925,12 @@
       });
     }
 
-    drawSpriteTex(ctx, name, tintHex, x, y, w, h, rotRad, alpha, isoFlatten = 1.0) {
+    drawSpriteTex(ctx, name, tintHex, x, y, w, h, rotRad, alpha, isoFlatten = 1.0, blendMode = 'lighter') {
       if (alpha <= 0.01) return;
-      const tex = this.getTintedTexture(name, tintHex);
+      const tex = this.getTintedTexture(name, tintHex, blendMode !== 'source-over');
       if (!tex) return;
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalCompositeOperation = blendMode;
       ctx.globalAlpha = clamp01(alpha);
       ctx.translate(x, y);
       if (isoFlatten !== 1.0) ctx.scale(1, isoFlatten);
@@ -732,8 +940,8 @@
     }
 
     /**
-     * Draw ground-layer HD Knight VFX (runes, lion crest, floor shockwaves)
-     * BEFORE entities so characters stand ON TOP of their holy circles!
+     * Draw ground-layer HD Knight & Ninja VFX (runes, lion crest, shinobi seals, floor shockwaves)
+     * BEFORE entities so characters stand ON TOP of their circles!
      */
     drawCanvasGround(ctx, renderer, gameState) {
       if (this.fallbackInstances.length === 0) return;
@@ -779,13 +987,62 @@
           const bp = renderer.project(fx.x + dirX * 1.35, fx.y + 0.05, fx.z + dirZ * 1.35);
           const r = unit * (0.8 + ease * 3.1);
           this.drawSpriteTex(ctx, 'shockwave_ring', '#fbbf24', bp.x, bp.y, r * 2, r * 2, 0, fade * 0.88, renderer.isoTilt);
+        } else if (fx.id === 'ninja_heavy_backstab') {
+          const rSeal = unit * (1.1 + ease * 2.5);
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#1b0828', gp.x, gp.y, rSeal * 2.1, rSeal * 2.1, -t * 2.5, fade * 0.72, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#f43f5e', gp.x, gp.y, rSeal * 2, rSeal * 2, -t * 2.5, fade * 0.92, renderer.isoTilt, 'lighter');
+          const rRing = unit * (0.7 + ease * 3.0);
+          this.drawSpriteTex(ctx, 'shadow_ring', '#e11d48', gp.x, gp.y, rRing * 2, rRing * 2, t * 2.0, fade * 0.85, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'ninja_weapon') {
+          const rSeal = unit * (1.8 + ease * 3.6);
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#16092c', gp.x, gp.y, rSeal * 2.15, rSeal * 2.15, t * 3.2, fade * 0.78, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#a855f7', gp.x, gp.y, rSeal * 2.0, rSeal * 2.0, t * 3.2, fade * 0.96, renderer.isoTilt, 'lighter');
+          const rVort = unit * (1.4 + ease * 3.4);
+          this.drawSpriteTex(ctx, 'shadow_vortex', '#38bdf8', gp.x, gp.y, rVort * 2.0, rVort * 2.0, -t * 7.0, fade * 0.82, renderer.isoTilt, 'lighter');
+          if (t < 0.55) {
+            const wt = t / 0.55;
+            const rWave = unit * (1.0 + easeOutCubic(wt) * 4.4);
+            this.drawSpriteTex(ctx, 'shadow_ring', '#c084fc', gp.x, gp.y, rWave * 2, rWave * 2, t * 4, (1 - wt) * 0.9, renderer.isoTilt, 'lighter');
+          }
+        } else if (fx.id === 'ninja_armor') {
+          const rSeal = unit * (1.6 + ease * 3.8);
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#120724', gp.x, gp.y, rSeal * 2.15, rSeal * 2.15, -t * 1.8, fade * 0.78, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#8b5cf6', gp.x, gp.y, rSeal * 2.0, rSeal * 2.0, -t * 1.8, fade * 0.88, renderer.isoTilt, 'lighter');
+          if (t < 0.45) {
+            const wt = t / 0.45;
+            const rWave = unit * (1.0 + easeOutCubic(wt) * 4.8);
+            this.drawSpriteTex(ctx, 'shadow_ring', '#a855f7', gp.x, gp.y, rWave * 2, rWave * 2, 0, (1 - wt) * 0.95, renderer.isoTilt, 'lighter');
+          }
+        } else if (fx.id === 'ninja_helmet') {
+          if (t < 0.5) {
+            const wt = t / 0.5;
+            const rSeal = unit * (1.1 + easeOutCubic(wt) * 2.3);
+            this.drawSpriteTex(ctx, 'shinobi_seal', '#1b0b34', gp.x, gp.y, rSeal * 2.1, rSeal * 2.1, wt * 2.4, (1 - wt) * 0.65, renderer.isoTilt, 'source-over');
+            this.drawSpriteTex(ctx, 'shinobi_seal', '#c084fc', gp.x, gp.y, rSeal * 2.0, rSeal * 2.0, wt * 2.4, (1 - wt) * 0.85, renderer.isoTilt, 'lighter');
+          }
+        } else if (fx.id === 'ninja_trinket') {
+          const detonateT = 0.43;
+          const rSeal = unit * (1.5 + (t < detonateT ? (t / detonateT) * 2.1 : 2.3 + (t - detonateT) * 2.0));
+          const pulse = t < detonateT ? (0.72 + 0.28 * Math.sin(t * 42)) : fade;
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#240714', gp.x, gp.y, rSeal * 2.15, rSeal * 2.15, t * 4.5, pulse * 0.78, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#f43f5e', gp.x, gp.y, rSeal * 2.0, rSeal * 2.0, t * 4.5, pulse * 0.95, renderer.isoTilt, 'lighter');
+          if (t >= detonateT) {
+            const bt = (t - detonateT) / (1 - detonateT);
+            const rBlast = unit * (1.1 + easeOutCubic(bt) * 4.6);
+            this.drawSpriteTex(ctx, 'shadow_ring', '#fb7185', gp.x, gp.y, rBlast * 2, rBlast * 2, bt * 3.0, (1 - bt) * 0.96, renderer.isoTilt, 'lighter');
+          }
+        } else if (fx.id === 'ninja_mobility_shadowstep') {
+          const rSeal = unit * (0.9 + ease * 1.9);
+          this.drawSpriteTex(ctx, 'shinobi_seal', '#16092c', gp.x, gp.y, rSeal * 2.0, rSeal * 2.0, t * 3.0, fade * 0.65, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'shadow_ring', '#a855f7', gp.x, gp.y, rSeal * 2.2, rSeal * 2.2, -t * 3.5, fade * 0.86, renderer.isoTilt, 'lighter');
         }
       }
     }
 
     /**
-     * Draw foreground HD Knight VFX (slashes, Excalibur wave, Aegis barrier,
-     * Chariot Rush ram cone, Lionheart pillar + heal crosses, parry shield).
+     * Draw foreground HD Knight & Ninja VFX (slashes, Excalibur wave, Aegis barrier,
+     * Chariot Rush, Lionheart pillar, Izuna Blade Storm, Smoke Bomb, Fuuma Shuriken,
+     * Explosive Substitution, Shadow Backstab, Shadow Step).
      */
     drawCanvasForeground(ctx, renderer) {
       if (this.fallbackInstances.length === 0) return;
@@ -887,9 +1144,147 @@
           if (t < 0.55) {
             this.drawSpriteTex(ctx, 'starburst_flare', '#ffffff', pShield.x, pShield.y, sz * 1.45, sz * 1.45, t * 7, (1 - t / 0.55) * 0.98);
           }
+        } else if (fx.id === 'ninja_basic_slash') {
+          // Dual Kunai Cross-Slash: Dark obsidian ink + neon violet & cyan twin sweeps
+          const pMid = renderer.project(fx.x + dirX * 0.85, fx.y + 1.05, fx.z + dirZ * 0.85);
+          const swingDir = (fx.comboStep % 2 === 0) ? -1 : 1;
+          const arcRot = screenAng + swingDir * (-1.1 + ease * 2.1);
+          const sz = unit * (2.3 + ease * 1.0);
+          this.drawSpriteTex(ctx, 'kunai_slash', '#140826', pMid.x, pMid.y, sz * 1.15, sz * 0.85, arcRot, fade * 0.82, 1.0, 'source-over');
+          this.drawSpriteTex(ctx, 'kunai_slash', '#c084fc', pMid.x, pMid.y, sz, sz * 0.72, arcRot, fade * 0.96, 1.0, 'lighter');
+          this.drawSpriteTex(ctx, 'kunai_slash', '#38bdf8', pMid.x, pMid.y, sz * 0.92, sz * 0.66, screenAng - swingDir * (-0.95 + ease * 1.85), fade * 0.86, 1.0, 'lighter');
+          if (fx.isFinisher || t < 0.45) {
+            const pTip = renderer.project(fx.x + dirX * 1.65, fx.y + 1.1, fx.z + dirZ * 1.65);
+            const fSz = unit * (0.9 + ease * 1.6);
+            this.drawSpriteTex(ctx, 'crimson_flare', fx.isFinisher ? '#f43f5e' : '#e879f9', pTip.x, pTip.y, fSz, fSz, t * 5, (1 - t) * 0.92, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'ninja_heavy_backstab') {
+          // Shadow Backstab: Dark veil + blazing crimson X-fang cross-mark
+          const pStrike = renderer.project(fx.x + dirX * 0.65, fx.y + 1.15, fx.z + dirZ * 0.65);
+          const smokeSz = unit * (2.2 + ease * 2.0);
+          this.drawSpriteTex(ctx, 'shadow_smoke', '#18092c', pOrigin.x, pOrigin.y, smokeSz, smokeSz, t * 1.2, fade * 0.76, 1.0, 'source-over');
+          const xSz = unit * (1.8 + ease * 2.4);
+          this.drawSpriteTex(ctx, 'cross_fang', '#2a0618', pStrike.x, pStrike.y, xSz * 1.15, xSz * 1.15, screenAng * 0.25, fade * 0.82, 1.0, 'source-over');
+          this.drawSpriteTex(ctx, 'cross_fang', '#f43f5e', pStrike.x, pStrike.y, xSz, xSz, screenAng * 0.25, fade * 0.98, 1.0, 'lighter');
+          if (t < 0.48) {
+            const fSz = unit * (1.1 + (t / 0.48) * 2.4);
+            this.drawSpriteTex(ctx, 'crimson_flare', '#fda4af', pStrike.x, pStrike.y, fSz, fSz, -t * 6, (1 - t / 0.48) * 0.96, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'ninja_weapon') {
+          // [Q] Izuna Blade Storm: Towering shadow cyclone + 6 staggered slash bursts
+          const pLow = renderer.project(fx.x, fx.y + 0.9, fx.z);
+          const pMid = renderer.project(fx.x, fx.y + 1.9 + ease * 1.2, fx.z);
+          const pTop = renderer.project(fx.x, fx.y + 2.9 + ease * 1.6, fx.z);
+          const smokeSz = unit * (3.0 + ease * 2.2);
+          this.drawSpriteTex(ctx, 'shadow_smoke', '#140826', pLow.x, pLow.y, smokeSz, smokeSz * 0.75, t * 2.5, fade * 0.78, 1.0, 'source-over');
+          const vSz = unit * (2.4 + ease * 2.4);
+          this.drawSpriteTex(ctx, 'shadow_vortex', '#1c0b38', pMid.x, pMid.y, vSz * 1.12, vSz * 1.12, t * 6.5, fade * 0.75, 1.0, 'source-over');
+          this.drawSpriteTex(ctx, 'shadow_vortex', '#a855f7', pMid.x, pMid.y, vSz, vSz, t * 6.5, fade * 0.94, 1.0, 'lighter');
+          this.drawSpriteTex(ctx, 'shadow_vortex', '#38bdf8', pTop.x, pTop.y, vSz * 0.78, vSz * 0.78, -t * 8.5, fade * 0.82, 1.0, 'lighter');
+          // 6 staggered criss-crossing kunai slashes inside the storm
+          for (let k = 0; k < 6; k++) {
+            const kt = (t - k * 0.08) / 0.42;
+            if (kt <= 0 || kt >= 1) continue;
+            const kFade = Math.sin(kt * Math.PI);
+            const ang = k * 1.05 + kt * 1.8;
+            const sy = fx.y + 0.8 + (k % 3) * 0.85 + kt * 0.9;
+            const sp = renderer.project(fx.x + Math.cos(ang) * 1.1, sy, fx.z + Math.sin(ang) * 1.1);
+            const sSz = unit * (2.2 + kt * 1.5);
+            const tint = k % 3 === 0 ? '#c084fc' : (k % 3 === 1 ? '#38bdf8' : '#f43f5e');
+            this.drawSpriteTex(ctx, 'kunai_slash', '#140726', sp.x, sp.y, sSz * 1.08, sSz * 0.65, ang, kFade * 0.72, 1.0, 'source-over');
+            this.drawSpriteTex(ctx, 'kunai_slash', tint, sp.x, sp.y, sSz, sSz * 0.58, ang, kFade * 0.96, 1.0, 'lighter');
+          }
+          if (t < 0.35) {
+            const fSz = unit * (1.4 + (t / 0.35) * 2.8);
+            this.drawSpriteTex(ctx, 'crimson_flare', '#e879f9', pMid.x, pMid.y, fSz, fSz, t * 5, (1 - t / 0.35) * 0.92, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'ninja_armor') {
+          // [E] Smoke Bomb Stealth: Thick multi-puff indigo-obsidian cloud dome + floating talismans
+          for (let k = 0; k < 6; k++) {
+            const orbAng = k * (Math.PI / 3) + t * 0.7;
+            const rad = (0.65 + ease * 2.15) * (k % 2 === 0 ? 1.0 : 0.72);
+            const cy = fx.y + 0.55 + (k % 3) * 0.42 + ease * 0.5;
+            const cp = renderer.project(fx.x + Math.cos(orbAng) * rad, cy, fx.z + Math.sin(orbAng) * rad);
+            const pSz = unit * (2.1 + ease * 2.2);
+            this.drawSpriteTex(ctx, 'shadow_smoke', '#180b2e', cp.x, cp.y, pSz * 1.12, pSz * 1.02, orbAng + t * 1.2, fade * 0.82, 1.0, 'source-over');
+            this.drawSpriteTex(ctx, 'shadow_smoke', '#8b5cf6', cp.x, cp.y, pSz * 0.9, pSz * 0.85, -orbAng, fade * 0.55, 1.0, 'lighter');
+          }
+          // Center dense dome + floating paper talismans
+          const cSz = unit * (2.6 + ease * 2.4);
+          this.drawSpriteTex(ctx, 'shadow_smoke', '#120724', pOrigin.x, pOrigin.y, cSz, cSz, -t * 1.5, fade * 0.86, 1.0, 'source-over');
+          for (let p = 0; p < 4; p++) {
+            const pa = p * (Math.PI * 0.5) + t * 2.8;
+            const pp = renderer.project(fx.x + Math.cos(pa) * (1.2 + ease * 1.6), fx.y + 0.8 + t * 1.4, fx.z + Math.sin(pa) * (1.2 + ease * 1.6));
+            this.drawSpriteTex(ctx, 'paper_talisman', '#e9d5ff', pp.x, pp.y, unit * 0.85, unit * 1.15, pa, fade * 0.92, 1.0, 'lighter');
+          }
+          if (t < 0.28) {
+            const fSz = unit * (1.5 + (t / 0.28) * 3.0);
+            this.drawSpriteTex(ctx, 'crimson_flare', '#c084fc', pOrigin.x, pOrigin.y, fSz, fSz, t * 6, (1 - t / 0.28) * 0.95, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'ninja_helmet') {
+          // [R] Fuuma Shuriken Fan: 5 giant spinning shurikens flying out in fan formation
+          if (t < 0.35) {
+            const sweepSz = unit * (2.4 + (t / 0.35) * 1.6);
+            this.drawSpriteTex(ctx, 'kunai_slash', '#a855f7', pOrigin.x, pOrigin.y, sweepSz, sweepSz * 0.72, screenAng, (1 - t / 0.35) * 0.92, 1.0, 'lighter');
+          }
+          const offsets = [-0.44, -0.22, 0, 0.22, 0.44];
+          const travel = 0.8 + t * 12.8;
+          for (let k = 0; k < offsets.length; k++) {
+            const ang = fx.facing + offsets[k];
+            const sx = fx.x + Math.cos(ang) * travel;
+            const sz = fx.z + Math.sin(ang) * travel;
+            const ps = renderer.project(sx, fx.y + 1.15, sz);
+            const sUnit = renderer.camZoom * ps.scale * fx.scale;
+            const sSz = sUnit * (1.55 + Math.sin(t * Math.PI) * 0.45);
+            const spin = t * 24.0 + k * 0.7;
+            this.drawSpriteTex(ctx, 'shuriken_glint', '#1a0936', ps.x, ps.y, sSz * 1.15, sSz * 1.15, spin, fade * 0.85, 1.0, 'source-over');
+            this.drawSpriteTex(ctx, 'shuriken_glint', k === 2 ? '#38bdf8' : '#e9d5ff', ps.x, ps.y, sSz, sSz, spin, fade * 0.98, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'ninja_trinket') {
+          // [F] Explosive Substitution: Fuse talisman ring (0..0.43) -> Crimson bomb blast (0.43..1)
+          const detonateT = 0.43;
+          if (t < detonateT) {
+            const ft = t / detonateT;
+            const puffSz = unit * (1.8 + ft * 1.4);
+            this.drawSpriteTex(ctx, 'shadow_smoke', '#18092c', pOrigin.x, pOrigin.y, puffSz, puffSz, ft * 2.0, (1 - ft * 0.3) * 0.82, 1.0, 'source-over');
+            const ringRad = 1.6 - ft * 0.65;
+            for (let k = 0; k < 6; k++) {
+              const pa = k * (Math.PI / 3) + ft * Math.PI * 3.5;
+              const pp = renderer.project(fx.x + Math.cos(pa) * ringRad, fx.y + 0.95 + Math.sin(ft * 8 + k) * 0.2, fx.z + Math.sin(pa) * ringRad);
+              this.drawSpriteTex(ctx, 'paper_talisman', '#fda4af', pp.x, pp.y, unit * 0.85, unit * 1.2, pa, 0.95, 1.0, 'lighter');
+            }
+            const glowSz = unit * (1.0 + ft * 1.8);
+            this.drawSpriteTex(ctx, 'crimson_flare', '#f43f5e', pOrigin.x, pOrigin.y, glowSz, glowSz, ft * 5, (0.45 + ft * 0.55), 1.0, 'lighter');
+          } else {
+            const bt = (t - detonateT) / (1 - detonateT);
+            const bEase = easeOutCubic(bt);
+            const bFade = Math.pow(1 - bt, 1.2);
+            const smokeSz = unit * (2.6 + bEase * 4.2);
+            this.drawSpriteTex(ctx, 'shadow_smoke', '#240714', pOrigin.x, pOrigin.y, smokeSz, smokeSz, bt * 2.2, bFade * 0.88, 1.0, 'source-over');
+            const flareSz = unit * (2.4 + bEase * 4.4);
+            this.drawSpriteTex(ctx, 'crimson_flare', '#f43f5e', pOrigin.x, pOrigin.y, flareSz, flareSz, bt * 6, bFade * 0.98, 1.0, 'lighter');
+            this.drawSpriteTex(ctx, 'crimson_flare', '#fb923c', pOrigin.x, pOrigin.y, flareSz * 0.72, flareSz * 0.72, -bt * 8, bFade * 0.95, 1.0, 'lighter');
+            this.drawSpriteTex(ctx, 'cross_fang', '#fda4af', pOrigin.x, pOrigin.y, flareSz * 0.95, flareSz * 0.95, bt * 1.5, bFade * 0.88, 1.0, 'lighter');
+            for (let k = 0; k < 6; k++) {
+              const pa = k * (Math.PI / 3) + 0.4;
+              const dist = 0.6 + bEase * 3.4;
+              const pp = renderer.project(fx.x + Math.cos(pa) * dist, fx.y + 0.9 + bEase * 2.1, fx.z + Math.sin(pa) * dist);
+              this.drawSpriteTex(ctx, 'paper_talisman', '#fb923c', pp.x, pp.y, unit * 0.8, unit * 1.1, pa + bt * 6, bFade * 0.92, 1.0, 'lighter');
+            }
+          }
+        } else if (fx.id === 'ninja_mobility_shadowstep') {
+          // Shadow Step / Triple Jump / Dash: Compact shadow mist puff + vortex + drifting talismans
+          const sz = unit * (1.6 + ease * 1.6);
+          this.drawSpriteTex(ctx, 'shadow_smoke', '#16082c', pOrigin.x, pOrigin.y, sz * 1.15, sz * 1.05, t * 2.0, fade * 0.78, 1.0, 'source-over');
+          this.drawSpriteTex(ctx, 'shadow_vortex', '#a855f7', pOrigin.x, pOrigin.y, sz, sz, -t * 5.0, fade * 0.92, 1.0, 'lighter');
+          for (let k = 0; k < 3; k++) {
+            const pa = k * 2.09 + t * 3.2;
+            const pp = renderer.project(fx.x + Math.cos(pa) * (0.5 + ease * 1.1), fx.y + 0.6 + ease * 1.0, fx.z + Math.sin(pa) * (0.5 + ease * 1.1));
+            this.drawSpriteTex(ctx, 'paper_talisman', '#d8b4fe', pp.x, pp.y, unit * 0.65, unit * 0.9, pa, fade * 0.88, 1.0, 'lighter');
+          }
         }
 
-        // Draw sparks & Lionheart heal crosses for every Knight effect!
+        // Draw sparks & Lionheart heal crosses for every Knight & Ninja effect!
         const sec = age * 0.001;
         for (const sp of fx.sparks) {
           const localSec = sec - sp.delay;
@@ -911,6 +1306,12 @@
           if (sp.isHeal) {
             const hSz = renderer.camZoom * pNow.scale * sp.size * (0.65 + st * 0.45);
             this.drawSpriteTex(ctx, 'heal_cross', '#86efac', pNow.x, pNow.y, hSz, hSz, 0, alpha);
+          } else if (sp.isNinja) {
+            const pSz = renderer.camZoom * pNow.scale * sp.size * (1.1 - st * 0.65);
+            const tint = (fx.id === 'ninja_heavy_backstab' || fx.id === 'ninja_trinket')
+              ? '#fb7185'
+              : (fx.id === 'ninja_helmet' || fx.id === 'ninja_weapon' ? '#38bdf8' : '#d8b4fe');
+            this.drawSpriteTex(ctx, 'kunai_spark', tint, pNow.x, pNow.y, pSz * 0.55, pSz * 1.45, velAng, alpha);
           } else {
             const pSz = renderer.camZoom * pNow.scale * sp.size * (1.1 - st * 0.65);
             const tint = (fx.id === 'knight_armor' || fx.id === 'knight_trinket' || fx.id === 'guard_parry') ? '#7dd3fc' : '#fde047';

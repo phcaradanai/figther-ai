@@ -26,6 +26,16 @@ const TEX_NAMES = [
   'heal_cross'
 ];
 
+const KNIGHT_EFFECT_IDS = new Set([
+  'basic_slash',
+  'heavy_shield_bash',
+  'knight_weapon',
+  'knight_armor',
+  'knight_helmet',
+  'knight_trinket',
+  'guard_parry'
+]);
+
 function easeOutCubic(t) {
   const u = 1 - Math.max(0, Math.min(1, t));
   return 1 - u * u * u;
@@ -104,26 +114,33 @@ export class KnightThreeVFX {
     if (!bridge || !fx) return false;
 
     const mapped = bridge.resolveServerFxMapping(fx);
-    if (!mapped) {
-      return bridge.shouldSuppressLegacyVfx(fx);
+    if (mapped && KNIGHT_EFFECT_IDS.has(mapped.effectId)) {
+      // 1. Try real 3D EffekseerForWebGL (.efkefc) first!
+      const playedEffekseer = bridge.playWebGLOnly(mapped.effectId, mapped);
+      if (!playedEffekseer) {
+        // 2. Native True 3D Three.js HDR-Bloom VFX using our 10 512x512 textures!
+        this.spawnThreeEffect(mapped.effectId, mapped);
+      }
+
+      // Subtle impactful camera shakes for Knight's signature moves
+      if (mapped.effectId === 'heavy_shield_bash') this.shake(7);
+      else if (mapped.effectId === 'knight_weapon') this.shake(5);
+      else if (mapped.effectId === 'knight_armor') this.shake(6);
+      else if (mapped.effectId === 'knight_helmet') this.shake(6);
+      else if (mapped.effectId === 'knight_trinket') this.shake(4);
+      else if (mapped.effectId === 'basic_slash' && mapped.isFinisher) this.shake(4);
+
+      return true;
     }
 
-    // 1. Try real 3D EffekseerForWebGL (.efkefc) first!
-    const playedEffekseer = bridge.playWebGLOnly(mapped.effectId, mapped);
-    if (!playedEffekseer) {
-      // 2. Native True 3D Three.js HDR-Bloom VFX using our 10 512x512 textures!
-      this.spawnThreeEffect(mapped.effectId, mapped);
+    // Suppress ONLY Knight's duplicate secondary events
+    if (
+      (fx.type === 'heavy_cast' && fx.heroId === 'knight') ||
+      (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet'))
+    ) {
+      return true;
     }
-
-    // Subtle impactful camera shakes for Knight's signature moves
-    if (mapped.effectId === 'heavy_shield_bash') this.shake(7);
-    else if (mapped.effectId === 'knight_weapon') this.shake(5);
-    else if (mapped.effectId === 'knight_armor') this.shake(6);
-    else if (mapped.effectId === 'knight_helmet') this.shake(6);
-    else if (mapped.effectId === 'knight_trinket') this.shake(4);
-    else if (mapped.effectId === 'basic_slash' && mapped.isFinisher) this.shake(4);
-
-    return true;
+    return false;
   }
 
   spawnThreeEffect(effectId, opts) {

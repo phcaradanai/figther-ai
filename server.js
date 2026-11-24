@@ -712,7 +712,15 @@ class GameRoom {
           player.isFlying = false;
           player.flyUntil = 0;
         }
-        this.emitFx('air_jump', player.x, player.y, player.z, { color: hero.accentColor });
+        this.emitFx('air_jump', player.x, player.y, player.z, {
+          color: hero.accentColor,
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
       }
       return;
     }
@@ -735,7 +743,15 @@ class GameRoom {
           player.vz = Math.sin(ang) * hero.speed * 1.25;
         }
 
-        this.emitFx('air_jump', player.x, player.y, player.z, { color: hero.accentColor });
+        this.emitFx('air_jump', player.x, player.y, player.z, {
+          color: hero.accentColor,
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
       }
     }
   }
@@ -802,7 +818,12 @@ class GameRoom {
 
     this.emitFx('dash', player.x, player.y + 0.5, player.z, {
       color: hero.accentColor,
+      heroId: player.heroId,
+      playerId: player.id,
       facing: player.facing,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
       isAir: !player.grounded
     });
   }
@@ -978,12 +999,24 @@ class GameRoom {
       if (bestTarget) {
         const backX = bestTarget.x - Math.cos(bestTarget.facing) * 1.2;
         const backZ = bestTarget.z - Math.sin(bestTarget.facing) * 1.2;
-        this.emitFx('teleport', player.x, player.y, player.z, { color: '#a855f7' });
+        this.emitFx('teleport', player.x, player.y, player.z, {
+          color: '#a855f7',
+          heroId: 'ninja',
+          playerId: player.id,
+          isArrival: false,
+          facing: player.facing
+        });
         player.x = backX;
         player.z = backZ;
         player.y = bestTarget.y;
         player.facing = Math.atan2(bestTarget.z - player.z, bestTarget.x - player.x);
-        this.emitFx('teleport', player.x, player.y, player.z, { color: '#a855f7' });
+        this.emitFx('teleport', player.x, player.y, player.z, {
+          color: '#a855f7',
+          heroId: 'ninja',
+          playerId: player.id,
+          isArrival: true,
+          facing: player.facing
+        });
         this.applyDamage(player, bestTarget, {
           damage: heavy.damage,
           knockback: heavy.knockback,
@@ -995,6 +1028,15 @@ class GameRoom {
       } else {
         player.vx = dirX * 10;
         player.vz = dirZ * 10;
+        this.emitFx('heavy_impact', player.x + dirX * 1.2, player.y + 0.9, player.z + dirZ * 1.2, {
+          facing: player.facing,
+          heroId: 'ninja',
+          playerId: player.id,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z,
+          color: hero.accentColor
+        });
       }
       return;
     }
@@ -1212,7 +1254,15 @@ class GameRoom {
         player.x += dirX * 5.2;
         player.z += dirZ * 5.2;
         this.emitFx('blade_storm', (startX + player.x) * 0.5, player.y + 1.0, (startZ + player.z) * 0.5, {
-          color: '#a855f7', radius: 3.5
+          color: '#a855f7',
+          radius: 3.5,
+          fromSkill: 'ninja_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: (startX + player.x) * 0.5,
+          originY: player.y,
+          originZ: (startZ + player.z) * 0.5
         });
         this.hitAoE(player, (startX + player.x) * 0.5, player.y, (startZ + player.z) * 0.5, 3.5, {
           damage: 28, knockback: 6.0, launchY: 11.0, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
@@ -1223,7 +1273,13 @@ class GameRoom {
         player.stealthUntil = now + 4000;
         player.speedBuffUntil = now + 4000;
         player.invulnUntil = now + 600;
-        this.emitFx('smoke', player.x, player.y + 0.8, player.z, { radius: 3.8, color: '#8b5cf6' });
+        this.emitFx('smoke', player.x, player.y + 0.8, player.z, {
+          radius: 3.8,
+          color: '#8b5cf6',
+          fromSkill: 'ninja_armor',
+          heroId: player.heroId,
+          playerId: player.id
+        });
         this.hitAoE(player, player.x, player.y, player.z, 3.5, {
           damage: 12, knockback: 5.0, stunMs: 1400, skillNameTh: skill.nameTh
         });
@@ -2209,7 +2265,7 @@ class GameRoom {
       const owner = this.players.get(hz.ownerId);
 
       if (hz.type === 'decoy_bomb' && now >= hz.triggerAt) {
-        this.emitFx('explosion', hz.x, hz.y + 0.5, hz.z, { radius: hz.radius, color: hz.color });
+        this.emitFx('explosion', hz.x, hz.y + 0.5, hz.z, { radius: hz.radius, color: hz.color, fromSkill: 'ninja_trinket' });
         if (owner) {
           this.hitAoE(owner, hz.x, hz.y, hz.z, hz.radius, {
             damage: hz.damage, knockback: hz.knockback, launchY: hz.launchY, guardBreak: true, skillNameTh: hz.skillNameTh

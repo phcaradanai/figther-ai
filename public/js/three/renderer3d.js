@@ -17,6 +17,7 @@ import { Stage } from './stage.js';
 import { ChibiView, buildGearItem } from './chibi.js';
 import { FxSystem } from './fx.js';
 import { KnightThreeVFX } from './knight_effekseer_3d.js';
+import { NinjaThreeVFX } from './ninja_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -82,8 +83,14 @@ export class ThreeRenderer {
       floorY: (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     };
 
-    // Dedicated Iron Knight 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suite
+    // Dedicated Iron Knight & Shadow Ninja 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
     this.knightVfx = new KnightThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.ninjaVfx = new NinjaThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -184,8 +191,10 @@ export class ThreeRenderer {
           if (shooter.view.style === 'twingun') continue;
         }
       }
-      const handledByKnight = !!(this.knightVfx && this.knightVfx.handleServerFx(fx));
-      if (handledByKnight) {
+      const handledByHeroVfx =
+        !!(this.knightVfx && this.knightVfx.handleServerFx(fx)) ||
+        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx));
+      if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
           this.fx.text(fx.x, fx.y + 0.9, fx.z, fx.skillNameTh, fx.color || '#fde68a', 'callout');
@@ -739,6 +748,7 @@ export class ThreeRenderer {
     this.stage.update(this.time, dt);
     this.fx.update(dt);
     if (this.knightVfx) this.knightVfx.update(dt, state);
+    if (this.ninjaVfx) this.ninjaVfx.update(dt);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
