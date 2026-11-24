@@ -1,0 +1,14 @@
+{
+  "name": "lost-saga-25d-lan",
+  "version": "1.0.0",
+  "description": "Lost Saga inspired 2.5D Pixel Art Pseudo-3D LAN Arena Brawler with 10 Heroes & Gear Drop System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "pixelfx": "github:patch-gg/pixelfx",
+    "ws": "^8.18.0"
+  }
+}

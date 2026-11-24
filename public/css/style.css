@@ -1,0 +1,682 @@
+/* ==========================================================================
+   LOST SAGA 2.5D PIXEL ARENA - UI & HUD STYLESHEET
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #020617;
+  color: #f8fafc;
+  font-family: "Kanit", "Segoe UI", Tahoma, sans-serif;
+}
+
+#gameCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  image-rendering: pixelated;
+  cursor: default;
+}
+
+.glass-box {
+  background: rgba(15, 23, 42, 0.84);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* --------------------------------------------------------------------------
+   TOP HUD BAR
+   -------------------------------------------------------------------------- */
+#topHud {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 2px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
+  z-index: 20;
+  flex-wrap: wrap;
+}
+
+.hud-left, .hud-center, .hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-badge {
+  font-weight: 900;
+  font-size: 15px;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+  padding-right: 6px;
+}
+
+.room-pill, .lan-pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.lan-pill {
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.45);
+  cursor: pointer;
+}
+.lan-pill:hover {
+  background: rgba(56, 189, 248, 0.18);
+}
+
+.hud-btn, .hud-select {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #475569;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.hud-btn:hover, .hud-select:hover {
+  background: #334155;
+  border-color: #94a3b8;
+}
+.hud-btn.accent {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #0f172a;
+  border-color: #fde047;
+  font-weight: 800;
+}
+
+/* --------------------------------------------------------------------------
+   LEFT & RIGHT SIDE HUDS (Scoreboard, Controls, Kill Feed)
+   -------------------------------------------------------------------------- */
+#leftHud {
+  position: fixed;
+  top: 56px;
+  left: 12px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+#rightHud {
+  position: fixed;
+  top: 175px;
+  right: 12px;
+  width: 230px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.scoreboard-box, .controls-box, .killfeed-box {
+  padding: 10px 12px;
+}
+
+.box-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fbbf24;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding-bottom: 4px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(51, 65, 85, 0.6);
+}
+.score-row.me {
+  color: #4ade80;
+  font-weight: 800;
+}
+
+.ctrl-list {
+  list-style: none;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: #cbd5e1;
+}
+.ctrl-list li {
+  display: flex;
+  justify-content: space-between;
+}
+kbd {
+  background: #334155;
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 10.5px;
+  color: #fde047;
+  font-weight: 700;
+}
+
+.kill-item {
+  font-size: 11.5px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-radius: 5px;
+  background: rgba(30, 41, 59, 0.75);
+  border-left: 3px solid #ef4444;
+}
+.kill-item.ringout {
+  border-left-color: #38bdf8;
+  background: rgba(14, 116, 144, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   BOTTOM HUD: COMPACT LOST SAGA ORIGIN SKILL BAR & TOP-LEFT HERO GAUGE
+   -------------------------------------------------------------------------- */
+#bottomHud {
+  position: fixed;
+  bottom: 6px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+#bottomHud > * {
+  pointer-events: auto;
+}
+
+.player-status-card {
+  position: fixed;
+  bottom: 84px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  width: 230px;
+}
+
+.hero-avatar-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2.5px solid #fde047;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(253, 224, 71, 0.5);
+}
+.hud-avatar-img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+.status-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+  font-weight: 800;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.role-tag {
+  display: none;
+}
+
+.hp-bar-outer {
+  position: relative;
+  height: 14px;
+  background: #020617;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hp-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+  transition: width 0.15s;
+}
+
+.mobility-bar-outer {
+  margin-top: 3px;
+  height: 13px;
+  border-color: #0284c7;
+}
+
+.mobility-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #38bdf8, #fde047);
+  transition: width 0.1s;
+}
+
+.mobility-trait-tag {
+  font-size: 10px;
+  color: #7dd3fc;
+  font-weight: 700;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px #000;
+}
+
+.gear-strip-hint {
+  display: none;
+}
+
+/* 4 Gear Skill Buttons (Compact Center Bar like Lost Saga Origin!) */
+.skills-dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 5px 8px;
+  width: min(500px, 92vw);
+}
+
+.skill-card {
+  position: relative;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #64748b;
+  border-radius: 7px;
+  padding: 4px 7px;
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.skill-card:hover {
+  border-color: #fbbf24;
+  transform: translateY(-2px);
+}
+.skill-card.stripped {
+  background: rgba(127, 29, 29, 0.35);
+  border-color: #ef4444;
+  opacity: 0.7;
+}
+.skill-card.stolen {
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+}
+
+.skill-hotkey {
+  font-size: 13px;
+  font-weight: 900;
+  color: #fde047;
+}
+.skill-hotkey span {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+.skill-name {
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skill-gear-owner {
+  font-size: 10px;
+  color: #38bdf8;
+  margin-top: 1px;
+}
+.skill-cd-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.82);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+  color: #f87171;
+}
+
+/* 10-Hero Hot-Swap Bar (Compact single line) */
+.hero-swap-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.swap-hero-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: #1e293b;
+  border: 1.5px solid #334155;
+  color: #cbd5e1;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.swap-hero-btn:hover {
+  border-color: #fbbf24;
+  color: #ffffff;
+}
+.swap-hero-btn.active {
+  background: #1d4ed8;
+  border-color: #fde047;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+}
+.swap-key {
+  background: #0f172a;
+  color: #fde047;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 900;
+}
+.swap-hero-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+.hero-tile-portrait {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  display: block;
+  margin: 4px auto 2px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+/* --------------------------------------------------------------------------
+   LAN LOBBY & 10 HEROES SKILL ENCYCLOPEDIA MODAL
+   -------------------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.88);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.lobby-container {
+  width: min(1140px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #0f172a;
+  border: 2px solid #38bdf8;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.lobby-header h1 {
+  font-size: 24px;
+  color: #fbbf24;
+}
+.subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.lan-box {
+  background: rgba(14, 116, 144, 0.2);
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 280px;
+}
+.lan-box-title {
+  font-size: 11.5px;
+  color: #7dd3fc;
+  font-weight: 700;
+}
+.lan-urls {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fde047;
+  margin-top: 3px;
+}
+
+.lobby-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .lobby-grid {
+    grid-template-columns: 1fr;
+  }
+  #leftHud, #rightHud {
+    display: none;
+  }
+}
+
+.lobby-col h3 {
+  font-size: 15px;
+  color: #38bdf8;
+  margin-bottom: 10px;
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: #cbd5e1;
+  margin: 10px 0 4px;
+  font-weight: 600;
+}
+
+.text-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.inline-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.room-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.room-item:hover, .room-item.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.btn-primary-join {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #020617;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+}
+.btn-primary-join:hover {
+  filter: brightness(1.1);
+}
+
+/* 10 Heroes Selection Grid */
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hero-tile {
+  padding: 8px;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.hero-tile:hover {
+  border-color: #94a3b8;
+}
+.hero-tile.selected {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.14);
+}
+.hero-tile-num {
+  font-size: 10px;
+  color: #fde047;
+  font-weight: 800;
+}
+.hero-tile-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  margin-top: 2px;
+}
+.hero-tile-role {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* Selected Hero 4 Skills Preview Card */
+.hero-detail-card {
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 10px;
+  padding: 12px;
+}
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.detail-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #fde047;
+}
+.detail-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 10px;
+}
+.detail-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.detail-skill-item {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+.detail-skill-top {
+  font-size: 12px;
+  font-weight: 800;
+  color: #38bdf8;
+}
+.detail-skill-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}

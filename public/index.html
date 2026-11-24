@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOST SAGA 2.5D PIXEL ARENA - LAN Multiplayer</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- 2.5D PSEUDO-3D PIXEL ART GAME CANVAS -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- ==================================================================== -->
+  <!-- TOP HUD BAR: ROOM INFO, LAN IP, MAP SWITCH, BOT CONTROLS & CAMERA    -->
+  <!-- ==================================================================== -->
+  <header id="topHud" class="hud-panel">
+    <div class="hud-left">
+      <div class="brand-badge">⚔️ LOST SAGA 2.5D</div>
+      <div class="room-pill" id="hudRoomInfo">ห้อง: LAN-1</div>
+      <div class="lan-pill" id="hudLanUrl" title="คลิกเพื่อคัดลอกลิงก์ LAN ให้เพื่อนเข้าเล่น">
+        📡 LAN: กำลังตรวจสอบ...
+      </div>
+    </div>
+
+    <div class="hud-center">
+      <button class="hud-btn" id="btnAddBot" title="เพิ่มบอท AI เข้าสนาม">+ เพิ่ม AI Bot</button>
+      <button class="hud-btn" id="btnClearBots" title="ลบบอททั้งหมด">ล้าง Bot</button>
+      <select id="selectMapInGame" class="hud-select" title="เปลี่ยนด่าน 3D">
+        <option value="sky_temple">🏛️ วิหารลอยฟ้า (Sky Sanctuary - Tree of Savior)</option>
+        <option value="lava_citadel">🌋 ป้อมปราการอัคคี (Demon Flame Citadel)</option>
+        <option value="cyber_rooftop">✨ หอคอยดาราจักร (Astral Starlight Spire)</option>
+      </select>
+    </div>
+
+    <div class="hud-right">
+      <button class="hud-btn accent" id="btnOpenLobby">ตั้งค่าห้อง / ดูสกิลฮีโร่</button>
+    </div>
+  </header>
+
+  <!-- ==================================================================== -->
+  <!-- LEFT HUD: LIVE SCOREBOARD                                            -->
+  <!-- ==================================================================== -->
+  <aside id="leftHud">
+    <div class="glass-box scoreboard-box">
+      <div class="box-title">🏆 อันดับนักสู้ (LAN Score)</div>
+      <div id="scoreboardList"></div>
+    </div>
+  </aside>
+
+  <!-- ==================================================================== -->
+  <!-- RIGHT HUD: KILL FEED & RING-OUT ANNOUNCER                            -->
+  <!-- ==================================================================== -->
+  <aside id="rightHud">
+    <div class="glass-box killfeed-box">
+      <div class="box-title">⚡ รายงานการสังหาร & ตกเหว</div>
+      <div id="killFeedList"></div>
+    </div>
+  </aside>
+
+  <!-- ==================================================================== -->
+  <!-- BOTTOM HUD: PLAYER STATUS, 4 MODULAR GEAR SKILL SLOTS & 10-HERO SWAP -->
+  <!-- ==================================================================== -->
+  <footer id="bottomHud">
+    <!-- Active Hero Portrait & HP + Gear Integrity -->
+    <div class="player-status-card glass-box">
+      <div class="hero-avatar-badge" id="hudHeroBadge">1</div>
+      <div class="status-info">
+        <div class="status-name-row">
+          <span id="hudHeroName">อัศวินเกราะเหล็ก</span>
+          <span id="hudHeroRole" class="role-tag">Melee / Tank</span>
+        </div>
+        <div class="hp-bar-outer">
+          <div class="hp-bar-inner" id="hudHpBar" style="width: 100%;"></div>
+          <span class="hp-text" id="hudHpText">125 / 125 HP</span>
+        </div>
+        <div class="hp-bar-outer mobility-bar-outer">
+          <div class="mobility-bar-inner" id="hudMobilityBar" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Modular Gear Skill Buttons (Weapon Q, Armor E, Helmet R, Trinket F) -->
+    <div class="skills-dock glass-box" id="skillsDock">
+      <button class="skill-card" data-slot="weapon" id="skillBtn_weapon">
+        <div class="skill-hotkey">Q <span>(อาวุธ/SD)</span></div>
+        <div class="skill-name" id="skillName_weapon">คลื่นดาบเอ็กซ์คาลิเบอร์</div>
+        <div class="skill-gear-owner" id="skillOwner_weapon">อัศวินเกราะเหล็ก</div>
+        <div class="skill-cd-overlay" id="skillCd_weapon"></div>
+      </button>
+
+      <button class="skill-card" data-slot="armor" id="skillBtn_armor">
+        <div class="skill-hotkey">E <span>(เกราะ/ASD)</span></div>
+        <div class="skill-name" id="skillName_armor">ปราการศักดิ์สิทธิ์</div>
+        <div class="skill-gear-owner" id="skillOwner_armor">กดใช้ตอนโดนตีได้!</div>
+        <div class="skill-cd-overlay" id="skillCd_armor"></div>
+      </button>
+
+      <button class="skill-card" data-slot="helmet" id="skillBtn_helmet">
+        <div class="skill-hotkey">R <span>(หมวก/AD)</span></div>
+        <div class="skill-name" id="skillName_helmet">คำรามราชสีห์</div>
+        <div class="skill-gear-owner" id="skillOwner_helmet">อัศวินเกราะเหล็ก</div>
+        <div class="skill-cd-overlay" id="skillCd_helmet"></div>
+      </button>
+
+      <button class="skill-card" data-slot="trinket" id="skillBtn_trinket">
+        <div class="skill-hotkey">F <span>(ประดับ/AS)</span></div>
+        <div class="skill-name" id="skillName_trinket">พุ่งชนโล่ราชรถ</div>
+        <div class="skill-gear-owner" id="skillOwner_trinket">อัศวินเกราะเหล็ก</div>
+        <div class="skill-cd-overlay" id="skillCd_trinket"></div>
+      </button>
+    </div>
+
+    <!-- 10-Hero Hot-Swap Bar (Keys 1 to 0) -->
+    <div class="hero-swap-bar glass-box" id="heroSwapBar">
+      <!-- Populated dynamically from GAME_DATA.HERO_LIST -->
+    </div>
+  </footer>
+
+  <!-- ==================================================================== -->
+  <!-- LAN LOBBY & 10 HEROES SKILL ENCYCLOPEDIA MODAL                       -->
+  <!-- ==================================================================== -->
+  <div id="lobbyModal" class="modal-backdrop">
+    <div class="lobby-container">
+      <div class="lobby-header">
+        <div>
+          <h1>⚔️ LOST SAGA 2.5D : PIXEL ARENA LAN</h1>
+          <p class="subtitle">เกมแอ็กชันตะลุมบอน 2.5D Pixel Art เสมือน 3D เล่นผ่าน LAN • 10 ฮีโร่ 40 สกิล • ระบบตีเกราะหลุด & ขโมยสกิล!</p>
+        </div>
+        <div class="lan-box" id="lobbyLanBox">
+          <div class="lan-box-title">📡 ลิงก์เชื่อมต่อ LAN (ให้เพื่อนในวง Wi-Fi/LAN เปิดในเบราว์เซอร์):</div>
+          <div id="lobbyLanUrls" class="lan-urls">กำลังโหลด IP...</div>
+        </div>
+      </div>
+
+      <div class="lobby-grid">
+        <!-- Left Column: Player & Room Config -->
+        <div class="lobby-col config-col">
+          <h3>1. ตั้งค่านักสู้ & ห้อง LAN</h3>
+          <label class="field-label">ชื่อในเกม (Player Name)</label>
+          <input type="text" id="inputPlayerName" class="text-input" value="นักสู้ LAN" maxlength="16" />
+
+          <label class="field-label">เลือกห้อง LAN หรือตั้งชื่อห้องใหม่</label>
+          <div class="room-list" id="lobbyRoomList"></div>
+
+          <div class="inline-row">
+            <input type="text" id="inputRoomId" class="text-input" value="LAN-1" placeholder="รหัสห้อง เช่น LAN-1" />
+            <select id="selectGameMode" class="text-input">
+              <option value="ffa">🔥 ตะลุมบอน (Free-For-All)</option>
+              <option value="team">🛡️ แบ่งทีม (Blue vs Red)</option>
+            </select>
+          </div>
+
+          <label class="field-label">เลือกสนามประลอง 3D (ระวังตกเหว Ring-Out!)</label>
+          <select id="selectArenaMap" class="text-input">
+            <option value="sky_temple">🏛️ วิหารลอยฟ้า (Sky Sanctuary - Tree of Savior)</option>
+            <option value="lava_citadel">🌋 ป้อมปราการอัคคี (Demon Flame Citadel)</option>
+            <option value="cyber_rooftop">✨ หอคอยดาราจักร (Astral Starlight Spire)</option>
+          </select>
+
+          <button id="btnJoinBattle" class="btn-primary-join">🚀 เข้าสู่สนามประลองทันที!</button>
+        </div>
+
+        <!-- Right Column: 10 Heroes & 40 Skills Showcase -->
+        <div class="lobby-col heroes-col">
+          <h3>2. เลือกฮีโร่เริ่มต้น (สลับได้ครบทั้ง 10 ตัวในสนามด้วยปุ่ม 1 - 0!)</h3>
+          <div class="hero-grid" id="lobbyHeroGrid"></div>
+
+          <!-- Selected Hero Detailed 4-Gear Skills Preview -->
+          <div class="hero-detail-card" id="lobbyHeroDetail"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/pixelfx_bridge.js"></script>
+  <script src="/js/shared_data.js"></script>
+  <script src="/js/tos_vfx.js"></script>
+  <script src="/js/tos_sprite_rig.js"></script>
+  <script src="/js/pixel_renderer_25d.js"></script>
+  <script src="/js/game_client.js"></script>
+</body>
+</html>
