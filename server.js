@@ -2378,12 +2378,57 @@ rooms.set(cyberRoom.id, cyberRoom);
 // ============================================================================
 // WEBSOCKET CONNECTION HANDLER
 // ============================================================================
+function isValidClientMessage(msg) {
+  if (!msg || typeof msg !== 'object' || Array.isArray(msg) || typeof msg.type !== 'string') return false;
+
+  const optionalString = key => msg[key] === undefined || typeof msg[key] === 'string';
+  const optionalBoolean = key => msg[key] === undefined || typeof msg[key] === 'boolean';
+  const optionalNumber = key => msg[key] === undefined || (typeof msg[key] === 'number' && Number.isFinite(msg[key]));
+  const isId = (value, table) => typeof value === 'string' && Object.hasOwn(table, value);
+  const optionalId = (key, table) => msg[key] === undefined || isId(msg[key], table);
+
+  switch (msg.type) {
+    case 'join_room':
+      return ['roomId', 'roomName', 'playerName'].every(optionalString)
+        && optionalId('heroId', GAME_DATA.HEROES)
+        && optionalId('mapId', GAME_DATA.MAPS)
+        && (msg.mode === undefined || ['ffa', 'team', 'koth'].includes(msg.mode))
+        && (msg.team === undefined || [0, 1, 2].includes(msg.team))
+        && optionalBoolean('changeMap');
+    case 'input':
+      return ['mx', 'mz', 'facing'].every(optionalNumber)
+        && ['guard', 'jumpHeld', 'sprinting'].every(optionalBoolean);
+    case 'dash':
+      return ['dx', 'dz'].every(key => msg[key] === null || optionalNumber(key));
+    case 'attack':
+      return optionalBoolean('isDash');
+    case 'skill':
+      return GAME_DATA.GEAR_SLOTS.includes(msg.slot);
+    case 'swap_hero':
+      return isId(msg.heroId, GAME_DATA.HEROES);
+    case 'add_bot':
+      return msg.heroId === null || optionalId('heroId', GAME_DATA.HEROES);
+    case 'change_map':
+      return isId(msg.mapId, GAME_DATA.MAPS);
+    case 'jump':
+    case 'heavy':
+    case 'pickup_gear':
+    case 'clear_bots':
+      return true;
+    default:
+      return false;
+  }
+}
+
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
   const clientId = `p_${nextEntityId++}`;
   let currentRoom = null;
   let currentPlayer = null;
+
+  // A malformed frame must only disconnect its sender, not the game server.
+  ws.on('error', () => ws.terminate());
 
   ws.send(JSON.stringify({
     type: 'welcome',
@@ -2399,6 +2444,7 @@ wss.on('connection', (ws) => {
     } catch (e) {
       return;
     }
+    if (!isValidClientMessage(msg)) return;
 
     if (msg.type === 'join_room') {
       // Remove from previous room if any
