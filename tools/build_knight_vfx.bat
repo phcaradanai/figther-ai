@@ -75,26 +75,30 @@ if "%COPIED_WASM%"=="0" echo [WARN] effekseer.wasm not found in "%WEBGL_DIR%"
 
 REM ----------------------------------------------------------------------------
 REM 3. Compile all 7 Knight .efkproj source files into .efkefc runtime files
+REM    (Pass FULL absolute paths because Effekseer.exe resets its CWD on start!)
 REM ----------------------------------------------------------------------------
 echo [3/3] Compiling Knight .efkproj -^> .efkefc ...
 set "COMPILED=0"
-pushd "%VFX_DIR%"
-for %%F in (*.efkproj) do (
-    set "OUT_EFKEFC=%%~nF.efkefc"
-    set "OUT_EFK=%%~nF.efk"
+for %%F in ("%VFX_DIR%\*.efkproj") do (
+    set "IN_FILE=%%~fF"
+    set "OUT_EFKEFC=%%~dpnF.efkefc"
+    set "OUT_EFK=%%~dpnF.efk"
     echo       Compiling %%~nxF ...
-    "%EFFEKSEER_EXE%" -cui -in "%%~nxF" -o "!OUT_EFKEFC!"
+    "%EFFEKSEER_EXE%" -cui -in "!IN_FILE!" -o "!OUT_EFKEFC!"
     if not exist "!OUT_EFKEFC!" (
         echo       [Fallback] Exporting .efk via -e ...
-        "%EFFEKSEER_EXE%" -cui -in "%%~nxF" -e "!OUT_EFK!"
+        "%EFFEKSEER_EXE%" -cui -in "!IN_FILE!" -e "!OUT_EFK!"
     )
     if exist "!OUT_EFKEFC!" (
+        echo       [OK] Created %%~nF.efkefc
         set /a COMPILED+=1
     ) else if exist "!OUT_EFK!" (
+        echo       [OK] Created %%~nF.efk
         set /a COMPILED+=1
+    ) else (
+        echo       [FAIL] Could not compile %%~nxF ^(exit=!ERRORLEVEL!^)
     )
 )
-popd
 
 echo.
 echo ============================================================================

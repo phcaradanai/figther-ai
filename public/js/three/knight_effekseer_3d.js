@@ -78,14 +78,14 @@ export class KnightThreeVFX {
     }
   }
 
-  makeMat(texName, hex, intensity = 1.9, opacity = 1.0) {
+  makeMat(texName, hex, intensity = 1.9, opacity = 1.0, additive = true) {
     return new THREE.MeshBasicMaterial({
       map: this.textures[texName] || null,
-      color: hdrColor(hex, intensity),
+      color: additive ? hdrColor(hex, intensity) : new THREE.Color(hex),
       transparent: true,
       opacity,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
       side: THREE.DoubleSide
     });
   }
@@ -147,10 +147,10 @@ export class KnightThreeVFX {
     let duration = 0.7;
     let attachToCaster = false;
 
-    const addMesh = (geo, texName, hex, intensity, initFn, updateFn) => {
-      const mat = this.makeMat(texName, hex, intensity, 1.0);
+    const addMesh = (geo, texName, hex, intensity, initFn, updateFn, additive = true) => {
+      const mat = this.makeMat(texName, hex, intensity, 1.0, additive);
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.renderOrder = 18;
+      mesh.renderOrder = additive ? 19 : 17;
       if (initFn) initFn(mesh);
       root.add(mesh);
       parts.push({ mesh, mat, update: updateFn });
@@ -194,8 +194,25 @@ export class KnightThreeVFX {
       duration = opts.isFinisher ? 0.52 : 0.42;
       const swingDir = (opts.comboStep % 2 === 0) ? -1 : 1;
 
+      // High-contrast Deep Sapphire Slash Backing (pops sharply on bright stone!)
+      addMesh(this.geo.plane, 'slash_crescent', '#1d4ed8', 1.0, (m) => {
+        m.position.set(0, 1.01, 0.42);
+      }, (m, mat, t, ease) => {
+        if (opts.isFinisher) {
+          m.rotation.set(0, -Math.PI * 0.5, -0.9 + ease * 1.5);
+          m.position.set(0, 1.32 - ease * 0.32, 0.72 + ease * 0.38);
+          const s = 3.1 + ease * 1.6;
+          m.scale.set(s, s, 1);
+        } else {
+          m.rotation.set(-Math.PI * 0.47, 0, swingDir * (-1.1 + ease * 1.95) - Math.PI * 0.5);
+          const s = 2.95 + ease * 1.25;
+          m.scale.set(s, s, 1);
+        }
+        mat.opacity = clamp01(1 - t) * 0.9;
+      }, false);
+
       // Primary Golden Crescent Arc (3D plane sweeping around +Z)
-      addMesh(this.geo.plane, 'slash_crescent', '#fde047', 2.2, (m) => {
+      addMesh(this.geo.plane, 'slash_crescent', '#f59e0b', 2.4, (m) => {
         m.position.set(0, 1.08, 0.45);
         m.rotation.x = -Math.PI * 0.46;
         if (opts.isFinisher) m.rotation.order = 'YXZ';
@@ -203,11 +220,11 @@ export class KnightThreeVFX {
         if (opts.isFinisher) {
           m.rotation.set(0, -Math.PI * 0.5, -0.8 + ease * 1.5);
           m.position.set(0, 1.35 - ease * 0.35, 0.75 + ease * 0.4);
-          const s = 2.6 + ease * 1.4;
+          const s = 2.9 + ease * 1.5;
           m.scale.set(s, s, 1);
         } else {
           m.rotation.set(-Math.PI * 0.46, 0, swingDir * (-0.95 + ease * 1.95) - Math.PI * 0.5);
-          const s = 2.4 + ease * 1.1;
+          const s = 2.7 + ease * 1.2;
           m.scale.set(s, s, 1);
         }
         mat.opacity = clamp01((t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88) * 1.1);
@@ -263,10 +280,17 @@ export class KnightThreeVFX {
     else if (effectId === 'heavy_shield_bash') {
       duration = 0.68;
 
-      // Primary Sapphire Hex Aegis Shield Crest punching forward along +Z
-      addMesh(this.geo.plane, 'hex_aegis_shield', '#38bdf8', 2.3, null, (m, mat, t, ease) => {
+      // Primary Royal Sapphire Contrast Backing + Luminous Hex Aegis Shield Crest
+      addMesh(this.geo.plane, 'hex_aegis_shield', '#1d4ed8', 1.0, null, (m, mat, t, ease) => {
+        m.position.set(0, 1.08, 0.50 + ease * 1.75);
+        const s = 0.9 + ease * 2.45;
+        m.scale.set(s, s, 1);
+        m.rotation.z = -0.2 + ease * 0.3;
+        mat.opacity = clamp01((t < 0.1 ? t / 0.1 : 1 - (t - 0.1) / 0.9)) * 0.88;
+      }, false);
+      addMesh(this.geo.plane, 'hex_aegis_shield', '#38bdf8', 2.4, null, (m, mat, t, ease) => {
         m.position.set(0, 1.08, 0.55 + ease * 1.75);
-        const s = 0.75 + ease * 2.15;
+        const s = 0.82 + ease * 2.3;
         m.scale.set(s, s, 1);
         m.rotation.z = -0.2 + ease * 0.3;
         mat.opacity = clamp01((t < 0.1 ? t / 0.1 : 1 - (t - 0.1) / 0.9));
@@ -320,34 +344,44 @@ export class KnightThreeVFX {
     else if (effectId === 'knight_weapon') {
       duration = 1.05;
 
-      // Ground Rotating Paladin Sanctuary Rune Circle
-      addMesh(this.geo.plane, 'holy_rune_circle', '#fbbf24', 2.0, (m) => {
+      // Ground Rotating Paladin Sanctuary Rune Circle (rich gold backing + HDR glow!)
+      addMesh(this.geo.plane, 'holy_rune_circle', '#b45309', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset, 0);
       }, (m, mat, t, ease) => {
-        const s = 0.9 + ease * 3.6;
+        const s = 1.2 + ease * 4.4;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 2.2;
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.9;
+      }, false);
+      addMesh(this.geo.plane, 'holy_rune_circle', '#fbbf24', 2.2, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.02, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.1 + ease * 4.2;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 2.2;
         mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92));
       });
 
-      // 3-Layer Towering Vertical Golden Excalibur Blade Wave rushing along +Z!
+      // 4-Layer Towering Vertical Golden Excalibur Blade Wave rushing along +Z!
       const bladeSpecs = [
-        { ox: 0, ry: -Math.PI * 0.5, col: '#fff7cc', k: 2.6, sx: 1.0, sy: 1.0 },
-        { ox: -0.22, ry: -Math.PI * 0.45, col: '#fbbf24', k: 2.1, sx: 1.12, sy: 1.12 },
-        { ox: 0.22, ry: -Math.PI * 0.55, col: '#f59e0b', k: 2.1, sx: 1.12, sy: 1.12 }
+        { ox: 0, ry: -Math.PI * 0.5, col: '#d97706', k: 1.0, sx: 1.22, sy: 1.22, add: false },
+        { ox: 0, ry: -Math.PI * 0.5, col: '#fff7cc', k: 2.8, sx: 1.05, sy: 1.05, add: true },
+        { ox: -0.26, ry: -Math.PI * 0.44, col: '#f59e0b', k: 2.2, sx: 1.18, sy: 1.18, add: true },
+        { ox: 0.26, ry: -Math.PI * 0.56, col: '#f59e0b', k: 2.2, sx: 1.18, sy: 1.18, add: true }
       ];
       for (const b of bladeSpecs) {
         addMesh(this.geo.plane, 'slash_crescent', b.col, b.k, (m) => {
           m.rotation.y = b.ry;
         }, (m, mat, t, ease) => {
           const travel = 0.9 + t * 14.5;
-          m.position.set(b.ox, 1.38 + t * 0.25, travel);
-          const sw = (2.1 + ease * 2.2) * b.sx;
-          const sh = (2.4 + ease * 2.6) * b.sy;
+          m.position.set(b.ox, 1.48 + t * 0.25, travel);
+          const sw = (2.4 + ease * 2.5) * b.sx;
+          const sh = (2.8 + ease * 3.0) * b.sy;
           m.scale.set(sw, sh, 1);
           mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - Math.max(0, (t - 0.65) / 0.35)));
-        });
+        }, b.add);
       }
 
       // Sweeping Ground Energy Wake following beneath Excalibur Wave
@@ -383,51 +417,80 @@ export class KnightThreeVFX {
       duration = 1.45;
       attachToCaster = true;
 
-      // Rotating Sapphire Sanctuary Rune Circle on the floor
-      addMesh(this.geo.plane, 'holy_rune_circle', '#38bdf8', 2.0, (m) => {
+      // Rotating Royal Sapphire Sanctuary Rune Circle (Normal contrast + HDR glow!)
+      addMesh(this.geo.plane, 'holy_rune_circle', '#1d4ed8', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset, 0);
       }, (m, mat, t, ease) => {
-        const s = 1.4 + ease * 4.4;
+        const s = 1.6 + ease * 5.0;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 2.2;
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.92;
+      }, false);
+      addMesh(this.geo.plane, 'holy_rune_circle', '#38bdf8', 2.2, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.02, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.5 + ease * 4.8;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 2.2;
         mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92));
       });
 
       // Instant Radial Knockback Shockwave Ring (~3.8m)
-      addMesh(this.geo.plane, 'shockwave_ring', '#7dd3fc', 2.3, (m) => {
+      addMesh(this.geo.plane, 'shockwave_ring', '#0284c7', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
-        m.position.set(0, gyOffset + 0.15, 0);
+        m.position.set(0, gyOffset + 0.14, 0);
       }, (m, mat, t) => {
-        const wt = clamp01(t / 0.42);
-        const s = 1.0 + easeOutCubic(wt) * 7.2;
+        const wt = clamp01(t / 0.45);
+        const s = 1.1 + easeOutCubic(wt) * 7.8;
         m.scale.set(s, s, 1);
-        mat.opacity = wt < 1 ? (1 - wt) : 0;
-      });
+        mat.opacity = wt < 1 ? (1 - wt) * 0.9 : 0;
+      }, false);
 
-      // 3D Cylindrical Aegis Barrier Energy Dome (real 3D CylinderGeometry!)
-      addMesh(this.geo.cylinder, 'energy_ribbon', '#60a5fa', 1.8, (m) => {
+      // 3D Cylindrical Aegis Barrier Energy Dome (deep sapphire + cyan HDR!)
+      addMesh(this.geo.cylinder, 'energy_ribbon', '#1d4ed8', 1.0, (m) => {
         m.position.set(0, 1.2, 0);
       }, (m, mat, t, ease) => {
-        const r = 0.9 + ease * 1.45;
-        const h = 1.1 + ease * 1.6;
+        const r = 1.0 + ease * 1.55;
+        const h = 1.2 + ease * 1.75;
         m.scale.set(r, h, r);
         m.position.y = h * 0.5 + 0.05;
         m.rotation.y = -t * 2.8;
+        mat.opacity = clamp01((t < 0.1 ? t / 0.1 : 1 - (t - 0.1) / 0.9)) * 0.65;
+      }, false);
+      addMesh(this.geo.cylinder, 'energy_ribbon', '#38bdf8', 2.0, (m) => {
+        m.position.set(0, 1.2, 0);
+      }, (m, mat, t, ease) => {
+        const r = 0.95 + ease * 1.5;
+        const h = 1.15 + ease * 1.65;
+        m.scale.set(r, h, r);
+        m.position.y = h * 0.5 + 0.05;
+        m.rotation.y = t * 2.2;
         mat.opacity = clamp01((t < 0.1 ? t / 0.1 : 1 - (t - 0.1) / 0.9)) * 0.85;
       });
 
-      // 6-Sided 3D Hexagonal Shield Wall orbiting Knight!
+      // 6-Sided 3D Hexagonal Shield Wall orbiting Knight (crisp royal blue & gold!)
       const shieldRing = new THREE.Group();
-      shieldRing.position.set(0, 1.18, 0);
+      shieldRing.position.set(0, 1.22, 0);
       root.add(shieldRing);
       const wallMats = [];
       for (let i = 0; i < 6; i++) {
         const ang = (i / 6) * Math.PI * 2;
-        const mat = this.makeMat('hex_aegis_shield', i % 2 === 0 ? '#7dd3fc' : '#fde047', 1.9, 1.0);
+        const bgMat = this.makeMat('hex_aegis_shield', i % 2 === 0 ? '#1d4ed8' : '#d97706', 1.0, 0.92, false);
+        const bgPanel = new THREE.Mesh(this.geo.plane, bgMat);
+        bgPanel.position.set(Math.sin(ang) * 1.92, 0, Math.cos(ang) * 1.92);
+        bgPanel.rotation.y = ang;
+        bgPanel.scale.setScalar(1.35);
+        bgPanel.renderOrder = 18;
+        shieldRing.add(bgPanel);
+        wallMats.push(bgMat);
+
+        const mat = this.makeMat('hex_aegis_shield', i % 2 === 0 ? '#7dd3fc' : '#fde047', 2.1, 1.0, true);
         const panel = new THREE.Mesh(this.geo.plane, mat);
-        panel.position.set(Math.sin(ang) * 1.75, 0, Math.cos(ang) * 1.75);
+        panel.position.set(Math.sin(ang) * 1.95, 0, Math.cos(ang) * 1.95);
         panel.rotation.y = ang;
+        panel.scale.setScalar(1.32);
         panel.renderOrder = 19;
         shieldRing.add(panel);
         wallMats.push(mat);
@@ -458,12 +521,21 @@ export class KnightThreeVFX {
       duration = 1.25;
       attachToCaster = true;
 
-      // Giant Expanding Rotating Golden Lion Crest on the floor
-      addMesh(this.geo.plane, 'lion_crest_roar', '#f59e0b', 2.1, (m) => {
+      // Giant Expanding Rotating Golden Lion Crest on the floor (high-contrast amber + HDR gold!)
+      addMesh(this.geo.plane, 'lion_crest_roar', '#b45309', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.02, 0);
       }, (m, mat, t, ease) => {
-        const s = 1.4 + ease * 7.2;
+        const s = 1.6 + ease * 7.8;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 1.3;
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.92;
+      }, false);
+      addMesh(this.geo.plane, 'lion_crest_roar', '#f59e0b', 2.3, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.04, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.5 + ease * 7.4;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 1.3;
         mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92));
@@ -527,33 +599,50 @@ export class KnightThreeVFX {
       duration = 0.98;
       attachToCaster = true;
 
-      // Outer Cyan 3D Wind-Breaking Ram Cone (real ConeGeometry!)
-      addMesh(this.geo.cone, 'energy_ribbon', '#38bdf8', 2.1, (m) => {
+      // Outer Deep Royal Sapphire + Cyan 3D Wind-Breaking Ram Cone (real ConeGeometry!)
+      addMesh(this.geo.cone, 'energy_ribbon', '#1d4ed8', 1.0, (m) => {
         m.position.set(0, 1.05, 0.95);
       }, (m, mat, t, ease) => {
-        const r = 0.85 + ease * 0.95;
-        const l = 2.0 + ease * 1.4;
+        const r = 0.95 + ease * 1.1;
+        const l = 2.3 + ease * 1.6;
         m.scale.set(r, r, l);
         m.rotation.z = t * 9.0;
-        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.9;
-      });
-
-      // Inner Golden Core Ram Cone counter-rotating!
-      addMesh(this.geo.cone, 'energy_ribbon', '#fde047', 2.3, (m) => {
-        m.position.set(0, 1.05, 1.15);
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.85;
+      }, false);
+      addMesh(this.geo.cone, 'energy_ribbon', '#38bdf8', 2.2, (m) => {
+        m.position.set(0, 1.05, 0.98);
       }, (m, mat, t, ease) => {
-        const r = 0.5 + ease * 0.65;
-        const l = 1.6 + ease * 1.1;
+        const r = 0.9 + ease * 1.02;
+        const l = 2.2 + ease * 1.5;
         m.scale.set(r, r, l);
-        m.rotation.z = -t * 13.0;
+        m.rotation.z = t * 9.0;
         mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.95;
       });
 
-      // Front Glowing Hex Shield Ram Crest
-      addMesh(this.geo.plane, 'hex_aegis_shield', '#7dd3fc', 2.3, (m) => {
-        m.position.set(0, 1.05, 1.75);
+      // Inner Golden Core Ram Cone counter-rotating!
+      addMesh(this.geo.cone, 'energy_ribbon', '#f59e0b', 2.5, (m) => {
+        m.position.set(0, 1.05, 1.18);
       }, (m, mat, t, ease) => {
-        const s = 1.1 + ease * 1.0;
+        const r = 0.55 + ease * 0.72;
+        const l = 1.8 + ease * 1.2;
+        m.scale.set(r, r, l);
+        m.rotation.z = -t * 13.0;
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.98;
+      });
+
+      // Front Glowing Hex Shield Ram Crest (deep sapphire + bright cyan!)
+      addMesh(this.geo.plane, 'hex_aegis_shield', '#1e40af', 1.0, (m) => {
+        m.position.set(0, 1.05, 1.72);
+      }, (m, mat, t, ease) => {
+        const s = 1.25 + ease * 1.15;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 2.2;
+        mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92)) * 0.92;
+      }, false);
+      addMesh(this.geo.plane, 'hex_aegis_shield', '#7dd3fc', 2.4, (m) => {
+        m.position.set(0, 1.05, 1.78);
+      }, (m, mat, t, ease) => {
+        const s = 1.2 + ease * 1.1;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 2.2;
         mat.opacity = clamp01((t < 0.08 ? t / 0.08 : 1 - (t - 0.08) / 0.92));
