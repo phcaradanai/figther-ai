@@ -610,6 +610,30 @@
     keys[e.code] = false;
   });
 
+  function releaseInputs() {
+    for (const code of Object.keys(keys)) delete keys[code];
+    lastTapKey = null;
+    lastTapTime = 0;
+    isDashReady = false;
+
+    // Send immediately: background tabs can throttle the regular input timer.
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({
+        type: 'input',
+        mx: 0,
+        mz: 0,
+        guard: false,
+        jumpHeld: false,
+        sprinting: false
+      }));
+    }
+  }
+
+  window.addEventListener('blur', releaseInputs);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseInputs();
+  });
+
   // Click Attacks (Character never rotates toward mouse cursor)
   canvas.addEventListener('mousedown', (e) => {
     if (!lobbyModal.classList.contains('hidden')) return;
