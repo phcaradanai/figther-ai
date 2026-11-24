@@ -23,6 +23,13 @@
       this.ctx.imageSmoothingQuality = 'high';
       this.tosRig = root.ToSSpriteRig ? new root.ToSSpriteRig() : null;
       this.tosVfx = root.ToSVFX ? new root.ToSVFX() : null;
+      this.knightVfx = root.KnightEffekseerVFX || null;
+      if (this.knightVfx && typeof document !== 'undefined') {
+        const efkCanvas = document.getElementById('effekseerCanvas');
+        if (efkCanvas) {
+          this.knightVfx.attachGameCanvas(efkCanvas);
+        }
+      }
 
       // Preload Tree-of-Savior Hand-Painted Watercolor Sanctuary Arena Textures
       this.arenaTextures = {};
@@ -176,12 +183,15 @@
     processServerFx(fxList) {
       const now = performance.now();
       for (const fx of fxList) {
-        // Trigger Tree-of-Savior Painterly Bloom & Ribbon VFX!
-        if (this.tosVfx) {
+        // Trigger dedicated Iron Knight 3D Effekseer / HD Textured VFX Suite first!
+        const handledByKnightVfx = !!(this.knightVfx && this.knightVfx.handleServerFx(fx));
+
+        // Trigger Tree-of-Savior Painterly Bloom & Ribbon VFX (skip duplicate bursts on Knight's dedicated moves)
+        if (this.tosVfx && !handledByKnightVfx) {
           this.tosVfx.handleServerFx(fx);
         }
-        // Trigger smoothed additive PixelFX skill VFX
-        if (root.PixelFXBridge) {
+        // Trigger smoothed additive PixelFX skill VFX for the other 9 heroes
+        if (root.PixelFXBridge && !handledByKnightVfx) {
           root.PixelFXBridge.handleServerFx(fx);
         }
 
@@ -1462,6 +1472,9 @@
         this.tosVfx.syncProjectiles(gameState.projectiles, now);
         this.tosVfx.drawGroundRings(ctx, this, now);
       }
+      if (this.knightVfx) {
+        this.knightVfx.drawCanvasGround(ctx, this, gameState);
+      }
 
       // 4. Draw Jump Pads
       for (const jp of map.jumpPads) {
@@ -1531,10 +1544,14 @@
         item.draw();
       }
 
-      // 7. Draw Active 3D Skill FX + Tree-of-Savior Painterly Bloom/Ribbon VFX + Ambient Petals!
+      // 7. Draw Active 3D Skill FX + Knight Effekseer/HD VFX + Tree-of-Savior Painterly Bloom/Ribbon VFX!
       this.drawActiveFx(now);
       if (root.PixelFXBridge) {
         root.PixelFXBridge.updateAndDraw(ctx, this);
+      }
+      if (this.knightVfx) {
+        this.knightVfx.drawCanvasForeground(ctx, this);
+        this.knightVfx.renderForIsometricRenderer(this, gameState);
       }
       if (this.tosVfx) {
         this.tosVfx.drawForegroundVfx(ctx, this, now);

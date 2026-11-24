@@ -27,6 +27,16 @@ body, html {
   cursor: default;
 }
 
+#effekseerCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  pointer-events: none;
+  z-index: 2;
+}
+
 .glass-box {
   background: rgba(15, 23, 42, 0.84);
   backdrop-filter: blur(8px);

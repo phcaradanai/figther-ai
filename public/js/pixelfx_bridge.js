@@ -397,6 +397,11 @@ class PixelFXBridge {
   }
 
   handleServerFx(fx) {
+    // Defer Iron Knight attacks/skills/parry to the dedicated Knight Effekseer/HD VFX suite!
+    if (window.KnightEffekseerVFX && window.KnightEffekseerVFX.shouldSuppressLegacyVfx(fx)) {
+      return;
+    }
+
     let isLeft = false;
     if (typeof fx.facing === 'number') {
       let relAngle = (fx.facing + Math.PI * 0.25) % (Math.PI * 2);

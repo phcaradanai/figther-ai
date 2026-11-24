@@ -459,7 +459,16 @@ class GameRoom {
         const guardDuration = now - victim.guardStartTime;
         if (guardDuration < 260 && attacker) {
           // PERFECT GUARD / COUNTER!
-          this.emitFx('parry', victim.x, victim.y + 1.2, victim.z, { text: 'PERFECT GUARD!', color: '#38bdf8' });
+          this.emitFx('parry', victim.x, victim.y + 1.2, victim.z, {
+            text: 'PERFECT GUARD!',
+            color: '#38bdf8',
+            heroId: victim.heroId,
+            playerId: victim.id,
+            facing: victim.facing,
+            originX: victim.x,
+            originY: victim.y,
+            originZ: victim.z
+          });
           attacker.state = 'hurt';
           attacker.stateUntil = now + 900;
           attacker.vx = -dx * 6.0;
@@ -471,7 +480,16 @@ class GameRoom {
           victim.hp = Math.max(1, victim.hp - chip);
           victim.vx = dx * (knockback * 0.35);
           victim.vz = dz * (knockback * 0.35);
-          this.emitFx('block', victim.x, victim.y + 1.0, victim.z, { text: `BLOCK (-${chip})`, color: '#60a5fa' });
+          this.emitFx('block', victim.x, victim.y + 1.0, victim.z, {
+            text: `BLOCK (-${chip})`,
+            color: '#60a5fa',
+            heroId: victim.heroId,
+            playerId: victim.id,
+            facing: victim.facing,
+            originX: victim.x,
+            originY: victim.y,
+            originZ: victim.z
+          });
           return false;
         }
       }
@@ -822,6 +840,11 @@ class GameRoom {
       this.emitFx('slash', player.x + dirX * 1.1, player.y + 0.9, player.z + dirZ * 1.1, {
         facing: player.facing,
         color: hero.accentColor,
+        heroId: player.heroId,
+        playerId: player.id,
+        originX: player.x,
+        originY: player.y,
+        originZ: player.z,
         weaponType: hero.weaponType,
         comboStep: player.comboStep,
         isFinisher
@@ -922,6 +945,11 @@ class GameRoom {
 
     this.emitFx('heavy_cast', player.x, player.y + 1.0, player.z, {
       facing: player.facing,
+      heroId: player.heroId,
+      playerId: player.id,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
       color: hero.accentColor,
       text: heavy.nameTh.split(' ')[0]
     });
@@ -1026,6 +1054,10 @@ class GameRoom {
     this.emitFx('heavy_impact', player.x + dirX * 1.5, player.y + 0.9, player.z + dirZ * 1.5, {
       facing: player.facing,
       heroId: player.heroId,
+      playerId: player.id,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
       color: hero.accentColor
     });
 
@@ -1103,6 +1135,11 @@ class GameRoom {
       skillId: skill.id,
       skillNameTh: skill.nameTh,
       slot,
+      heroId: player.heroId,
+      playerId: player.id,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
       color: skill.color,
       facing: player.facing
     });
@@ -1135,7 +1172,7 @@ class GameRoom {
       }
       case 'knight_armor': { // Aegis Fortress
         player.superArmorUntil = now + 5000;
-        this.emitFx('shockwave', player.x, player.y + 0.5, player.z, { radius: 4.0, color: '#60a5fa' });
+        this.emitFx('shockwave', player.x, player.y + 0.5, player.z, { radius: 4.0, color: '#60a5fa', fromSkill: 'knight_armor' });
         this.hitAoE(player, player.x, player.y, player.z, 3.8, {
           damage: 15, knockback: 7.5, launchY: 6.0, stunMs: 900, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1143,7 +1180,7 @@ class GameRoom {
       }
       case 'knight_helmet': { // Lionheart Warcry
         player.hp = Math.min(player.maxHp, player.hp + 20);
-        this.emitFx('shockwave', player.x, player.y + 1.0, player.z, { radius: 4.5, color: '#f59e0b' });
+        this.emitFx('shockwave', player.x, player.y + 1.0, player.z, { radius: 4.5, color: '#f59e0b', fromSkill: 'knight_helmet' });
         this.hitAoE(player, player.x, player.y, player.z, 4.3, {
           damage: 12, knockback: 3.0, stunMs: 1800, guardBreak: true, skillNameTh: skill.nameTh
         });

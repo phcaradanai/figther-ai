@@ -7,8 +7,9 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <!-- 2.5D PSEUDO-3D PIXEL ART GAME CANVAS -->
+  <!-- 2.5D PSEUDO-3D PIXEL ART GAME CANVAS + 3D EFFEKSEER WEBGL OVERLAY -->
   <canvas id="gameCanvas"></canvas>
+  <canvas id="effekseerCanvas"></canvas>
 
   <!-- ==================================================================== -->
   <!-- TOP HUD BAR: ROOM INFO, LAN IP, MAP SWITCH, BOT CONTROLS & CAMERA    -->
@@ -173,6 +174,8 @@
   </div>
 
   <script type="module" src="/js/pixelfx_bridge.js"></script>
+  <script src="/vendor/effekseer/effekseer.min.js" onerror="window.__effekseerOptionalMissing = true"></script>
+  <script src="/js/effekseer_knight_bridge.js"></script>
   <script src="/js/shared_data.js"></script>
   <script src="/js/tos_vfx.js"></script>
   <script src="/js/tos_sprite_rig.js"></script>
