@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IRON KNIGHT 3D VFX PREVIEW — Effekseer 1.80.8 WebGL</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d18;
+      color: #e2e8f0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #glCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      cursor: grab;
+    }
+    #glCanvas:active { cursor: grabbing; }
+
+    .topbar {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .panel {
+      background: rgba(12, 18, 34, 0.82);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      border-radius: 12px;
+      padding: 10px 14px;
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fde047;
+      letter-spacing: 0.4px;
+    }
+    .sub {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #f59e0b;
+    }
+    .status-pill.ready .status-dot { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .status-pill.error .status-dot { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+
+    .controls-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.92);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { border-color: #fbbf24; color: #fde047; transform: translateY(-1px); }
+    .btn.active { background: rgba(251, 191, 36, 0.2); border-color: #fbbf24; color: #fde047; }
+
+    .skill-dock {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 96vw;
+      z-index: 10;
+    }
+    .skill-btn {
+      width: 158px;
+      text-align: left;
+      background: rgba(12, 18, 34, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 10px;
+      padding: 9px 11px;
+      color: #f8fafc;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      backdrop-filter: blur(8px);
+    }
+    .skill-btn:hover {
+      border-color: #fbbf24;
+      background: rgba(30, 41, 59, 0.96);
+      transform: translateY(-2px);
+    }
+    .skill-btn.playing {
+      border-color: #38bdf8;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
+    }
+    .skill-key {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: rgba(251, 191, 36, 0.22);
+      color: #fde047;
+      margin-bottom: 4px;
+    }
+    .skill-name {
+      font-size: 12.5px;
+      font-weight: 700;
+      line-height: 1.25;
+      color: #f8fafc;
+    }
+    .skill-desc {
+      font-size: 10.5px;
+      color: #94a3b8;
+      margin-top: 3px;
+      line-height: 1.25;
+    }
+
+    #setupBanner {
+      position: fixed;
+      top: 86px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(760px, 92vw);
+      z-index: 20;
+      display: none;
+    }
+    #setupBanner h3 { color: #fde047; font-size: 15px; margin-bottom: 6px; }
+    #setupBanner p { font-size: 12.5px; color: #cbd5e1; line-height: 1.5; margin-bottom: 8px; }
+    #setupBanner code {
+      display: block;
+      background: #020617;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #7dd3fc;
+      font-family: Consolas, monospace;
+      font-size: 12.5px;
+      margin: 6px 0 10px;
+    }
+
+    #texDrawer {
+      position: fixed;
+      top: 84px;
+      right: 16px;
+      width: 266px;
+      max-height: calc(100vh - 220px);
+      overflow-y: auto;
+      z-index: 12;
+      display: none;
+    }
+    .tex-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .tex-card {
+      background: #04070f;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 8px;
+      padding: 6px;
+      text-align: center;
+    }
+    .tex-card img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: contain;
+      display: block;
+      border-radius: 4px;
+      background: radial-gradient(circle, #172554 0%, #020617 75%);
+    }
+    .tex-card span {
+      display: block;
+      font-size: 10px;
+      color: #94a3b8;
+      margin-top: 4px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glCanvas"></canvas>
+
+  <div class="topbar">
+    <div class="panel">
+      <div class="title">⚔️ IRON KNIGHT — 3D EFFEKSEER VFX PREVIEW STAGE</div>
+      <div class="sub">ลากเมาส์หมุนกล้อง • ล้อเมาส์ซูม • กดปุ่ม 1–7 หรือคลิกการ์ดด้านล่างเพื่อทดสอบสกิล (กด Space = หยุดทั้งหมด)</div>
+    </div>
+
+    <div class="controls-right panel">
+      <div id="statusPill" class="status-pill">
+        <span class="status-dot"></span>
+        <span id="statusText">กำลังโหลด EffekseerForWebGL...</span>
+      </div>
+      <button class="btn active" id="btnCamIso">มุม 45° Lost Saga</button>
+      <button class="btn" id="btnCamFront">มุมหน้าตรง</button>
+      <button class="btn" id="btnAutoLoop">Auto Cycle: OFF</button>
+      <button class="btn" id="btnToggleTex">ดูคลัง Texture (10)</button>
+      <button class="btn" id="btnStopAll">หยุด FX</button>
+    </div>
+  </div>
+
+  <div id="setupBanner" class="panel">
+    <h3>⚠️ ยังไม่ได้ Compile ไฟล์ .efkefc หรือ Copy EffekseerForWebGL เข้าโปรเจกต์</h3>
+    <p id="setupReason"></p>
+    <p>ดับเบิลคลิกไฟล์นี้ 1 ครั้ง เพื่อ copy <code>effekseer.min.js / effekseer.wasm</code> และ compile สกิล Knight ทั้ง 7 ไฟล์อัตโนมัติ:</p>
+    <code>tools\build_knight_vfx.bat</code>
+    <p>เสร็จแล้วกดรีเฟรชหน้านี้ (F5) เพื่อดูเอฟเฟกต์ 3D จริงบนสนามได้เลยครับ (หรือเปิดไฟล์ <code>public\assets\vfx\knight\*.efkproj</code> ในโปรแกรม Effekseer 1.80.8 โดยตรงก็ได้)</p>
+  </div>
+
+  <div id="texDrawer" class="panel">
+    <div style="font-size:13px;font-weight:800;color:#fde047;">✨ Knight VFX Textures (512×512)</div>
+    <div class="tex-grid" id="texGrid"></div>
+  </div>
+
+  <div class="skill-dock" id="skillDock"></div>
+
+  <!-- EffekseerForWebGL 1.80.8 runtime (copied by tools\build_knight_vfx.bat) -->
+  <script src="/vendor/effekseer/effekseer.min.js" onerror="window.__effekseerScriptMissing = true"></script>
+  <script src="/js/effekseer_knight_bridge.js"></script>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('glCanvas');
+      const gl = canvas.getContext('webgl2', { alpha: false, antialias: true })
+              || canvas.getContext('webgl', { alpha: false, antialias: true });
+
+      const statusPill = document.getElementById('statusPill');
+      const statusText = document.getElementById('statusText');
+      const setupBanner = document.getElementById('setupBanner');
+      const setupReason = document.getElementById('setupReason');
+      const skillDock = document.getElementById('skillDock');
+      const texDrawer = document.getElementById('texDrawer');
+      const texGrid = document.getElementById('texGrid');
+
+      // Populate Texture Inspector Drawer
+      const TEX_LIST = [
+        'slash_crescent.png', 'holy_rune_circle.png', 'hex_aegis_shield.png',
+        'lion_crest_roar.png', 'shockwave_ring.png', 'starburst_flare.png',
+        'energy_ribbon.png', 'soft_glow.png', 'holy_spark.png', 'heal_cross.png'
+      ];
+      TEX_LIST.forEach((name) => {
+        const div = document.createElement('div');
+        div.className = 'tex-card';
+        div.innerHTML = `<img src="/assets/vfx/knight/textures/${name}" alt="${name}" /><span>${name}</span>`;
+        texGrid.appendChild(div);
+      });
+
+      document.getElementById('btnToggleTex').addEventListener('click', (e) => {
+        const show = texDrawer.style.display !== 'block';
+        texDrawer.style.display = show ? 'block' : 'none';
+        e.target.classList.toggle('active', show);
+      });
+
+      // ----------------------------------------------------------------------
+      // Minimal 3D Matrix Math (Column-Major Float32Array for WebGL & Effekseer)
+      // ----------------------------------------------------------------------
+      function mat4Perspective(fovRad, aspect, near, far) {
+        const f = 1.0 / Math.tan(fovRad * 0.5);
+        const nf = 1.0 / (near - far);
+        const out = new Float32Array(16);
+        out[0] = f / aspect;
+        out[5] = f;
+        out[10] = (far + near) * nf;
+        out[11] = -1;
+        out[14] = (2 * far * near) * nf;
+        return out;
+      }
+
+      function mat4LookAt(eye, center, up) {
+        let zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+        let len = Math.hypot(zx, zy, zz) || 1;
+        zx /= len; zy /= len; zz /= len;
+
+        let xx = up[1] * zz - up[2] * zy;
+        let xy = up[2] * zx - up[0] * zz;
+        let xz = up[0] * zy - up[1] * zx;
+        len = Math.hypot(xx, xy, xz) || 1;
+        xx /= len; xy /= len; xz /= len;
+
+        let yx = zy * xz - zz * xy;
+        let yy = zz * xx - zx * xz;
+        let yz = zx * xy - zy * xx;
+
+        const out = new Float32Array(16);
+        out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+        out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+        out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+        out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+        out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+        out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+        out[15] = 1;
+        return out;
+      }
+
+      function mat4Multiply(a, b) {
+        const out = new Float32Array(16);
+        for (let c = 0; c < 4; c++) {
+          for (let r = 0; r < 4; r++) {
+            out[c * 4 + r] =
+              a[0 * 4 + r] * b[c * 4 + 0] +
+              a[1 * 4 + r] * b[c * 4 + 1] +
+              a[2 * 4 + r] * b[c * 4 + 2] +
+              a[3 * 4 + r] * b[c * 4 + 3];
+          }
+        }
+        return out;
+      }
+
+      // ----------------------------------------------------------------------
+      // Simple Lit 3D Stage (Floor Grid + Stylized 3D Knight Dummy Model)
+      // ----------------------------------------------------------------------
+      const vsSrc = `
+        attribute vec3 aPos;
+        attribute vec3 aNorm;
+        attribute vec3 aCol;
+        uniform mat4 uMVP;
+        varying vec3 vNorm;
+        varying vec3 vCol;
+        void main() {
+          vNorm = aNorm;
+          vCol = aCol;
+          gl_Position = uMVP * vec4(aPos, 1.0);
+        }
+      `;
+      const fsSrc = `
+        precision mediump float;
+        varying vec3 vNorm;
+        varying vec3 vCol;
+        void main() {
+          vec3 L = normalize(vec3(0.45, 0.85, 0.55));
+          float diff = max(dot(normalize(vNorm), L), 0.0);
+          float rim = 0.25 + 0.75 * diff;
+          gl_FragColor = vec4(vCol * rim, 1.0);
+        }
+      `;
+
+      function compileShader(type, src) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        return s;
+      }
+      const prog = gl.createProgram();
+      gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fsSrc));
+      gl.linkProgram(prog);
+
+      const aPos = gl.getAttribLocation(prog, 'aPos');
+      const aNorm = gl.getAttribLocation(prog, 'aNorm');
+      const aCol = gl.getAttribLocation(prog, 'aCol');
+      const uMVP = gl.getUniformLocation(prog, 'uMVP');
+
+      // Build 3D geometry buffers (boxes for Knight dummy + sanctuary arena floor)
+      const verts = [];
+      function pushBox(cx, cy, cz, sx, sy, sz, r, g, b) {
+        const hx = sx * 0.5, hy = sy * 0.5, hz = sz * 0.5;
+        const faces = [
+          { n: [0,0,1],  p: [[-hx,-hy,hz],[hx,-hy,hz],[hx,hy,hz],[-hx,hy,hz]] },
+          { n: [0,0,-1], p: [[hx,-hy,-hz],[-hx,-hy,-hz],[-hx,hy,-hz],[hx,hy,-hz]] },
+          { n: [0,1,0],  p: [[-hx,hy,hz],[hx,hy,hz],[hx,hy,-hz],[-hx,hy,-hz]] },
+          { n: [0,-1,0], p: [[-hx,-hy,-hz],[hx,-hy,-hz],[hx,-hy,hz],[-hx,-hy,hz]] },
+          { n: [1,0,0],  p: [[hx,-hy,hz],[hx,-hy,-hz],[hx,hy,-hz],[hx,hy,hz]] },
+          { n: [-1,0,0], p: [[-hx,-hy,-hz],[-hx,-hy,hz],[-hx,hy,hz],[-hx,hy,-hz]] }
+        ];
+        const tris = [0,1,2, 0,2,3];
+        for (const f of faces) {
+          for (const ti of tris) {
+            const pt = f.p[ti];
+            verts.push(cx + pt[0], cy + pt[1], cz + pt[2], f.n[0], f.n[1], f.n[2], r, g, b);
+          }
+        }
+      }
+
+      // Arena floor platform (12 x 0.4 x 12) + alternating tiles
+      pushBox(0, -0.25, 0, 13.0, 0.5, 13.0, 0.14, 0.18, 0.28);
+      for (let gx = -5; gx <= 5; gx++) {
+        for (let gz = -5; gz <= 5; gz++) {
+          const even = (gx + gz) % 2 === 0;
+          const isCenter = Math.abs(gx) <= 1 && Math.abs(gz) <= 1;
+          const col = isCenter
+            ? (even ? [0.22, 0.29, 0.44] : [0.18, 0.24, 0.37])
+            : (even ? [0.15, 0.19, 0.30] : [0.12, 0.15, 0.25]);
+          pushBox(gx * 1.1, 0.0, gz * 1.1, 1.04, 0.04, 1.04, col[0], col[1], col[2]);
+        }
+      }
+
+      // Forward direction arrow on floor (+Z)
+      pushBox(0, 0.025, 2.2, 0.16, 0.02, 2.2, 0.98, 0.78, 0.22);
+      pushBox(0, 0.025, 3.4, 0.55, 0.02, 0.35, 0.98, 0.78, 0.22);
+
+      // Stylized 3D Iron Knight Placeholder Silhouette (Height ~1.85m, facing +Z)
+      pushBox(-0.18, 0.35, 0.0, 0.22, 0.70, 0.24, 0.28, 0.34, 0.48); // Left leg
+      pushBox( 0.18, 0.35, 0.0, 0.22, 0.70, 0.24, 0.28, 0.34, 0.48); // Right leg
+      pushBox( 0.00, 1.05, 0.0, 0.62, 0.74, 0.38, 0.24, 0.44, 0.78); // Royal blue plate cuirass
+      pushBox( 0.00, 1.10, 0.20, 0.22, 0.34, 0.05, 0.95, 0.76, 0.24); // Gold chest trim
+      pushBox(-0.46, 1.28, 0.0, 0.28, 0.24, 0.30, 0.78, 0.82, 0.90); // Left pauldron
+      pushBox( 0.46, 1.28, 0.0, 0.28, 0.24, 0.30, 0.78, 0.82, 0.90); // Right pauldron
+      pushBox( 0.00, 1.66, 0.0, 0.44, 0.44, 0.44, 0.75, 0.80, 0.88); // Knight Helmet
+      pushBox( 0.00, 1.94, -0.05, 0.10, 0.24, 0.34, 0.95, 0.75, 0.20); // Golden Plume
+      // Kite Shield on Left Arm (+Z facing)
+      pushBox(-0.56, 1.05, 0.36, 0.10, 0.78, 0.54, 0.20, 0.48, 0.88);
+      pushBox(-0.56, 1.05, 0.42, 0.12, 0.48, 0.10, 0.98, 0.80, 0.25);
+      // Broadsword on Right Hand
+      pushBox( 0.56, 1.05, 0.45, 0.08, 0.12, 0.32, 0.92, 0.72, 0.22); // Hilt
+      pushBox( 0.56, 1.15, 1.15, 0.08, 0.16, 1.25, 0.88, 0.93, 0.99); // Blade
+
+      const vbo = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+      const vertCount = verts.length / 9;
+
+      // ----------------------------------------------------------------------
+      // Camera Controls (Default: Lost Saga 45° Isometric View)
+      // ----------------------------------------------------------------------
+      let camYaw = Math.PI * 0.25;
+      let camPitch = 0.52;
+      let camDist = 9.2;
+      const camTarget = [0, 1.0, 0.4];
+
+      let dragging = false, lastX = 0, lastY = 0;
+      canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+      window.addEventListener('pointerup', () => { dragging = false; });
+      window.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        camYaw -= (e.clientX - lastX) * 0.008;
+        camPitch = Math.max(0.12, Math.min(1.42, camPitch + (e.clientY - lastY) * 0.006));
+        lastX = e.clientX; lastY = e.clientY;
+      });
+      canvas.addEventListener('wheel', (e) => {
+        camDist = Math.max(3.5, Math.min(22, camDist + e.deltaY * 0.008));
+      }, { passive: true });
+
+      document.getElementById('btnCamIso').addEventListener('click', () => {
+        camYaw = Math.PI * 0.25; camPitch = 0.52; camDist = 9.2;
+        document.getElementById('btnCamIso').classList.add('active');
+        document.getElementById('btnCamFront').classList.remove('active');
+      });
+      document.getElementById('btnCamFront').addEventListener('click', () => {
+        camYaw = 0.22; camPitch = 0.26; camDist = 8.4;
+        document.getElementById('btnCamFront').classList.add('active');
+        document.getElementById('btnCamIso').classList.remove('active');
+      });
+      document.getElementById('btnStopAll').addEventListener('click', () => {
+        window.KnightEffekseerVFX.stopAll();
+      });
+
+      // ----------------------------------------------------------------------
+      // Build Skill Trigger Dock (Keys 1..7)
+      // ----------------------------------------------------------------------
+      const catalog = window.KnightEffekseerVFX.getCatalog();
+      const skillIds = Object.keys(catalog);
+      let activeButton = null;
+
+      function triggerSkill(id) {
+        const btn = document.querySelector(`.skill-btn[data-id="${id}"]`);
+        if (activeButton) activeButton.classList.remove('playing');
+        if (btn) {
+          btn.classList.add('playing');
+          activeButton = btn;
+        }
+        window.KnightEffekseerVFX.play(id, { x: 0, y: 0, z: 0, yaw: 0, scale: 1.0 });
+      }
+
+      skillIds.forEach((id) => {
+        const s = catalog[id];
+        const btn = document.createElement('button');
+        btn.className = 'skill-btn';
+        btn.dataset.id = id;
+        btn.innerHTML = `
+          <div class="skill-key">กด [${s.hotkey}]</div>
+          <div class="skill-name">${s.nameTh}</div>
+          <div class="skill-desc">${s.desc}</div>
+        `;
+        btn.addEventListener('click', () => triggerSkill(id));
+        skillDock.appendChild(btn);
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          window.KnightEffekseerVFX.stopAll();
+          return;
+        }
+        const match = Object.values(catalog).find((s) => s.hotkey === e.key);
+        if (match) triggerSkill(match.id);
+      });
+
+      // Auto cycle showcase mode
+      let autoCycle = false;
+      let autoIdx = 0;
+      let autoTimer = 0;
+      document.getElementById('btnAutoLoop').addEventListener('click', (e) => {
+        autoCycle = !autoCycle;
+        e.target.textContent = `Auto Cycle: ${autoCycle ? 'ON' : 'OFF'}`;
+        e.target.classList.toggle('active', autoCycle);
+        autoTimer = 0;
+      });
+
+      // ----------------------------------------------------------------------
+      // Initialize EffekseerForWebGL
+      // ----------------------------------------------------------------------
+      function showSetupError(reason) {
+        statusPill.classList.add('error');
+        statusText.textContent = 'รอการ Compile .efkefc';
+        setupReason.textContent = reason;
+        setupBanner.style.display = 'block';
+      }
+
+      if (window.__effekseerScriptMissing || typeof window.effekseer === 'undefined') {
+        showSetupError('ไม่พบ /vendor/effekseer/effekseer.min.js (ยังไม่ได้ copy จาก EffekseerForWebGL1.80.8)');
+      } else {
+        window.KnightEffekseerVFX.init(gl, {
+          wasmPath: '/vendor/effekseer/effekseer.wasm',
+          onStatus: (st) => {
+            statusText.textContent = `โหลดเอฟเฟกต์ Knight: ${st.loaded} / ${st.total}`;
+          }
+        }).then((vfx) => {
+          if (vfx.loadedCount === 0) {
+            showSetupError('โหลด WASM สำเร็จ แต่ยังไม่พบไฟล์ .efkefc ใน public/assets/vfx/knight/');
+          } else {
+            statusPill.classList.add('ready');
+            statusText.textContent = `พร้อมใช้งาน (${vfx.loadedCount}/${vfx.totalCount} เอฟเฟกต์)`;
+            setTimeout(() => triggerSkill('knight_weapon'), 250);
+          }
+        }).catch((err) => {
+          showSetupError(err.message);
+        });
+      }
+
+      // ----------------------------------------------------------------------
+      // Main Render Loop
+      // ----------------------------------------------------------------------
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.floor(window.innerWidth * dpr);
+        const h = Math.floor(window.innerHeight * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      let lastTime = performance.now();
+      function frame(now) {
+        const dt = Math.min(0.05, (now - lastTime) * 0.001);
+        lastTime = now;
+
+        if (autoCycle && window.KnightEffekseerVFX.ready) {
+          autoTimer -= dt;
+          if (autoTimer <= 0) {
+            const id = skillIds[autoIdx % skillIds.length];
+            triggerSkill(id);
+            autoTimer = (catalog[id].durationSec || 1.2) + 0.45;
+            autoIdx++;
+          }
+        }
+
+        resize();
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clearColor(0.045, 0.065, 0.12, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+        gl.disable(gl.BLEND);
+
+        const aspect = canvas.width / Math.max(1, canvas.height);
+        const proj = mat4Perspective(45 * Math.PI / 180, aspect, 0.1, 120.0);
+        const eye = [
+          camTarget[0] + Math.sin(camYaw) * Math.cos(camPitch) * camDist,
+          camTarget[1] + Math.sin(camPitch) * camDist,
+          camTarget[2] + Math.cos(camYaw) * Math.cos(camPitch) * camDist
+        ];
+        const view = mat4LookAt(eye, camTarget, [0, 1, 0]);
+        const mvp = mat4Multiply(proj, view);
+
+        // Draw 3D Stage & Placeholder Iron Knight
+        gl.useProgram(prog);
+        gl.uniformMatrix4fv(uMVP, false, mvp);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        const stride = 9 * 4;
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, stride, 0);
+        gl.enableVertexAttribArray(aNorm);
+        gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, stride, 3 * 4);
+        gl.enableVertexAttribArray(aCol);
+        gl.vertexAttribPointer(aCol, 3, gl.FLOAT, false, stride, 6 * 4);
+        gl.drawArrays(gl.TRIANGLES, 0, vertCount);
+
+        // Draw 3D Effekseer VFX on top (with real WebGL depth test against the 3D Knight!)
+        if (window.KnightEffekseerVFX.ready) {
+          window.KnightEffekseerVFX.updateAndDraw(dt, proj, view);
+        }
+
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
