@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LOST SAGA 2.5D PIXEL ARENA - LAN Multiplayer</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
   <!-- 2.5D PSEUDO-3D PIXEL ART GAME CANVAS + 3D EFFEKSEER WEBGL OVERLAY -->
@@ -34,6 +42,7 @@
     </div>
 
     <div class="hud-right">
+      <button class="hud-btn" id="btnToggleRenderer" title="สลับโหมดภาพ 2D / 3D (Three.js ทดลอง)">🧊 3D (ทดลอง)</button>
       <button class="hud-btn accent" id="btnOpenLobby">ตั้งค่าห้อง / ดูสกิลฮีโร่</button>
     </div>
   </header>

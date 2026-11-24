@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "pixelfx": "github:patch-gg/pixelfx",
+    "three": "^0.181.2",
     "ws": "^8.18.0"
   }
 }
