@@ -40,7 +40,14 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.wasm': 'application/wasm',
+  '.efkefc': 'application/octet-stream',
+  '.efk': 'application/octet-stream',
+  '.efkproj': 'application/xml; charset=utf-8',
+  '.glb': 'model/gltf-binary',
+  '.gltf': 'model/gltf+json',
+  '.bin': 'application/octet-stream'
 };
 
 const server = http.createServer((req, res) => {
