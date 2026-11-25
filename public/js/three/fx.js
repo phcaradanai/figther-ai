@@ -121,6 +121,12 @@ class ParticleLayer {
     this.alpha[i] = 0;
   }
 
+  clear() {
+    this.life.fill(0);
+    this.alpha.fill(0);
+    this.size.fill(0);
+  }
+
   update(dt) {
     for (let i = 0; i < this.max; i++) {
       if (this.life[i] <= 0) continue;
@@ -1106,6 +1112,26 @@ export class FxSystem {
     }
   }
 
+  removeShape(index) {
+    const shape = this.shapes[index];
+    shape.mesh.traverse(o => {
+      if (o.userData.inst) o.userData.inst.pool.remove(o.userData.inst);
+      if (o.material) o.material.dispose();
+    });
+    if (shape.inScene) shape.mesh.removeFromParent();
+    const decalIndex = this.decals.indexOf(shape.mesh);
+    if (decalIndex >= 0) this.decals.splice(decalIndex, 1);
+    this.shapes.splice(index, 1);
+  }
+
+  clear() {
+    this.add.clear();
+    this.norm.clear();
+    this.timers.length = 0;
+    this.texts.length = 0;
+    for (let i = this.shapes.length - 1; i >= 0; i--) this.removeShape(i);
+  }
+
   update(dt) {
     this.time += dt;
     if (this.timers.length) {
@@ -1122,16 +1148,7 @@ export class FxSystem {
       s.age += dt;
       const k = Math.min(1, s.age / s.life);
       s.update(k, dt);
-      if (k >= 1) {
-        s.mesh.traverse((o) => {
-          if (o.userData.inst) o.userData.inst.pool.remove(o.userData.inst);
-          if (o.material) o.material.dispose();
-        });
-        if (s.inScene) s.mesh.removeFromParent();
-        const di = this.decals.indexOf(s.mesh);
-        if (di >= 0) this.decals.splice(di, 1);
-        this.shapes.splice(i, 1);
-      }
+      if (k >= 1) this.removeShape(i);
     }
     for (const p of this.pools.values()) p.flush();
     const now = performance.now();
