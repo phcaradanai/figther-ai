@@ -551,10 +551,10 @@
     cyborg: {
       id: 'cyborg',
       index: 7,
-      nameTh: 'กิกะสูท (Giga Suit)',
-      nameEn: 'Giga Suit Mecha',
+      nameTh: 'Cyborg',
+      nameEn: 'Cyborg',
       roleTh: 'ระยะไกล / บินลอยตัวยิงเลเซอร์ & มิสไซล์',
-      roleEn: 'Ranged / Flying Mecha',
+      roleEn: 'Ranged / Flying Cyborg',
       color: '#ea580c',
       accentColor: '#38bdf8',
       skinColor: '#f8fafc',
@@ -564,7 +564,7 @@
       attackType: 'ranged',
       weaponType: 'plasma_rifle',
       mobility: {
-        nameTh: 'โหมดบินไอพ่นอิสระ (Giga Jetpack Fly) + บูสต์แดชกลางอากาศ',
+        nameTh: 'โหมดบินไอพ่นอิสระ (Cyborg Jetpack Fly) + บูสต์แดชกลางอากาศ',
         type: 'jetpack_fly',
         maxJumps: 2,
         canAirDash: true,
@@ -575,7 +575,7 @@
         airJumpCost: 15,
         gaugeRegen: 38
       },
-      descTh: 'หุ่นรบกิกะสูทสีแดง-ขาว มีเกจไอพ่นบินลอยตัวอิสระกลางอากาศ พุ่งบูสต์กลางอากาศ ยิงเลเซอร์บีม และมิสไซล์ล็อคเป้า',
+      descTh: 'ไซบอร์กหุ่นรบสีแดง-ขาว มีเกจไอพ่นบินลอยตัวอิสระกลางอากาศ พุ่งบูสต์กลางอากาศ ยิงเลเซอร์บีม และมิสไซล์ล็อคเป้า',
       basicAttack: {
         damage: 9,
         range: 9.2,
@@ -584,7 +584,7 @@
         comboHits: 3
       },
       heavyAttack: {
-        nameTh: 'กิกะเลเซอร์บีม (Giga Laser Cannon)',
+        nameTh: 'ไซบอร์กเลเซอร์บีม (Cyborg Laser Cannon)',
         damage: 21,
         range: 12.0,
         knockback: 8.2,
@@ -596,8 +596,8 @@
           id: 'cyborg_weapon',
           heroId: 'cyborg',
           slot: 'weapon',
-          nameTh: 'กิกะบัสเตอร์บีม (Giga Buster Beam)',
-          nameEn: 'Giga Buster Beam',
+          nameTh: 'บัสเตอร์บีม (Buster Beam)',
+          nameEn: 'Buster Beam',
           descTh: 'ชาร์จยิงลำแสงพลาสม่าสีฟ้าขนาดยักษ์กวาดไปด้านหน้า ทะลวงการ์ดและซัดปลิว',
           cooldownMs: 8000,
           color: '#38bdf8'
@@ -618,8 +618,8 @@
           heroId: 'cyborg',
           slot: 'helmet',
           nameTh: 'มิสไซล์ติดตามเป้าหมาย',
-          nameEn: 'Giga Homing Missiles',
-          descTh: 'ยิงมิสไซล์นำวิถี 5 ลูก พุ่งเลี้ยวติดตามศัตรูที่อยู่ใกล้ที่สุดอัตโนมัติ',
+          nameEn: 'Cyborg Homing Missiles',
+          descTh: 'ยิงมิสไซล์นำวิถี พุ่งเลี้ยวติดตามศัตรูที่อยู่ใกล้ที่สุดอัตโนมัติ',
           cooldownMs: 6500,
           color: '#f97316'
         },
@@ -628,7 +628,7 @@
           heroId: 'cyborg',
           slot: 'trinket',
           nameTh: 'บูสเตอร์บินยิงเลเซอร์ (Flight Assault)',
-          nameEn: 'Giga Flight Thruster',
+          nameEn: 'Cyborg Flight Thruster',
           descTh: 'จุดไอพ่นปีกทะยานลอยค้างกลางอากาศ พร้อมยิงเลเซอร์สีฟ้าเฉียงลงพื้น!',
           cooldownMs: 6500,
           color: '#38bdf8'

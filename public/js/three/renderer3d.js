@@ -17,6 +17,7 @@ import { MageThreeVFX } from './mage_effekseer_3d.js';
 import { CowboyThreeVFX } from './cowboy_effekseer_3d.js';
 import { SamuraiThreeVFX } from './samurai_effekseer_3d.js';
 import { WitchThreeVFX } from './witch_effekseer_3d.js';
+import { CyborgThreeVFX } from './cyborg_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -114,6 +115,12 @@ export class ThreeRenderer {
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
     this.witchVfx = new WitchThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.cyborgVfx = new CyborgThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -227,7 +234,8 @@ export class ThreeRenderer {
         !!(this.mageVfx && this.mageVfx.handleServerFx(fx)) ||
         !!(this.cowboyVfx && this.cowboyVfx.handleServerFx(fx)) ||
         !!(this.samuraiVfx && this.samuraiVfx.handleServerFx(fx)) ||
-        !!(this.witchVfx && this.witchVfx.handleServerFx(fx));
+        !!(this.witchVfx && this.witchVfx.handleServerFx(fx)) ||
+        !!(this.cyborgVfx && this.cyborgVfx.handleServerFx(fx));
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -488,6 +496,20 @@ export class ThreeRenderer {
         tip.rotation.z = -Math.PI / 2;
         break;
       }
+      case 'plasma': {
+        const bolt = add(new THREE.CylinderGeometry(0.10, 0.14, 0.78, 10), glow('#38bdf8', 2.6), [1, 1, 1], [-0.05, 0, 0]);
+        bolt.rotation.z = Math.PI / 2;
+        const core = add(new THREE.ConeGeometry(0.11, 0.34, 10), glow('#e0f7ff', 3.0), [1, 1, 1], [0.46, 0, 0]);
+        core.rotation.z = -Math.PI / 2;
+        break;
+      }
+      case 'railgun': {
+        const lance = add(new THREE.CylinderGeometry(0.16, 0.22, 1.95, 12), glow('#38bdf8', 2.8), [1, 1, 1], [-0.15, 0, 0]);
+        lance.rotation.z = Math.PI / 2;
+        const spear = add(new THREE.ConeGeometry(0.18, 0.55, 12), glow('#ffffff', 3.2), [1, 1, 1], [1.05, 0, 0]);
+        spear.rotation.z = -Math.PI / 2;
+        break;
+      }
       default:
         add(new THREE.IcosahedronGeometry(1, 2), glow(color, 2.6), [r * 0.8, r * 0.8, r * 0.8]);
     }
@@ -529,7 +551,7 @@ export class ThreeRenderer {
         e.trailT = 0.016;
         const c = e.obj.userData.trail || e.obj.userData.color;
         const p = e.obj.position;
-        if (pr.type !== 'bullet' && pr.type !== 'magnum') {
+        if (pr.type !== 'bullet' && pr.type !== 'magnum' && pr.type !== 'plasma' && pr.type !== 'railgun') {
           this.fx.add.spawn({ x: p.x, y: p.y, z: p.z, color: c, intensity: 2, size: Math.max(0.35, (pr.radius || 0.3) * 1.4), sizeEnd: 0.05, life: 0.28, tile: 'dot' });
         }
         if (pr.type === 'fireball' || pr.type === 'homing_missile') {
@@ -799,6 +821,7 @@ export class ThreeRenderer {
     if (this.cowboyVfx) this.cowboyVfx.update(dt);
     if (this.samuraiVfx) this.samuraiVfx.update(dt, state);
     if (this.witchVfx) this.witchVfx.update(dt, state);
+    if (this.cyborgVfx) this.cyborgVfx.update(dt, state);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);

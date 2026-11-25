@@ -622,6 +622,108 @@
       attachToCaster: false,
       color: '#67e8f9',
       desc: 'ตราเกล็ดหิมะใต้เท้า + วงแหวนน้ำแข็งและเกล็ดหิมะโปรยปรายขณะโดด/แดช'
+    },
+
+    // ========================================================================
+    // 7. CYBORG (ไซบอร์ก — MECHA 3D-ONLY EFFEKSEER SUITE)
+    // ========================================================================
+    cyborg_basic_plasma: {
+      id: 'cyborg_basic_plasma',
+      hero: 'cyborg',
+      nameTh: 'ยิงไรเฟิลพลาสม่า (Plasma Rifle Cast)',
+      file: '/assets/vfx/cyborg/cyborg_basic_plasma.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_basic_plasma.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_basic_plasma.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.34,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'เป้าเล็ง HUD หกเหลี่ยมปลายกระบอกปืน + แสงแฟลร์พลาสม่าและสะเก็ดไอออน'
+    },
+    cyborg_heavy_laser: {
+      id: 'cyborg_heavy_laser',
+      hero: 'cyborg',
+      nameTh: 'ไซบอร์กเลเซอร์บีม (Cyborg Laser Cannon)',
+      file: '/assets/vfx/cyborg/cyborg_heavy_laser.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_heavy_laser.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_heavy_laser.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.65,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'วงแหวนเร่งอนุภาคเรลกัน 3 ชั้น + แฟลร์แรงสูงและประกายไฟฟ้ารอบปากกระบอก'
+    },
+    cyborg_weapon: {
+      id: 'cyborg_weapon',
+      hero: 'cyborg',
+      nameTh: '[Q/SD] บัสเตอร์บีม (Buster Beam)',
+      file: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.25,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'ลำแสงพลาสม่าบัสเตอร์แคนนอนสีฟ้าขนาดยักษ์ยาว 9.5 เมตร + ท่อตาข่ายหกเหลี่ยมและระเบิดปลายทาง'
+    },
+    cyborg_armor: {
+      id: 'cyborg_armor',
+      hero: 'cyborg',
+      nameTh: '[E/ASD] สนามแม่เหล็กแรงโน้มถ่วง (EMP Gravity Field)',
+      file: '/assets/vfx/cyborg/cyborg_skill_armor_emp.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_skill_armor_emp.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_skill_armor_emp.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.38,
+      attachToCaster: false,
+      color: '#2dd4bf',
+      desc: 'โดมตาข่ายหกเหลี่ยม EMP 9.6 เมตรดูดศัตรูเข้าศูนย์กลาง + สายฟ้าแรงสูง 6 สายช็อตสตั๊น'
+    },
+    cyborg_helmet: {
+      id: 'cyborg_helmet',
+      hero: 'cyborg',
+      nameTh: '[R/AD] มิสไซล์ติดตามเป้าหมาย (Cyborg Homing Missiles)',
+      file: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.92,
+      attachToCaster: false,
+      color: '#f97316',
+      desc: 'เป้าล็อค HUD 3 จุดบนบ่า + ไอพ่นยิงมิสไซล์และกลุ่มควันจรวดปล่อยมิสไซล์นำวิถี'
+    },
+    cyborg_trinket: {
+      id: 'cyborg_trinket',
+      hero: 'cyborg',
+      nameTh: '[F/AS] บูสเตอร์บินยิงเลเซอร์ (Flight Assault)',
+      file: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 1.18,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'เปลวไอพ่นปีกคู่ทะยานขึ้นฟ้า + ลำแสงเลเซอร์สีฟ้าเฉียงลงพื้นพร้อมระเบิดเป้า HUD 7.2 เมตร'
+    },
+    cyborg_mobility_jetpack: {
+      id: 'cyborg_mobility_jetpack',
+      hero: 'cyborg',
+      nameTh: 'บินไอพ่น / บูสต์กลางอากาศ (Cyborg Jetpack)',
+      file: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkefc',
+      fallbackFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efk',
+      sourceFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.48,
+      attachToCaster: false,
+      color: '#f97316',
+      desc: 'เปลวไอพ่นปีกคู่ความเร็วเหนือเสียง + วงแหวนแรงขับและประกายไอออน'
     }
   };
 
@@ -1326,6 +1428,96 @@
         };
       }
 
+      // --- CYBORG (3D + EFFEKSEER) ---
+      if (fx.type === 'orbital_beam' && fx.fromSkill === 'cyborg_weapon') {
+        return {
+          effectId: 'cyborg_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'emp_dome' && fx.fromSkill === 'cyborg_armor') {
+        return {
+          effectId: 'cyborg_armor',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.8),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && fx.skillId === 'cyborg_helmet') {
+        return {
+          effectId: 'cyborg_helmet',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'aerial_laser' && fx.fromSkill === 'cyborg_trinket') {
+        return {
+          effectId: 'cyborg_trinket',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 3.2),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          tx: fx.tx,
+          ty: fx.ty,
+          tz: fx.tz,
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'muzzle' && fx.heroId === 'cyborg') {
+        return {
+          effectId: 'cyborg_basic_plasma',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.22 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_cast' && fx.heroId === 'cyborg') {
+        return {
+          effectId: 'cyborg_heavy_laser',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'cyborg') {
+        return {
+          effectId: 'cyborg_mobility_jetpack',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
@@ -1336,10 +1528,10 @@
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       const mapped = this.resolveServerFxMapping(fx);
-      // Samurai, Witch & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
+      // Samurai, Witch, Cyborg & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
       if (mapped) {
         const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
-        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch'));
+        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg'));
       }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
