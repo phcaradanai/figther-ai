@@ -928,6 +928,108 @@
       attachToCaster: false,
       color: '#fde047',
       desc: 'วงยันต์ลายไทยใต้เท้า + คลื่นฟุตเวิร์คความเร็วสูงและประกายปราณทอง'
+    },
+
+    // ========================================================================
+    // 10. NECRO GRIM REAPER (ยมทูตเคียวทมิฬ — ABYSSAL SOUL 3D-ONLY SUITE)
+    // ========================================================================
+    reaper_basic_combo: {
+      id: 'reaper_basic_combo',
+      hero: 'reaper',
+      nameTh: 'ตวัดเคียวมรณะ 3 ฮิต (Death Scythe Combo)',
+      file: '/assets/vfx/reaper/reaper_basic_combo.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_basic_combo.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_basic_combo.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.48,
+      attachToCaster: false,
+      color: '#e879f9',
+      desc: 'คมเคียวมรณะสีดำทมิฬขอบม่วง-เขียวมรกตวิญญาณ และฟินิชเชอร์กากบาท X-Reap ดูดวิญญาณ'
+    },
+    reaper_heavy_hook: {
+      id: 'reaper_heavy_hook',
+      hero: 'reaper',
+      nameTh: 'เคียวกระชากวิญญาณ (Soul Hook Pull)',
+      file: '/assets/vfx/reaper/reaper_heavy_hook.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_heavy_hook.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_heavy_hook.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.88,
+      attachToCaster: false,
+      color: '#d946ef',
+      desc: 'โซ่ตรวนวิญญาณพุ่งยาว 4.8 ม. เกี่ยวเคียวมรณะกระชากศัตรูและวงแหวนดูดกลับเข้าหาตัว'
+    },
+    reaper_weapon: {
+      id: 'reaper_weapon',
+      hero: 'reaper',
+      nameTh: '[Q/SD] เคียวมรณะเกี่ยววิญญาณ (Grim Soul Harvest)',
+      file: '/assets/vfx/reaper/reaper_skill_weapon_harvest.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_skill_weapon_harvest.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_skill_weapon_harvest.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.24,
+      attachToCaster: false,
+      color: '#a855f7',
+      desc: 'วงเวทย์ยมทูต 8.8 ม. + เคียวยักษ์กวาด 360° สองชั้น + พายุวิญญาณและลูกแก้วดูดเลือด 6 ดวง'
+    },
+    reaper_armor: {
+      id: 'reaper_armor',
+      hero: 'reaper',
+      nameTh: '[E/ASD] ร่างหมอกวิญญาณอมตะ (Wraith Mist Form)',
+      file: '/assets/vfx/reaper/reaper_skill_armor_wraith.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_skill_armor_wraith.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_skill_armor_wraith.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.38,
+      attachToCaster: true,
+      color: '#9333ea',
+      desc: 'หมอกทมิฬอมตะ 7.6 ม. หมุนคลุมกาย + พายุวิญญาณสีม่วง-มรกต + กะโหลกวิญญาณและคลื่นดูดเลือด'
+    },
+    reaper_helmet: {
+      id: 'reaper_helmet',
+      hero: 'reaper',
+      nameTh: '[R/AD] ฝูงกะโหลกอาฆาต (Phantom Skull Swarm)',
+      file: '/assets/vfx/reaper/reaper_skill_helmet_skulls.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_skill_helmet_skulls.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_skill_helmet_skulls.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.98,
+      attachToCaster: false,
+      color: '#e879f9',
+      desc: 'เปิดประตูอัญเชิญ 3 บานปล่อยฝูงกะโหลกวิญญาณอาฆาต 3 ทิศทางพร้อมหางหมอกเพลิงทมิฬ'
+    },
+    reaper_trinket: {
+      id: 'reaper_trinket',
+      hero: 'reaper',
+      nameTh: '[F/AS] โซ่ตรวนขุมนรก (Abyssal Grave Chains)',
+      file: '/assets/vfx/reaper/reaper_skill_trinket_chains.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_skill_trinket_chains.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_skill_trinket_chains.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.48,
+      attachToCaster: false,
+      color: '#d946ef',
+      desc: 'ประตูนรกแตกแยก 8.6 ม. + เสาโซ่ตรวนขุมนรก 6 เสางับบีบเข้าใน + พายุวิญญาณและกะโหลกผุดจากหลุม'
+    },
+    reaper_mobility_wraith: {
+      id: 'reaper_mobility_wraith',
+      hero: 'reaper',
+      nameTh: 'บินร่อนวิญญาณ / แดชเงาทมิฬ (Wraith Float & Shadow Dash)',
+      file: '/assets/vfx/reaper/reaper_mobility_wraith.efkefc',
+      fallbackFile: '/assets/vfx/reaper/reaper_mobility_wraith.efk',
+      sourceFile: '/assets/vfx/reaper/reaper_mobility_wraith.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.52,
+      attachToCaster: false,
+      color: '#c084fc',
+      desc: 'กลุ่มหมอกวิญญาณทมิฬ + วงแหวนเขียวมรกต-ม่วง และสะเก็ดวิญญาณขณะบินร่อน/แดชเงา'
     }
   };
 
@@ -1860,6 +1962,93 @@
         };
       }
 
+      // --- NECRO GRIM REAPER (3D + EFFEKSEER) ---
+      if (fx.type === 'scythe_reap' && (fx.fromSkill === 'reaper_weapon' || !fx.fromSkill)) {
+        return {
+          effectId: 'reaper_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'smoke' && fx.fromSkill === 'reaper_armor') {
+        return {
+          effectId: 'reaper_armor',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && fx.skillId === 'reaper_helmet') {
+        return {
+          effectId: 'reaper_helmet',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.2),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'grave_chains' && (fx.fromSkill === 'reaper_trinket' || !fx.fromSkill)) {
+        return {
+          effectId: 'reaper_trinket',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'slash' && (fx.heroId === 'reaper' || fx.weaponType === 'scythe')) {
+        return {
+          effectId: 'reaper_basic_combo',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.24 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_impact' && fx.heroId === 'reaper') {
+        return {
+          effectId: 'reaper_heavy_hook',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'reaper') {
+        return {
+          effectId: 'reaper_mobility_wraith',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.96 : 0.88
+        };
+      }
+
       return null;
     }
 
@@ -1870,10 +2059,10 @@
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       const mapped = this.resolveServerFxMapping(fx);
-      // Samurai, Witch, Cyborg, Viking, Striker & later heroes are 3D-only (do not suppress 2D legacy)
+      // Samurai, Witch, Cyborg, Viking, Striker & Reaper are 3D-only (do not suppress 2D legacy)
       if (mapped) {
         const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
-        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg' || meta.hero === 'viking' || meta.hero === 'striker'));
+        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg' || meta.hero === 'viking' || meta.hero === 'striker' || meta.hero === 'reaper'));
       }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
