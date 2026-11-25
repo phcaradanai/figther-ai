@@ -246,7 +246,7 @@ function alignQ(dir) {
 // ---------------------------------------------------------------------------
 const HEAD_R = 0.38;
 
-function buildHead(b, head, heroId) {
+function buildHead(b, head, heroId, helmetId) {
   const look = HERO_LOOK[heroId] || HERO_LOOK.knight;
   const c = new THREE.Vector3(0, 0.32, 0);
   const skin = b.toon(SKIN);
@@ -267,36 +267,53 @@ function buildHead(b, head, heroId) {
   }
   b.part(head, G.box(0.055, 0.014, 0.012), eyeDark, { p: [c.x, c.y - 0.165, c.z + 0.342], r: [-0.42, 0, 0], outline: 0, shadow: false });
 
-  buildHair(b, head, c, look);
+  buildHair(b, head, c, look, HELMET_COVER[helmetId] || null);
   return c;
 }
 
-function buildHair(b, head, c, look) {
+// What a helmet hides: 'dome' covers the whole crown, 'hat' the top above the brim.
+// Bands (ninja, striker, cyborg) leave the hair alone.
+const HELMET_COVER = { knight: 'dome', samurai: 'dome', viking: 'dome', reaper: 'dome', mage: 'hat', cowboy: 'hat', witch: 'hat' };
+
+function buildHair(b, head, c, look, cover) {
   const m = b.toon(look.hair);
   const capGeo = geo('haircap', () => new THREE.SphereGeometry(0.405, 26, 16, 0, Math.PI * 2, 0, 1.78));
-  b.part(head, capGeo, m, { p: [c.x, c.y + 0.015, c.z - 0.012], r: [-0.5, 0, 0], outline: 0.03 });
+  // Under a helmet the cap is pressed flat so neither it nor its outline pokes through the shell.
+  // Under a hat it also sits lower so it stays beneath the brim around the crown.
+  const capS = cover ? [1, 0.975, 1] : [1, 1, 1];
+  const capY = cover === 'hat' ? -0.03 : cover ? 0 : 0.015;
+  b.part(head, capGeo, m, { p: [c.x, c.y + capY, c.z - 0.012], r: [-0.5, 0, 0], s: capS, outline: cover ? 0.015 : 0.03 });
 
   // Anime hair: pointed tufts. Bangs over the forehead...
   const onHead = (a, e, r = 0.4) => [c.x + Math.sin(a) * Math.cos(e) * r, c.y + Math.sin(e) * r, c.z + Math.cos(a) * Math.cos(e) * r];
   for (let i = -3; i <= 3; i++) {
     const a = i * 0.25;
-    const e = 0.66 - Math.abs(i) * 0.07;
+    // Under a dome the bangs start lower and closer in, below its front rim
+    const e = (cover === 'dome' ? 0.42 : 0.66) - Math.abs(i) * 0.07;
     const dir = new THREE.Vector3(Math.sin(a) * 0.45 + i * 0.05, -1, Math.cos(a) * 0.7);
-    b.part(head, G.cone(0.085, 0.2 + (i % 2 === 0 ? 0.04 : 0), 5), m, { p: onHead(a, e, 0.39), q: alignQ(dir), outline: 0.06 });
+    b.part(head, G.cone(0.085, 0.2 + (i % 2 === 0 ? 0.04 : 0), 5), m, { p: onHead(a, e, cover === 'dome' ? 0.375 : 0.39), q: alignQ(dir), outline: 0.06 });
   }
   // ...messy side & back tufts...
   for (let i = 0; i < 11; i++) {
     const a = 1.05 + (i / 10) * (Math.PI * 2 - 2.1);
-    for (const e of [0.15, -0.2]) {
+    // Under a helmet they hang lower and tighter so the cone bases stay inside the shell / under the brim
+    for (const e of cover ? [-0.02, -0.32] : [0.15, -0.2]) {
       const dir = new THREE.Vector3(Math.sin(a) * 0.55, -0.85, Math.cos(a) * 0.55);
-      b.part(head, G.cone(0.11, 0.34, 5), m, { p: onHead(a + e * 0.2, e, 0.39), q: alignQ(dir), outline: 0.05 });
+      b.part(head, G.cone(0.11, 0.34, 5), m, { p: onHead(a + e * 0.2, e, cover ? 0.36 : 0.39), q: alignQ(dir), outline: 0.05 });
     }
   }
   // ...and one cheeky ahoge strand on top
-  b.part(head, G.cone(0.035, 0.26, 5), m, { p: [c.x + 0.02, c.y + 0.44, c.z + 0.02], r: [0.5, 0, -0.35], outline: 0.08 });
+  if (!cover) b.part(head, G.cone(0.035, 0.26, 5), m, { p: [c.x + 0.02, c.y + 0.44, c.z + 0.02], r: [0.5, 0, -0.35], outline: 0.08 });
 
   const style = look.hairStyle;
-  if (style === 'spiky') {
+  if (style === 'spiky' && cover) {
+    // Spikes flare out from under the rim instead of through the crown
+    const dirs = [[0.9, -0.15, -0.35], [-0.9, -0.15, -0.35], [0.5, -0.2, -0.85], [-0.5, -0.2, -0.85], [0, -0.25, -1]];
+    for (const d of dirs) {
+      const dir = new THREE.Vector3(...d).normalize();
+      b.part(head, G.cone(0.09, 0.28, 6), m, { p: [c.x + dir.x * 0.36, c.y + 0.02 + dir.y * 0.36, c.z + dir.z * 0.36], q: alignQ(dir), outline: 0.05 });
+    }
+  } else if (style === 'spiky') {
     const dirs = [[0, 1, -0.3], [0.55, 0.8, -0.4], [-0.55, 0.8, -0.4], [0.3, 0.45, -0.85], [-0.3, 0.45, -0.85], [0.85, 0.3, -0.35], [-0.85, 0.3, -0.35], [0, 0.55, -0.85], [0.2, 0.95, 0.2]];
     for (const d of dirs) {
       const dir = new THREE.Vector3(...d).normalize();
@@ -308,6 +325,7 @@ function buildHair(b, head, c, look) {
     }
     b.part(head, G.sphere(0.2, 14, 10), m, { p: [c.x, c.y - 0.12, c.z - 0.3], s: [1.6, 1.2, 0.8] });
   } else if (style === 'bun') {
+    if (cover) return; // tucked under the helmet
     b.part(head, G.sphere(0.15, 14, 10), m, { p: [c.x, c.y + 0.34, c.z - 0.22] });
     b.part(head, G.torus(0.07, 0.03, 6, 14), b.toon('#b82830'), { p: [c.x, c.y + 0.27, c.z - 0.2], r: [Math.PI / 2 - 0.7, 0, 0], outline: 0 });
   } else if (style === 'long') {
@@ -328,15 +346,17 @@ function buildHair(b, head, c, look) {
 // ---------------------------------------------------------------------------
 // HELMETS (gear.helmet)
 // ---------------------------------------------------------------------------
-const domeGeo = () => geo('dome', () => new THREE.SphereGeometry(0.425, 22, 12, 0, Math.PI * 2, 0, 1.3));
+const domeGeo = () => geo('dome', () => new THREE.SphereGeometry(0.44, 22, 12, 0, Math.PI * 2, 0, 1.3));
+// Kabuto bowl reaches down into its neck guard so no hair shows in between
+const deepDomeGeo = () => geo('domeDeep', () => new THREE.SphereGeometry(0.44, 22, 14, 0, Math.PI * 2, 0, 1.58));
 const brimGeo = (r) => G.cyl(r, r, 0.035, 28);
 
 const HELMETS = {
   knight(b, h, c) {
     b.part(h, domeGeo(), b.toon(STEEL), { p: [c.x, c.y + 0.02, c.z], r: [-0.35, 0, 0], outline: 0.03 });
-    b.part(h, G.torus(0.42, 0.03, 6, 28), b.toon(GOLD), { p: [c.x, c.y + 0.1, c.z - 0.02], r: [Math.PI / 2 - 0.35, 0, 0], outline: 0 });
+    b.part(h, G.torus(0.435, 0.03, 6, 28), b.toon(GOLD), { p: [c.x, c.y + 0.1, c.z - 0.02], r: [Math.PI / 2 - 0.35, 0, 0], outline: 0 });
     b.part(h, G.sphere(0.1, 12, 10), b.toon('#2563eb'), { p: [c.x, c.y + 0.5, c.z - 0.1], r: [-0.7, 0, 0], s: [0.8, 2.6, 1.6] });
-    b.part(h, G.box(0.05, 0.22, 0.05), b.toon(GOLD), { p: [c.x, c.y + 0.28, c.z + 0.3], r: [0.55, 0, 0], outline: 0.08 });
+    b.part(h, G.box(0.05, 0.22, 0.05), b.toon(GOLD), { p: [c.x, c.y + 0.3, c.z + 0.32], r: [0.55, 0, 0], outline: 0.08 });
   },
   ninja(b, h, c) {
     const band = b.toon('#6d28d9');
@@ -361,9 +381,13 @@ const HELMETS = {
   },
   samurai(b, h, c) {
     const lacquer = b.toon('#2a2228');
-    b.part(h, domeGeo(), lacquer, { p: [c.x, c.y + 0.03, c.z], r: [-0.3, 0, 0], outline: 0.03 });
+    b.part(h, deepDomeGeo(), lacquer, { p: [c.x, c.y + 0.03, c.z], r: [-0.3, 0, 0], outline: 0.03 });
     const guard = b.toon('#7f1d1d', { side: THREE.DoubleSide });
-    b.part(h, G.cyl(0.45, 0.56, 0.18, 22, true), guard, { p: [c.x, c.y - 0.02, c.z - 0.06], r: [-0.3, 0, 0], outline: 0 });
+    // Neck guard starts flush with the bowl all the way round (no gap at the back)
+    b.part(h, G.cyl(0.455, 0.56, 0.18, 22, true), guard, { p: [c.x, c.y - 0.02, c.z], r: [-0.3, 0, 0], outline: 0 });
+    // Lip closing the guard's top edge against the bowl (top plane of the tilted guard)
+    const lip = geo('kabutoLip', () => new THREE.RingGeometry(0.38, 0.46, 28));
+    b.part(h, lip, guard, { p: [c.x, c.y - 0.02 + 0.09 * Math.cos(0.3), c.z - 0.09 * Math.sin(0.3)], r: [-Math.PI / 2 - 0.3, 0, 0], outline: 0, shadow: false });
     b.part(h, G.torus(0.2, 0.028, 6, 16, Math.PI), b.toon(GOLD), { p: [c.x, c.y + 0.42, c.z + 0.28], r: [0, 0, Math.PI], outline: 0.06 });
   },
   witch(b, h, c) {
@@ -389,7 +413,7 @@ const HELMETS = {
   },
   viking(b, h, c) {
     b.part(h, domeGeo(), b.toon(IRON), { p: [c.x, c.y + 0.03, c.z], r: [-0.3, 0, 0], outline: 0.03 });
-    b.part(h, G.torus(0.43, 0.035, 6, 28), b.toon('#9a6b3c'), { p: [c.x, c.y + 0.1, c.z - 0.02], r: [Math.PI / 2 - 0.3, 0, 0], outline: 0 });
+    b.part(h, G.torus(0.445, 0.035, 6, 28), b.toon('#9a6b3c'), { p: [c.x, c.y + 0.1, c.z - 0.02], r: [Math.PI / 2 - 0.3, 0, 0], outline: 0 });
     const horn = b.toon('#f3ead8');
     for (const side of [-1, 1]) {
       b.part(h, G.cone(0.085, 0.4, 10), horn, { p: [c.x + side * 0.43, c.y + 0.28, c.z - 0.02], r: [0, 0, -side * 1.0], outline: 0.05 });
@@ -727,7 +751,7 @@ function buildRig(b, heroId, gear) {
   R.shinR = node('shinR', R.legR, 0, -0.29, 0);
   R.footR = node('footR', R.shinR, 0, -0.27, 0);
 
-  const c = buildHead(b, R.head, heroId);
+  const c = buildHead(b, R.head, heroId, gear.helmet);
   buildArmor(b, R, gear.armor);
   if (gear.helmet && HELMETS[gear.helmet]) HELMETS[gear.helmet](b, R.head, c);
   if (gear.weapon && WEAPONS[gear.weapon]) WEAPONS[gear.weapon](b, { R: R.handR, L: R.handL, foreL: R.foreL });
