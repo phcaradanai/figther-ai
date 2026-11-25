@@ -192,6 +192,7 @@ export function makeArenaFloor(theme, finish) {
   const palette = finish === 'cinder' ? ['#806459', '#463334', '#a58a72', '#6b534b']
     : finish === 'archstone' ? ['#746764', '#40393a', '#9b8c81', '#665958']
     : finish === 'catwalk' ? ['#4b697a', '#293f52', '#73919b', '#3d596a']
+    : finish === 'pier' ? ['#9e7a56', '#513d31', '#b69166', '#826445']
     : theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);

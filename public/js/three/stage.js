@@ -44,10 +44,10 @@ export const THEMES = {
     cloudOpacity: 0, props: 'astral'
   },
   tideglass_harbor: {
-    props: 'harbor', surface: ['#9e6242', '#442d28', '#c38e61', '#825237'],
+    props: 'harbor', surface: ['#956845', '#4a352c', '#bc9061', '#7d583e'],
     ridges: ['#a8b5a6', '#8fa5a0', '#698e92'],
     cliff: ['#886751', '#49342b'], under: '#3d554d', trim: '#a77a56',
-    fog: '#a0b6b5', fogNear: 38, fogFar: 120, hemiSky: '#f5eee0', hemiGround: '#7f9f9f', hemiI: 1.05, sun: '#f4e6cb', sunI: 1.38,
+    fog: '#a0b6b5', fogNear: 43, fogFar: 130, hemiSky: '#f5eee0', hemiGround: '#7f9f9f', hemiI: 1.05, sun: '#f4e6cb', sunI: 1.38,
     cloudOpacity: 0
   },
   brasswind_courier: {
@@ -727,30 +727,49 @@ export class Stage {
   }
 
   buildHarborSupports() {
-    const piling = this.track(new THREE.CylinderGeometry(0.24, 0.32, 5, 8));
+    const piling = this.track(new THREE.CylinderGeometry(0.28, 0.35, 5, 8));
     const material = this.track(toon('#49392d'));
-    for (const p of this.map.platforms.filter(platform => platform.y === 0)) {
-      for (const x of [p.x + 0.65, p.x + p.w / 2, p.x + p.w - 0.65]) {
-        for (const z of [p.z + 0.65, p.z + p.d - 0.65]) {
-          const post = new THREE.Mesh(piling, material);
-          post.position.set(x, -3.2, z);
-          this.group.add(post);
+    const cap = this.track(new THREE.BoxGeometry(0.52, 0.42, 1));
+    const supports = [];
+    for (const p of this.map.platforms) {
+      const alongZ = p.course === 'z';
+      const length = alongZ ? p.d : p.w;
+      const span = alongZ ? p.w : p.d;
+      const rows = Math.max(1, Math.ceil((length - 1.5) / 7));
+      for (let i = 0; i <= rows; i++) {
+        const s = 0.75 + i * (length - 1.5) / rows;
+        const x = p.x + (alongZ ? span / 2 : s);
+        const z = p.z + (alongZ ? s : span / 2);
+        const brace = new THREE.Mesh(cap, material);
+        brace.scale.z = span - 0.8;
+        brace.position.set(x, -1.43, z);
+        if (alongZ) brace.rotation.y = Math.PI / 2;
+        this.group.add(brace);
+        for (const offset of [0.75 - span / 2, span / 2 - 0.75]) {
+          supports.push([x + (alongZ ? offset : 0), z + (alongZ ? 0 : offset)]);
         }
       }
     }
+    const posts = new THREE.InstancedMesh(piling, material, supports.length);
+    const transform = new THREE.Matrix4();
+    supports.forEach(([x, z], i) => posts.setMatrixAt(i, transform.makeTranslation(x, -3.25, z)));
+    this.group.add(posts);
   }
 
   buildHarborBackdrop() {
     const rock = this.track(new THREE.IcosahedronGeometry(1, 1));
     const stone = this.track(lambert('#778b84', { flatShading: true }));
-    for (const [x, z, width, height, depth] of [[-26, -15, 4, 4.5, 4], [-29, 3, 5, 3, 5], [3, -28, 7, 3.9, 5], [18, -24, 4, 3.5, 4]]) {
+    for (const [x, z, width, height, depth] of [
+      [-46, -32, 7, 5.1, 6], [-47, -18, 5.5, 3.6, 7], [-14, -39, 8, 5.2, 6],
+      [9, -41, 12, 5.1, 8], [30, -35, 7, 3.7, 5], [48, -14, 6, 4.6, 7]
+    ]) {
       const stack = new THREE.Mesh(rock, stone);
       stack.scale.set(width, height, depth);
       stack.position.set(x, -6, z);
       this.group.add(stack);
     }
     const tower = new THREE.Group();
-    tower.position.set(-26, -2.7, -15);
+    tower.position.set(-46, -1.8, -32);
     const body = new THREE.Mesh(this.track(new THREE.CylinderGeometry(0.58, 1, 4.4, 10)),
       this.track(toon('#d0c3a2')));
     body.position.y = 2.2;

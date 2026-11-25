@@ -1018,22 +1018,26 @@
       id: 'tideglass_harbor',
       nameTh: 'ท่าเรือคลื่นคราม (Tideglass Harbor)',
       nameEn: 'Tideglass Harbor',
-      descTh: 'สายพานขนสินค้าพาไปยังปลายท่าฝั่งตะวันออก เดินสวนหรือก้าวออกด้านข้างได้ ทางไม้สองข้างใช้บุกอ้อมได้โดยมีทะเลอยู่หลังคู่ต่อสู้',
+      descTh: 'เดินข้ามแอ่งน้ำทางซ้ายหรือสะพานเยื้องกลาง ท่าฝั่งขวามีช่องกระโดด 2 หน่วย สายพานบนท่าใต้พาไปถึงขอบทะเลทางตะวันออก',
       skyTop: '#668b9b',
       skyBottom: '#d9d5bb',
       voidType: 'sea',
       voidY: -5,
       platforms: [
-        { id: 'harbor_boardwalk', x: -17, z: -6, w: 34, d: 12, y: 0, h: 1.2 },
-        { id: 'harbor_north_pier', x: -15, z: -16, w: 12, d: 10, y: 0, h: 1, course: 'z' },
-        { id: 'harbor_south_pier', x: 3, z: 6, w: 12, d: 10, y: 0, h: 1, course: 'z' }
+        { id: 'harbor_south_quay', x: -36, z: 8, w: 72, d: 17, y: 0, h: 1.2 },
+        { id: 'harbor_north_quay', x: -29, z: -25, w: 59, d: 16, y: 0, h: 1.2 },
+        { id: 'harbor_west_pier', x: -28, z: -9, w: 10, d: 17, y: 0, h: 1, course: 'z', finish: 'pier' },
+        { id: 'harbor_center_south', x: -3, z: -3, w: 12, d: 11, y: 0, h: 1, course: 'z', finish: 'pier' },
+        { id: 'harbor_center_north', x: 4, z: -9, w: 9, d: 6, y: 0, h: 1, course: 'z', finish: 'pier' },
+        { id: 'harbor_landing', x: 20, z: -3, w: 14, d: 9, y: 0, h: 1.1, finish: 'pier' },
+        { id: 'harbor_east_gangway', x: 23, z: -9, w: 5, d: 6, y: 0, h: 0.9, course: 'z', finish: 'pier' }
       ],
-      conveyor: { x: -12, z: -1.45, w: 29, d: 2.9, y: 0, speedX: 2.8 },
+      conveyor: { x: -13, z: 14, w: 49, d: 4, y: 0, speedX: 2.8 },
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -9, z: -8.5 }, { x: 9, z: 8.5 }, { x: -12, z: 3.2 }, { x: 12, z: -3.2 },
-        { x: -5.5, z: -12 }, { x: 9, z: 12 }, { x: -6, z: 2.5 }, { x: 6, z: -2.5 }
+        { x: -12, z: -16 }, { x: 10, z: 11 }, { x: -22, z: -14 }, { x: -18, z: 17 },
+        { x: 8, z: -15 }, { x: 22, z: 21 }, { x: 23, z: -17 }, { x: -27, z: 20 }
       ]
     },
 

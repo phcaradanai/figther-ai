@@ -330,13 +330,29 @@ async function arenaClients(t, mapId, spawns, heroId = 'knight') {
 }
 
 test('the loading belt carries an idle fighter into the sea while the pier beside it stays still', async t => {
-  const [rider, walker] = await arenaClients(t, 'tideglass_harbor', [{ x: 14, z: 0 }, { x: 14, z: 4 }]);
+  const [rider, walker] = await arenaClients(t, 'tideglass_harbor', [{ x: 32.5, z: 16 }, { x: 32.5, z: 21 }]);
   const start = walker.player(await walker.observe(p => p.grounded));
-  await rider.observe(p => p.grounded && p.x > 15.5);
+  await rider.observe(p => p.grounded && p.x > 34.5);
   const fall = await rider.observe(p => p.deaths === 1);
   assert.ok(fall.killFeed.some(entry => entry.isRingOut));
   assert.equal(walker.player(fall).x, start.x);
   assert.equal(walker.player(fall).deaths, 0);
+});
+
+test('the harbor center piers join on foot while the outlying pier has a jump gap', { timeout: 11000 }, async t => {
+  const [walker, jumper] = await arenaClients(t, 'tideglass_harbor', [{ x: 7, z: -10.8 }, { x: 25, z: 3.5 }]);
+  await Promise.all([walker.observe(p => p.grounded), jumper.observe(p => p.grounded)]);
+  walker.send({ type: 'input', mz: 1 });
+  jumper.send({ type: 'input', mz: 1 });
+  await jumper.observe(p => p.z > 5 && p.z < 6 && p.grounded);
+  jumper.send({ type: 'jump' });
+  await jumper.observe(p => p.z > 8 && p.y === 0 && p.grounded && p.deaths === 0);
+  jumper.send({ type: 'input', mz: 0 });
+  await walker.observe(p => p.z > 10 && p.y === 0 && p.grounded && p.deaths === 0, 6500);
+  const center = walker.messages.filter(m => m.type === 'state').map(walker.player)
+    .filter(p => p && p.z > -8 && p.z < 7);
+  assert.ok(center.length > 10);
+  assert.ok(center.every(p => p.y === 0 && p.grounded));
 });
 
 test('releasing movement on the frozen crossing has a longer stopping distance than on the snow bypass', async t => {
