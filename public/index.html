@@ -87,31 +87,43 @@
     <!-- 4 Modular Gear Skill Buttons (Weapon Q, Armor E, Helmet R, Trinket F) -->
     <div class="skills-dock glass-box" id="skillsDock">
       <button class="skill-card" data-slot="weapon" id="skillBtn_weapon">
-        <div class="skill-hotkey">Q <span>(อาวุธ/SD)</span></div>
+        <div class="skill-hotkey" id="skillKey_weapon">Q · อาวุธ</div>
         <div class="skill-name" id="skillName_weapon">คลื่นดาบเอ็กซ์คาลิเบอร์</div>
         <div class="skill-gear-owner" id="skillOwner_weapon">อัศวินเกราะเหล็ก</div>
-        <div class="skill-cd-overlay" id="skillCd_weapon"></div>
+        <div class="skill-charge-row">
+          <progress id="skillGauge_weapon" max="100" value="100" aria-label="เกจอาวุธ"></progress>
+          <span id="skillCharge_weapon">พร้อม</span>
+        </div>
       </button>
 
       <button class="skill-card" data-slot="armor" id="skillBtn_armor">
-        <div class="skill-hotkey">E <span>(เกราะ/ASD)</span></div>
+        <div class="skill-hotkey" id="skillKey_armor">E · ชุดเกราะ</div>
         <div class="skill-name" id="skillName_armor">ปราการศักดิ์สิทธิ์</div>
         <div class="skill-gear-owner" id="skillOwner_armor">กดใช้ตอนโดนตีได้!</div>
-        <div class="skill-cd-overlay" id="skillCd_armor"></div>
+        <div class="skill-charge-row">
+          <progress id="skillGauge_armor" max="100" value="100" aria-label="เกจชุดเกราะ"></progress>
+          <span id="skillCharge_armor">พร้อม</span>
+        </div>
       </button>
 
       <button class="skill-card" data-slot="helmet" id="skillBtn_helmet">
-        <div class="skill-hotkey">R <span>(หมวก/AD)</span></div>
+        <div class="skill-hotkey" id="skillKey_helmet">R · หมวก</div>
         <div class="skill-name" id="skillName_helmet">คำรามราชสีห์</div>
         <div class="skill-gear-owner" id="skillOwner_helmet">อัศวินเกราะเหล็ก</div>
-        <div class="skill-cd-overlay" id="skillCd_helmet"></div>
+        <div class="skill-charge-row">
+          <progress id="skillGauge_helmet" max="100" value="100" aria-label="เกจหมวก"></progress>
+          <span id="skillCharge_helmet">พร้อม</span>
+        </div>
       </button>
 
       <button class="skill-card" data-slot="trinket" id="skillBtn_trinket">
-        <div class="skill-hotkey">F <span>(ประดับ/AS)</span></div>
+        <div class="skill-hotkey" id="skillKey_trinket">F · เครื่องประดับ</div>
         <div class="skill-name" id="skillName_trinket">พุ่งชนโล่ราชรถ</div>
         <div class="skill-gear-owner" id="skillOwner_trinket">อัศวินเกราะเหล็ก</div>
-        <div class="skill-cd-overlay" id="skillCd_trinket"></div>
+        <div class="skill-charge-row">
+          <progress id="skillGauge_trinket" max="100" value="100" aria-label="เกจเครื่องประดับ"></progress>
+          <span id="skillCharge_trinket">พร้อม</span>
+        </div>
       </button>
     </div>
 
@@ -129,7 +141,7 @@
       <div class="lobby-header">
         <div>
           <h1>⚔️ LOST SAGA 3D ARENA LAN</h1>
-          <p class="subtitle">เกมแอ็กชันตะลุมบอน 3D ผ่าน LAN • 10 ฮีโร่ 40 สกิล • ตีเกราะหลุดและขโมยสกิล</p>
+          <p class="subtitle">เกมแอ็กชันตะลุมบอน 3D ผ่าน LAN • 10 ฮีโร่ เกียร์ 40 ชิ้น • ตีเกราะหลุดและขโมยสกิล</p>
         </div>
         <div class="lan-box" id="lobbyLanBox">
           <div class="lan-box-title">📡 ลิงก์เชื่อมต่อ LAN (ให้เพื่อนในวง Wi-Fi/LAN เปิดในเบราว์เซอร์):</div>
@@ -159,7 +171,9 @@
           <select id="selectArenaMap" class="text-input" aria-describedby="arenaMapDescription"></select>
           <p id="arenaMapDescription" class="arena-map-description"></p>
           <p class="arena-map-description">
-            ลูกศรเดิน · <kbd>D</kbd> โจมตี · สายยิงกด <kbd>D</kbd> ค้างเพื่อเล็ง ใช้ลูกศรเปลี่ยนเป้า แล้วปล่อยเพื่อยิง
+            <kbd>WASD</kbd> เดิน · <kbd>J</kbd> โจมตี · <kbd>K</kbd> โจมตีหนัก<br />
+            สายยิงกด <kbd>J</kbd> ค้างเพื่อเล็ง ใช้ลูกศรเปลี่ยนเป้า แล้วปล่อยเพื่อยิง<br />
+            <kbd>G</kbd> เก็บหรือสลับเกียร์ · คลิกขวาที่ช่องเกียร์เพื่อถอด
           </p>
 
           <p id="rendererError" class="renderer-error" role="alert" hidden>เปิดสนาม 3D ไม่สำเร็จ โปรดเปิด WebGL 2 ในเบราว์เซอร์แล้วโหลดหน้าใหม่</p>

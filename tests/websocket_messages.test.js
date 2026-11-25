@@ -100,6 +100,117 @@ async function join(client, name = 'Player A') {
   return client.waitFor(message => message.type === 'joined');
 }
 
+test('Cyborg flight spends half a gauge and can be transferred to a grounded hero', { timeout: 12000 }, async t => {
+  const map = {
+    ...MAPS.sky_temple,
+    id: 'gear_transfer_test',
+    spawns: [{ x: 0, z: 0 }, { x: 0.4, z: 0.4 }]
+  };
+  const server = await startServer(t, { [map.id]: map });
+  const client = await server.connect();
+  client.send({ type: 'join_room', roomId: 'GEAR-GAUGE', heroId: 'cyborg', mapId: map.id });
+  const { clientId } = await client.waitFor(msg => msg.type === 'joined');
+  const local = msg => msg.players.find(p => p.id === clientId);
+  const ready = await client.waitFor(msg => msg.type === 'state' && local(msg).grounded);
+  assert.equal(local(ready).skillGauges.trinket, 100);
+
+  client.send({ type: 'drop_gear', slot: 'weapon' });
+  client.send({ type: 'skill', slot: 'trinket' });
+  const cast = await client.waitFor(msg => msg.type === 'state' && local(msg).animSkillId === 'cyborg_trinket');
+  assert.equal(local(cast).gear.weapon, 'cyborg');
+  assert.ok(local(cast).skillGauges.trinket >= 50 && local(cast).skillGauges.trinket < 60);
+  assert.equal(cast.droppedGears.length, 0);
+
+  await client.waitFor(msg => msg.type === 'state' && local(msg).animSkillId === 'cyborg_trinket' &&
+    local(msg).skillGauges.trinket > 65);
+  client.send({ type: 'skill', slot: 'trinket' });
+  const second = await client.waitFor(msg => msg.type === 'state' && local(msg).skillGauges.trinket < 30);
+  assert.ok(local(second).skillGauges.trinket > 0);
+
+  client.send({ type: 'drop_gear', slot: 'trinket' });
+  const detached = await client.waitFor(msg => msg.type === 'state' && local(msg).gear.trinket === null);
+  assert.equal(detached.droppedGears[0].slot, 'trinket');
+  assert.equal(local(detached).skillGauges.trinket, null);
+
+  const knight = await server.connect();
+  knight.send({ type: 'join_room', roomId: 'GEAR-GAUGE', heroId: 'knight' });
+  const knightId = (await knight.waitFor(msg => msg.type === 'joined')).clientId;
+  const recipient = msg => msg.players.find(p => p.id === knightId);
+  await knight.waitFor(msg => msg.type === 'state' && recipient(msg).grounded &&
+    msg.droppedGears.some(gear => gear.slot === 'trinket' && gear.y <= 0.25), 5500);
+  knight.send({ type: 'pickup_gear' });
+  const collected = await knight.waitFor(msg => msg.type === 'state' &&
+    msg.fx.some(fx => fx.type === 'pickup') &&
+    recipient(msg).gear.trinket === 'cyborg');
+  assert.ok(recipient(collected).skillGauges.trinket > local(second).skillGauges.trinket);
+  assert.ok(recipient(collected).skillGauges.trinket < 100);
+  assert.equal(recipient(collected).gear.weapon, 'knight');
+
+  await knight.waitFor(msg => msg.type === 'state' && recipient(msg).gear.trinket === 'cyborg' &&
+    recipient(msg).skillGauges.trinket >= 50);
+  knight.send({ type: 'skill', slot: 'trinket' });
+  const hovering = await knight.waitFor(msg => msg.type === 'state' && recipient(msg).animSkillId === 'cyborg_trinket');
+  assert.equal(recipient(hovering).isFlying, true);
+
+  knight.send({ type: 'swap_hero', heroId: 'cyborg' });
+  const swapped = await knight.waitFor(msg => msg.type === 'state' && recipient(msg).heroId === 'cyborg');
+  const swapCharge = recipient(swapped).skillGauges.trinket;
+  await knight.waitFor(msg => msg.type === 'state' && recipient(msg).heroId === 'cyborg' &&
+    recipient(msg).skillGauges.trinket > swapCharge + 24);
+  knight.send({ type: 'swap_hero', heroId: 'witch' });
+  const changed = await knight.waitFor(msg => msg.type === 'state' && recipient(msg).heroId === 'witch');
+  assert.equal(recipient(changed).gear.weapon, 'witch');
+  assert.equal(recipient(changed).gear.trinket, 'cyborg');
+});
+
+test('Striker helmet grants a third jump and has no active cast', { timeout: 10000 }, async t => {
+  const server = await startServer(t);
+  const client = await server.connect();
+  client.send({ type: 'join_room', roomId: 'GEAR-PASSIVE', heroId: 'striker' });
+  const { clientId } = await client.waitFor(msg => msg.type === 'joined');
+  const local = msg => msg.players.find(p => p.id === clientId);
+  const ready = await client.waitFor(msg => msg.type === 'state' && local(msg).grounded);
+  assert.equal(local(ready).skillGauges.helmet, null);
+
+  client.send({ type: 'skill', slot: 'helmet' });
+  for (const count of [1, 2, 3]) {
+    client.send({ type: 'jump' });
+    await client.waitFor(msg => msg.type === 'state' && local(msg).jumpCount === count);
+  }
+  assert.ok(!client.messages.some(msg => msg.type === 'state' && local(msg).animSkillId === 'striker_helmet'));
+});
+
+test('damage accelerates charge and a counter skill breaks an airborne knockdown', { timeout: 10000 }, async t => {
+  const map = {
+    ...MAPS.sky_temple,
+    id: 'counter_test',
+    spawns: [{ x: 0, z: 1.5 }, { x: 1.4, z: 1.5 }]
+  };
+  const server = await startServer(t, { [map.id]: map });
+  const knight = await server.connect();
+  const samurai = await server.connect();
+  for (const [client, heroId] of [[knight, 'knight'], [samurai, 'samurai']]) {
+    client.send({ type: 'join_room', roomId: 'GEAR-COUNTER', mapId: map.id, heroId });
+    client.id = (await client.waitFor(msg => msg.type === 'joined')).clientId;
+  }
+  const fighter = (state, client) => state.players.find(p => p.id === client.id);
+  await knight.waitFor(msg => msg.type === 'state' && msg.players.length === 2 &&
+    msg.players.every(p => p.grounded && !p.buffs.invuln));
+
+  knight.send({ type: 'skill', slot: 'armor' });
+  const launched = await samurai.waitFor(msg => msg.type === 'state' && fighter(msg, samurai).state === 'knockdown');
+  assert.equal(fighter(launched, samurai).grounded, false);
+  const afterHit = fighter(launched, knight).skillGauges.armor;
+  assert.ok(afterHit >= 6);
+
+  samurai.send({ type: 'skill', slot: 'weapon' });
+  samurai.send({ type: 'skill', slot: 'armor' });
+  const countered = await samurai.waitFor(msg => msg.type === 'state' && fighter(msg, samurai).animSkillId === 'samurai_armor');
+  assert.equal(fighter(countered, samurai).state, 'skill');
+  assert.equal(fighter(countered, samurai).skillGauges.weapon, 100);
+  assert.ok(fighter(countered, knight).skillGauges.armor >= afterHit + 3);
+});
+
 test('a melee attack turns toward the closest enemy in reach', { timeout: 10000 }, async t => {
   const map = {
     ...MAPS.sky_temple,

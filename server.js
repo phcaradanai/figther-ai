@@ -21,6 +21,8 @@ const FLOOR_EPSILON = 0.05;
 const MAX_STAIR_RISE = 0.31;
 const TARGET_HEIGHT_LIMIT = 3;
 const SKILL_TARGET_TIMEOUT = 4000;
+const SKILL_CHARGE_DEALT = 0.45;
+const SKILL_CHARGE_TAKEN = 0.30;
 
 function insideRect(area, x, z) {
   return x >= area.x && x <= area.x + area.w && z >= area.z && z <= area.z + area.d;
@@ -176,6 +178,20 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function newSkillGauges(now) {
+  return Object.fromEntries(GAME_DATA.GEAR_SLOTS.map(slot => [
+    slot, { charge: 100, updatedAt: now, nextUseAt: 0 }
+  ]));
+}
+
+function rechargeSkillGauge(gauge, skill, now) {
+  const elapsed = Math.max(0, now - gauge.updatedAt);
+  if (skill.type !== 'passive') {
+    gauge.charge = Math.min(100, gauge.charge + 100 * elapsed / skill.cooldownMs);
+  }
+  gauge.updatedAt = now;
+}
+
 function distXZ(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
@@ -317,6 +333,7 @@ class GameRoom {
       sprintLocked: false,
       isFlying: false,
       flyUntil: 0,
+      hoverUntil: 0,
       flyExhausted: false,
       kills: 0,
       deaths: 0,
@@ -359,13 +376,8 @@ class GameRoom {
         helmet: validHeroId,
         trinket: validHeroId
       },
-      // Skill cooldown timestamps (epoch ms when ready)
-      cooldowns: {
-        weapon: 0,
-        armor: 0,
-        helmet: 0,
-        trinket: 0
-      },
+      acquiredGear: new Set(),
+      skillGauges: newSkillGauges(Date.now()),
       // Input state from client or AI
       input: {
         mx: 0,
@@ -430,6 +442,26 @@ class GameRoom {
     if (!p1 || !p2 || p1.id === p2.id) return false;
     if (this.mode === 'team' && p1.team > 0 && p1.team === p2.team) return false;
     return true;
+  }
+
+  equippedSkill(player, slot) {
+    return GAME_DATA.HEROES[player.gear[slot]]?.skills[slot];
+  }
+
+  addSkillCharge(player, amount, now) {
+    if (!player || player.state === 'dead' || amount <= 0) return;
+    for (const slot of GAME_DATA.GEAR_SLOTS) {
+      const skill = this.equippedSkill(player, slot);
+      if (!skill || skill.type === 'passive') continue;
+      const gauge = player.skillGauges[slot];
+      rechargeSkillGauge(gauge, skill, now);
+      gauge.charge = Math.min(100, gauge.charge + amount);
+    }
+  }
+
+  chargeFromDamage(attacker, victim, damage, now) {
+    this.addSkillCharge(attacker, damage * SKILL_CHARGE_DEALT, now);
+    this.addSkillCharge(victim, damage * SKILL_CHARGE_TAKEN, now);
   }
 
   canAttack(player) {
@@ -554,12 +586,14 @@ class GameRoom {
     player.hp = Math.max(10, Math.round(newHero.maxHp * hpRatio));
     player.lastSwapTime = now;
 
-    // Update any non-stripped gear slots to match new hero (or keep picked-up stolen gear if user wants, or equip new hero's default gear for slots they still have!)
-    GAME_DATA.GEAR_SLOTS.forEach(slot => {
-      if (player.gear[slot] !== null) {
+    // Swap the hero's own gear while retaining acquired gear and elapsed charge.
+    for (const slot of GAME_DATA.GEAR_SLOTS) {
+      const skill = this.equippedSkill(player, slot);
+      if (skill && !player.acquiredGear.has(slot)) {
+        rechargeSkillGauge(player.skillGauges[slot], skill, now);
         player.gear[slot] = newHeroId;
       }
-    });
+    }
 
     // Mid-combo Relay Shockwave (pops nearby enemies up slightly for combo continuation!)
     player.state = 'idle';
@@ -579,52 +613,44 @@ class GameRoom {
     }
   }
 
-  // Drop one piece of gear onto the arena floor!
-  stripOneGear(victim, attacker, forceAll = false) {
-    const removableOrder = ['helmet', 'trinket', 'armor'];
-    const slotsToDrop = forceAll ? ['weapon', 'armor', 'helmet', 'trinket'] : [];
+  dropGear(player, slot, struck = false) {
+    if (player.state === 'dead' || slot === 'weapon') return false;
+    const skill = this.equippedSkill(player, slot);
+    if (!skill) return false;
+    const now = Date.now();
+    const gauge = player.skillGauges[slot];
+    rechargeSkillGauge(gauge, skill, now);
+    const angle = struck ? Math.random() * Math.PI * 2 : 0;
+    const speed = struck ? 2.5 + Math.random() * 2.5 : 0;
+    this.droppedGears.push({
+      id: `gear_${nextEntityId++}`,
+      slot,
+      heroId: player.gear[slot],
+      gauge,
+      manualDropBy: struck ? null : player.id,
+      x: player.x,
+      y: player.y + (struck ? 0.9 : 0.55),
+      z: player.z,
+      vx: Math.cos(angle) * speed,
+      vy: struck ? 7.5 + Math.random() * 2.5 : 0,
+      vz: Math.sin(angle) * speed,
+      spawnedAt: now,
+      expiresAt: now + 22000
+    });
+    player.gear[slot] = null;
+    player.acquiredGear.delete(slot);
+    player.skillGauges[slot] = null;
+    if (player.targeting?.slot === slot) this.clearTargeting(player);
+    return true;
+  }
 
-    if (!forceAll) {
-      for (const s of removableOrder) {
-        if (victim.gear[s] !== null) {
-          slotsToDrop.push(s);
-          break;
-        }
-      }
-    }
-
-    if (slotsToDrop.length === 0) return false;
-
-    for (const slot of slotsToDrop) {
-      const gearHeroId = victim.gear[slot];
-      if (!gearHeroId) continue;
-      victim.gear[slot] = null;
-
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 2.5 + Math.random() * 2.5;
-      this.droppedGears.push({
-        id: `gear_${nextEntityId++}`,
-        slot,
-        heroId: gearHeroId,
-        x: victim.x,
-        y: Math.max(0.5, victim.y + 0.9),
-        z: victim.z,
-        vx: Math.cos(angle) * speed,
-        vy: 7.5 + Math.random() * 2.5,
-        vz: Math.sin(angle) * speed,
-        spawnedAt: Date.now(),
-        expiresAt: Date.now() + 22000
-      });
-    }
-
-    if (!forceAll) {
-      const droppedSlot = slotsToDrop[0];
-      const slotName = GAME_DATA.GEAR_SLOT_LABELS[droppedSlot]?.th.split(' ')[0] || droppedSlot;
-      this.emitFx('gear_break', victim.x, victim.y + 1.4, victim.z, {
-        text: `เกราะหลุด! (${slotName})`,
-        color: '#fbbf24'
-      });
-    }
+  stripOneGear(victim) {
+    const slot = ['helmet', 'trinket', 'armor'].find(slot => victim.gear[slot] !== null);
+    if (!slot || !this.dropGear(victim, slot, true)) return false;
+    this.emitFx('gear_break', victim.x, victim.y + 1.4, victim.z, {
+      text: `เกราะหลุด! (${GAME_DATA.GEAR_SLOT_LABELS[slot].th})`,
+      color: '#fbbf24'
+    });
     return true;
   }
 
@@ -688,6 +714,7 @@ class GameRoom {
         } else {
           // Normal Block reduces damage by 80%
           const chip = Math.max(1, Math.round(damage * 0.2));
+          this.chargeFromDamage(attacker, victim, Math.min(chip, victim.hp - 1), now);
           victim.hp = Math.max(1, victim.hp - chip);
           victim.vx = dx * (knockback * 0.35);
           victim.vz = dz * (knockback * 0.35);
@@ -711,6 +738,7 @@ class GameRoom {
     if (attacker && now < attacker.attackBuffUntil) finalDmg = Math.round(finalDmg * 1.4);
     if (now < victim.superArmorUntil) finalDmg = Math.round(finalDmg * 0.55);
 
+    this.chargeFromDamage(attacker, victim, Math.min(finalDmg, victim.hp), now);
     victim.hp -= finalDmg;
     if (attacker) {
       victim.lastHitBy = attacker.id;
@@ -770,13 +798,13 @@ class GameRoom {
 
     // Bonus chance to strip gear (e.g. Reaper Scythe)
     if (stripChance > 0 && Math.random() < stripChance && victim.hp > 0) {
-      this.stripOneGear(victim, attacker, false);
+      this.stripOneGear(victim);
     }
 
     // Check Authentic Lost Saga 0 HP Gear Strip vs KO!
     if (victim.hp <= 0) {
       // Does victim still have armor, helmet, or trinket to lose before dying?
-      const stripped = this.stripOneGear(victim, attacker, false);
+      const stripped = this.stripOneGear(victim);
       if (stripped) {
         // Survived by losing a piece of equipment!
         victim.hp = 18;
@@ -786,8 +814,7 @@ class GameRoom {
         victim.stateUntil = now + 1000;
         victim.invulnUntil = now + 650;
       } else {
-        // All armor stripped! Drop weapon too & KO!
-        this.stripOneGear(victim, attacker, true);
+        // With no transferable gear left to lose, this hit is a KO.
         this.killPlayer(victim, attacker, skillNameTh, false);
       }
     }
@@ -851,6 +878,7 @@ class GameRoom {
     player.sprintLocked = false;
     player.isFlying = false;
     player.flyUntil = 0;
+    player.hoverUntil = 0;
     player.flyExhausted = false;
     player.state = 'idle';
     this.clearTargeting(player);
@@ -870,6 +898,8 @@ class GameRoom {
       helmet: player.heroId,
       trinket: player.heroId
     };
+    player.skillGauges = newSkillGauges(Date.now());
+    player.acquiredGear.clear();
     this.emitFx('spawn', player.x, player.y, player.z, {
       color: hero.color,
       text: 'RESPAWN!'
@@ -939,7 +969,7 @@ class GameRoom {
     }
 
     // 3. Double Jump / Triple Jump (Ninja has 3 jumps, others have 2 jumps!)
-    const maxJumps = mob.maxJumps || 2;
+    const maxJumps = (mob.maxJumps || 2) + (this.equippedSkill(player, 'helmet')?.passive?.extraJumps ?? 0);
     if (player.jumpCount < maxJumps) {
       const cost = mob.airJumpCost || 22;
       if (player.mobilityGauge >= cost) {
@@ -1042,7 +1072,7 @@ class GameRoom {
   }
 
   // ==========================================================================
-  // COMBAT ACTIONS: Basic Attack (D/J), Ranged Aim (Hold D), Heavy Attack (K),
+  // COMBAT ACTIONS: Basic Attack (J), Ranged Aim (Hold J), Heavy Attack (K),
   // Jump and Sprint Attacks, and Gear Skills (Q/E/R/F)
   // ==========================================================================
   performBasicAttack(player, isDashAttack = false, isJumpAttack = false, lockedTarget = null) {
@@ -1120,7 +1150,7 @@ class GameRoom {
       }
 
       // Samurai Blood Aura bonus wave!
-      if (player.heroId === 'samurai' && now < player.attackBuffUntil) {
+      if (now < player.attackBuffUntil) {
         this.spawnProjectile(player, {
           type: 'wave',
           x: player.x + dirX * 1.0,
@@ -1369,7 +1399,7 @@ class GameRoom {
   }
 
   // ==========================================================================
-  // 40 GEAR SKILLS EXECUTION (Weapon: Q/SD, Armor: W/ASD, Helmet: E/AD, Trinket: R/AS)
+  // GEAR SKILLS (Weapon: Q, Armor: E, Helmet: R, Trinket: F)
   // Remember: A player casts the skill of the GEAR PIECE currently equipped in that slot!
   // ==========================================================================
   castGearSkill(player, slot) {
@@ -1387,14 +1417,12 @@ class GameRoom {
       return;
     }
 
-    const gearHero = GAME_DATA.HEROES[equippedGearHeroId];
-    if (!gearHero || !gearHero.skills[slot]) return;
-    const skill = gearHero.skills[slot];
+    const skill = this.equippedSkill(player, slot);
+    if (!skill || skill.type === 'passive') return;
 
-    // Check cooldown
-    if (now < (player.cooldowns[slot] || 0)) {
-      return;
-    }
+    const gauge = player.skillGauges[slot];
+    rechargeSkillGauge(gauge, skill, now);
+    if (gauge.charge < skill.gaugeCost || now < gauge.nextUseAt) return;
 
     // Can this skill be cast while stunned/hurt/frozen? (Many Armor skills can!)
     const isIncapacitated = player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen';
@@ -1422,12 +1450,21 @@ class GameRoom {
 
     this.clearTargeting(player);
     this.faceTarget(player, target);
-    player.cooldowns[slot] = now + skill.cooldownMs;
+    gauge.charge -= skill.gaugeCost;
+    gauge.nextUseAt = now + (skill.repeatMs ?? 550);
+    if (isIncapacitated) {
+      player.vx = 0;
+      player.vz = 0;
+      if (!player.grounded) player.vy = Math.max(0, player.vy);
+    }
+    if (skill.usableWhileHit) {
+      player.frozenUntil = 0;
+      player.rootUntil = 0;
+    }
     player.state = 'skill';
     player.stateUntil = now + 550;
     player.animSkillId = skill.id;
     player.guarding = false;
-    player.frozenUntil = 0;
 
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
@@ -2128,18 +2165,6 @@ class GameRoom {
         });
         break;
       }
-      case 'striker_helmet': { // Lightning Footwork (Dash + Reduce Cooldowns by 3s!)
-        player.vx = dirX * 15;
-        player.vz = dirZ * 15;
-        player.speedBuffUntil = now + 4000;
-        ['weapon', 'armor', 'trinket'].forEach(s => {
-          if (player.cooldowns[s] > now) {
-            player.cooldowns[s] = Math.max(now, player.cooldowns[s] - 3000);
-          }
-        });
-        this.emitFx('text', player.x, player.y + 1.8, player.z, { text: 'ลดคูลดาวน์ -3s!', color: '#fde047' });
-        break;
-      }
       case 'striker_trinket': { // Seismic Ground Stomp (Pops enemies high into air)
         this.emitFx('shockwave', player.x, player.y + 0.2, player.z, {
           radius: 4.2,
@@ -2287,16 +2312,17 @@ class GameRoom {
   // Pick up dropped gear from the arena floor
   tryPickupGear(player, manualPress = false) {
     if (player.state === 'dead') return;
+    const now = Date.now();
     let bestIdx = -1;
     let bestDist = 2.0;
 
     for (let i = 0; i < this.droppedGears.length; i++) {
       const g = this.droppedGears[i];
-      if (Date.now() - g.spawnedAt < 450) continue; // brief grace period after popping off
+      if (g.slot === 'weapon' || now - g.spawnedAt < 450) continue;
       const d = distXZ(player, g);
       if (d < bestDist && Math.abs(player.y - g.y) < 2.2) {
-        // Auto-pickup only if player's slot is currently empty; manual press ('F') swaps any gear!
-        if (manualPress || player.gear[g.slot] === null) {
+        // G swaps an equipped piece. Automatically equip only gear that fills an empty slot.
+        if (manualPress || (player.gear[g.slot] === null && g.manualDropBy !== player.id)) {
           bestDist = d;
           bestIdx = i;
         }
@@ -2305,29 +2331,13 @@ class GameRoom {
 
     if (bestIdx !== -1) {
       const g = this.droppedGears.splice(bestIdx, 1)[0];
-      const oldHeroId = player.gear[g.slot];
+      this.dropGear(player, g.slot);
       player.gear[g.slot] = g.heroId;
-      player.cooldowns[g.slot] = 0; // Ready to use immediately!
-
-      // If manual swap replaced an existing piece of gear, drop the old one
-      if (oldHeroId) {
-        this.droppedGears.push({
-          id: `gear_${nextEntityId++}`,
-          slot: g.slot,
-          heroId: oldHeroId,
-          x: player.x,
-          y: player.y + 0.6,
-          z: player.z,
-          vx: (Math.random() - 0.5) * 2,
-          vy: 4.5,
-          vz: (Math.random() - 0.5) * 2,
-          spawnedAt: Date.now(),
-          expiresAt: Date.now() + 20000
-        });
-      }
+      player.skillGauges[g.slot] = g.gauge;
+      player.acquiredGear.add(g.slot);
 
       const gearHero = GAME_DATA.HEROES[g.heroId];
-      const slotLabel = GAME_DATA.GEAR_SLOT_LABELS[g.slot]?.th.split(' ')[0] || g.slot;
+      const slotLabel = GAME_DATA.GEAR_SLOT_LABELS[g.slot].th;
       this.emitFx('pickup', player.x, player.y + 1.5, player.z, {
         text: `สวมใส่ [${slotLabel}] ${gearHero ? gearHero.nameTh : ''}!`,
         color: '#4ade80'
@@ -2357,6 +2367,7 @@ class GameRoom {
       this.killPlayer(p, null, 'คูลาวา', true);
       return;
     }
+    this.chargeFromDamage(null, p, Math.min(lava.damage, p.hp), Date.now());
     p.hp -= lava.damage;
     p.bouncedOnLava = true;
     p.y = lava.y;
@@ -2544,6 +2555,7 @@ class GameRoom {
       // Periodic Burn DoT
       if (now < p.burnUntil && now >= p.burnTick) {
         p.burnTick = now + 700;
+        this.chargeFromDamage(this.players.get(p.burnAttackerId), p, Math.min(4, p.hp - 1), now);
         p.hp = Math.max(1, p.hp - 4);
         this.emitFx('hit', p.x, p.y + 1.2, p.z, { damage: 4, color: '#f97316' });
       }
@@ -2571,7 +2583,7 @@ class GameRoom {
       const onIce = support?.finish === 'ice';
 
       if (canMove) {
-        let moveSpeed = hero.speed;
+        let moveSpeed = hero.speed * (this.equippedSkill(p, 'helmet')?.passive?.moveSpeedMultiplier ?? 1);
         if (now < p.speedBuffUntil) moveSpeed *= 1.38;
         if (isBurstDashing) {
           moveSpeed *= (mob.dashSpeedMult || 1.7);
@@ -2614,15 +2626,12 @@ class GameRoom {
         p.vz *= drag;
       }
 
-      // Check Active Flight / Hover Mode:
-      // - Requires mob.canFly, !p.grounded, !p.flyExhausted, and p.mobilityGauge > 0!
-      // - Drains gauge continuously while flying; as soon as gauge hits 0, flight stops
-      //   and gravity pulls the character down to the floor!
-      const wantFly = mob.canFly && !p.grounded && !p.flyExhausted && canMove && (now < p.flyUntil || now < (p.hoverUntil || 0) || (p.input.jumpHeld && p.jumpCount >= 1 && p.y > 0.5));
-      if (wantFly && p.mobilityGauge > 0) {
+      // Gear hover is paid for at cast time. Native flight uses the mobility gauge.
+      const gearHover = now < p.hoverUntil;
+      const nativeFlight = mob.canFly && !p.flyExhausted && p.mobilityGauge > 0 &&
+        (now < p.flyUntil || (p.input.jumpHeld && p.jumpCount >= 1 && p.y > 0.5));
+      if (!p.grounded && canMove && (gearHover || nativeFlight)) {
         p.isFlying = true;
-        const drain = (mob.flyDrainPerSec || 28) * DT;
-        p.mobilityGauge = Math.max(0, p.mobilityGauge - drain);
 
         if (p.input.jumpHeld && p.y < 4.4) {
           p.vy = Math.min(4.0, p.vy + 14.0 * DT);
@@ -2631,13 +2640,13 @@ class GameRoom {
           p.vy = Math.max(glideFall, p.vy * 0.6);
         }
 
-        // If gauge reaches 0, immediately terminate flight & mark flyExhausted until landing!
-        if (p.mobilityGauge <= 0) {
-          p.mobilityGauge = 0;
-          p.isFlying = false;
-          p.flyUntil = 0;
-          p.hoverUntil = 0;
-          p.flyExhausted = true;
+        if (!gearHover) {
+          p.mobilityGauge = Math.max(0, p.mobilityGauge - (mob.flyDrainPerSec || 28) * DT);
+          if (p.mobilityGauge === 0) {
+            p.isFlying = false;
+            p.flyUntil = 0;
+            p.flyExhausted = true;
+          }
         }
       } else {
         p.isFlying = false;
@@ -2858,6 +2867,22 @@ class GameRoom {
   broadcastState(now, shrineState) {
     const playersPayload = [];
     for (const p of this.players.values()) {
+      const skillGauges = {};
+      const cooldowns = {};
+      for (const slot of GAME_DATA.GEAR_SLOTS) {
+        const skill = this.equippedSkill(p, slot);
+        if (!skill || skill.type === 'passive') {
+          skillGauges[slot] = null;
+          cooldowns[slot] = 0;
+          continue;
+        }
+        const gauge = p.skillGauges[slot];
+        rechargeSkillGauge(gauge, skill, now);
+        skillGauges[slot] = Math.floor(gauge.charge);
+        cooldowns[slot] = Math.ceil(Math.max(
+          0, gauge.nextUseAt - now, (skill.gaugeCost - gauge.charge) * skill.cooldownMs / 100
+        ));
+      }
       playersPayload.push({
         id: p.id,
         name: p.name,
@@ -2889,12 +2914,8 @@ class GameRoom {
         comboStep: p.comboStep,
         guarding: p.guarding,
         gear: p.gear,
-        cooldowns: {
-          weapon: Math.max(0, p.cooldowns.weapon - now),
-          armor: Math.max(0, p.cooldowns.armor - now),
-          helmet: Math.max(0, p.cooldowns.helmet - now),
-          trinket: Math.max(0, p.cooldowns.trinket - now)
-        },
+        skillGauges,
+        cooldowns,
         buffs: {
           invuln: now < p.invulnUntil,
           superArmor: now < p.superArmorUntil,
@@ -3007,6 +3028,8 @@ function isValidClientMessage(msg) {
         && Math.hypot(msg.dx, msg.dz) >= 0.5;
     case 'skill':
       return GAME_DATA.GEAR_SLOTS.includes(msg.slot);
+    case 'drop_gear':
+      return msg.slot !== 'weapon' && GAME_DATA.GEAR_SLOTS.includes(msg.slot);
     case 'swap_hero':
       return isId(msg.heroId, GAME_DATA.HEROES);
     case 'add_bot':
@@ -3149,6 +3172,10 @@ wss.on('connection', (ws) => {
       }
       case 'pickup_gear': {
         currentRoom.tryPickupGear(currentPlayer, true);
+        break;
+      }
+      case 'drop_gear': {
+        currentRoom.dropGear(currentPlayer, msg.slot);
         break;
       }
       case 'add_bot': {

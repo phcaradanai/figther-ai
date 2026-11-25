@@ -192,19 +192,19 @@ window.startArenaGame = function (renderer) {
       </div>
       <div class="detail-skills-grid">
         <div class="detail-skill-item">
-          <div class="detail-skill-top">⚔️ [Q / SD] อาวุธ: ${s.weapon.nameTh}</div>
+          <div class="detail-skill-top">⚔️ [Q] อาวุธ: ${s.weapon.nameTh}</div>
           <div class="detail-skill-desc">${s.weapon.descTh}</div>
         </div>
         <div class="detail-skill-item">
-          <div class="detail-skill-top">🛡️ [E / ASD] ชุดเกราะ: ${s.armor.nameTh}</div>
+          <div class="detail-skill-top">🛡️ [E] ชุดเกราะ: ${s.armor.nameTh}</div>
           <div class="detail-skill-desc">${s.armor.descTh}</div>
         </div>
         <div class="detail-skill-item">
-          <div class="detail-skill-top">🪖 [R / AD] หมวก: ${s.helmet.nameTh}</div>
+          <div class="detail-skill-top">🪖 [${s.helmet.type === 'passive' ? 'ติดตัว' : 'R'}] หมวก: ${s.helmet.nameTh}</div>
           <div class="detail-skill-desc">${s.helmet.descTh}</div>
         </div>
         <div class="detail-skill-item">
-          <div class="detail-skill-top">🧣 [F / AS] ประดับ: ${s.trinket.nameTh}</div>
+          <div class="detail-skill-top">🧣 [F] ประดับ: ${s.trinket.nameTh}</div>
           <div class="detail-skill-desc">${s.trinket.descTh}</div>
         </div>
       </div>
@@ -343,6 +343,12 @@ window.startArenaGame = function (renderer) {
     const btn = document.getElementById(`skillBtn_${slot}`);
     if (btn) {
       btn.addEventListener('click', () => sendSkillCast(slot));
+      if (slot !== 'weapon') {
+        btn.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'drop_gear', slot }));
+        });
+      }
     }
   });
 
@@ -429,48 +435,53 @@ window.startArenaGame = function (renderer) {
         btn.classList.toggle('active', btn.dataset.heroId === me.heroId);
       });
 
-      // Update the 4 Modular Gear Skill Cards (shows intact, stripped, or stolen gear skills!)
+      // Show the type and charge of the piece actually equipped in each slot.
       GAME_DATA.GEAR_SLOTS.forEach(slot => {
         const card = document.getElementById(`skillBtn_${slot}`);
+        const keyEl = document.getElementById(`skillKey_${slot}`);
         const nameEl = document.getElementById(`skillName_${slot}`);
         const ownerEl = document.getElementById(`skillOwner_${slot}`);
-        const cdEl = document.getElementById(`skillCd_${slot}`);
+        const gauge = document.getElementById(`skillGauge_${slot}`);
+        const chargeEl = document.getElementById(`skillCharge_${slot}`);
+        const slotLabel = GAME_DATA.GEAR_SLOT_LABELS[slot];
         const aiming = me.targeting?.mode === 'skill' && me.targeting.slot === slot;
+        const gearHero = GAME_DATA.HEROES[me.gear?.[slot]];
+        const skill = gearHero?.skills[slot];
+        const passive = skill?.type === 'passive';
+        const stolen = !!skill && gearHero.id !== me.heroId;
+        const charge = me.skillGauges?.[slot];
+        const ready = charge >= (skill?.gaugeCost ?? 100) && !me.cooldowns?.[slot];
+
         card.classList.toggle('targeting', aiming);
+        card.classList.toggle('stripped', !skill);
+        card.classList.toggle('stolen', stolen);
+        card.classList.toggle('passive', passive);
+        card.classList.toggle('ready', ready);
+        keyEl.textContent = passive ? `ติดตัว · ${slotLabel.th}` : `${slotLabel.key} · ${slotLabel.th}`;
+        nameEl.textContent = skill?.nameTh ?? 'ช่องว่าง';
+        card.title = skill
+          ? `${skill.descTh}${slot === 'weapon' ? ' · อาวุธประจำฮีโร่' : ' · คลิกขวาเพื่อถอด'}`
+          : 'กด G เพื่อเก็บเกียร์ใกล้ตัว';
+        gauge.parentElement.hidden = charge == null;
+        gauge.value = charge ?? 0;
+        chargeEl.textContent = ready ? 'พร้อม' : `${charge ?? 0}%`;
 
-        const eqHeroId = me.gear ? me.gear[slot] : null;
-        if (!eqHeroId) {
-          // Gear piece was knocked off!
-          card.classList.add('stripped');
-          card.classList.remove('stolen');
-          nameEl.textContent = '❌ เกราะหลุด! (ไม่มีอุปกรณ์)';
-          ownerEl.textContent = 'เดินเก็บอุปกรณ์ที่ตกพื้น (ปุ่ม G)';
-          cdEl.style.display = 'none';
+        if (!skill) {
+          ownerEl.textContent = 'กด G เพื่อเก็บเกียร์';
+        } else if (aiming) {
+          ownerEl.textContent = me.targeting.targetId ? 'ลูกศรเปลี่ยนเป้า · กดซ้ำเพื่อยิง' : 'กำลังหาเป้าหมาย';
+        } else if (skill.confirmTarget) {
+          ownerEl.textContent = 'กดเพื่อเล็งเป้าหมาย';
+        } else if (passive) {
+          ownerEl.textContent = 'ทำงานขณะสวมใส่';
+        } else if (skill.gaugeCost < 100) {
+          ownerEl.textContent = `ใช้เกจ ${skill.gaugeCost}% ต่อครั้ง`;
+        } else if (skill.usableWhileHit) {
+          ownerEl.textContent = 'สวนกลับขณะถูกโจมตี';
+        } else if (skill.type === 'buff') {
+          ownerEl.textContent = 'เสริมพลังชั่วคราว';
         } else {
-          card.classList.remove('stripped');
-          const gearHero = GAME_DATA.HEROES[eqHeroId];
-          const skill = gearHero?.skills[slot];
-          const isStolen = eqHeroId !== me.heroId;
-          card.classList.toggle('stolen', isStolen);
-
-          nameEl.textContent = skill ? skill.nameTh : slot;
-          if (aiming) {
-            ownerEl.textContent = me.targeting.targetId ? 'ลูกศรเปลี่ยนเป้า · กดซ้ำเพื่อยิง' : 'กำลังหาเป้าหมาย';
-          } else if (skill?.confirmTarget) {
-            ownerEl.textContent = 'กดเพื่อเล็งเป้าหมาย';
-          } else {
-            ownerEl.textContent = isStolen
-              ? `★ ขโมยจาก: ${gearHero.nameTh}`
-              : (skill?.usableWhileHit ? '⚡ กดใช้ตอนโดนตีได้!' : gearHero.nameTh);
-          }
-
-          const cdMs = me.cooldowns ? (me.cooldowns[slot] || 0) : 0;
-          if (cdMs > 0) {
-            cdEl.style.display = 'flex';
-            cdEl.textContent = `${(cdMs / 1000).toFixed(1)}s`;
-          } else {
-            cdEl.style.display = 'none';
-          }
+          ownerEl.textContent = gearHero.nameTh;
         }
       });
     }
@@ -515,7 +526,7 @@ window.startArenaGame = function (renderer) {
 
   function activeTargeting() {
     const targeting = interpPlayers.get(localClientId)?.targeting;
-    return targeting?.mode === 'ranged' && !keys['KeyD'] ? null : targeting;
+    return targeting?.mode === 'ranged' && !keys['KeyJ'] ? null : targeting;
   }
 
   function getCurrentWorldMove() {
@@ -524,7 +535,7 @@ window.startArenaGame = function (renderer) {
     const aiming = activeTargeting();
     const arrowMoves = code => !aiming && keys[code];
     if (keys['KeyA'] || arrowMoves('ArrowLeft')) ix -= 1;
-    if (arrowMoves('ArrowRight')) ix += 1;
+    if (keys['KeyD'] || arrowMoves('ArrowRight')) ix += 1;
     if (keys['KeyW'] || arrowMoves('ArrowUp')) iz -= 1;
     if (keys['KeyS'] || arrowMoves('ArrowDown')) iz += 1;
     const worldMove = renderer.transformInputByCamera(ix, iz);
@@ -578,7 +589,7 @@ window.startArenaGame = function (renderer) {
     }
 
     // Arrow keys switch targets while aiming and dash on double-tap during movement.
-    const isMoveKey = isArrow ? !activeTargeting() : ['KeyW', 'KeyA', 'KeyS'].includes(code);
+    const isMoveKey = isArrow ? !activeTargeting() : ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code);
     if (isArrow && !isMoveKey) lastTapKey = null;
     if (!wasPressed && isMoveKey) {
       const now = performance.now();
@@ -604,15 +615,9 @@ window.startArenaGame = function (renderer) {
       return;
     }
 
-    // D taps attack, and holding D on a ranged hero aims until release.
-    if (code === 'KeyD') {
-      if (!wasPressed) sendBasicAttack('press');
-      return;
-    }
-
-    // Instant basic attack (J)
+    // J attacks. A ranged hero can hold J to aim before releasing the shot.
     if (code === 'KeyJ') {
-      sendBasicAttack();
+      sendBasicAttack('press');
       return;
     }
 
@@ -622,7 +627,7 @@ window.startArenaGame = function (renderer) {
       return;
     }
 
-    // 4 Gear Skills: Q (Weapon/SD), E (Armor/ASD), R (Helmet/AD), F (Trinket/AS)
+    // Gear skills: Q (weapon), E (armor), R (helmet), F (trinket).
     // Also supports U / I / O / P for two-handed keyboard play!
     if (code === 'KeyQ' || code === 'KeyU') {
       if (!wasPressed) sendSkillCast('weapon');
@@ -661,7 +666,7 @@ window.startArenaGame = function (renderer) {
   window.addEventListener('keyup', (e) => {
     const wasPressed = !!keys[e.code];
     keys[e.code] = false;
-    if (e.code === 'KeyD' && wasPressed && lobbyModal.classList.contains('hidden')) {
+    if (e.code === 'KeyJ' && wasPressed && lobbyModal.classList.contains('hidden')) {
       sendBasicAttack('release');
     }
   });

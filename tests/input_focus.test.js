@@ -71,6 +71,7 @@ async function createClient() {
     socket,
     keyDown: code => dispatch(window, 'keydown', { code }),
     keyUp: code => dispatch(window, 'keyup', { code }),
+    rightClickSkill: slot => dispatch(document.getElementById(`skillBtn_${slot}`), 'contextmenu'),
     blur: () => dispatch(window, 'blur'),
     focus: () => dispatch(window, 'focus'),
     visibility(hidden) {
@@ -127,7 +128,7 @@ test('returning to the game accepts fresh keys without a phantom double-tap dash
   client.keyDown('Space');
   assert.equal(client.packets.at(-1).type, 'jump');
   client.keyDown('KeyJ');
-  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: false });
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
   client.keyUp('ArrowRight');
   client.tick();
   assert.equal(client.input().mx, 0);
@@ -149,13 +150,13 @@ test('normal double-tap dash still works after focus returns', async () => {
   const client = await createClient();
   client.blur();
   client.focus();
-  client.keyDown('ArrowRight');
-  client.keyUp('ArrowRight');
+  client.keyDown('KeyD');
+  client.keyUp('KeyD');
   client.advance(100);
-  client.keyDown('ArrowRight');
+  client.keyDown('KeyD');
   assert.equal(client.packets.at(-1).type, 'dash');
   client.keyDown('KeyJ');
-  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: true });
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: true });
 });
 
 test('holding Shift sprints without sending a dash', async () => {
@@ -168,12 +169,12 @@ test('holding Shift sprints without sending a dash', async () => {
   assert.equal(client.input().sprinting, true);
   assert.equal(client.input().guard, false);
   client.keyDown('KeyJ');
-  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: true });
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: true });
   client.keyUp('ShiftLeft');
   client.tick();
   assert.equal(client.input().sprinting, false);
   client.keyDown('KeyJ');
-  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: false });
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
 });
 
 test('losing focus while disconnected clears inputs without sending to a closed socket', async () => {
@@ -195,21 +196,39 @@ test('a visible-tab event does not interrupt active movement', async () => {
   assert.equal(client.input().mx, 1);
 });
 
-test('D sends one attack press and release without moving right', async () => {
+test('D moves right while J attacks and K performs a heavy attack', async () => {
   const client = await createClient();
   client.keyDown('KeyD');
-  client.keyDown('KeyD');
   client.tick();
-  assert.equal(client.input().mx, 0);
+  assert.equal(client.input().mx, 1);
   client.keyUp('KeyD');
+  assert.equal(client.packets.some(p => p.type === 'attack'), false);
+
+  client.keyDown('KeyJ');
+  client.keyUp('KeyJ');
   assert.deepEqual(client.packets.filter(p => p.type === 'attack').map(p => p.phase), ['press', 'release']);
+  client.keyDown('KeyK');
+  assert.equal(client.packets.at(-1).type, 'heavy');
 });
 
 test('focus loss cancels a held attack without firing it on keyup', async () => {
   const client = await createClient();
-  client.keyDown('KeyD');
+  client.keyDown('KeyJ');
   client.blur();
-  client.keyUp('KeyD');
+  client.keyUp('KeyJ');
   assert.deepEqual(client.packets.filter(p => p.type === 'attack').map(p => p.phase), ['press']);
   assert.ok(client.packets.some(p => p.type === 'cancel_targeting'));
+});
+
+test('existing skill hotkeys still cast and only transferable gear can be dropped from the HUD', async () => {
+  const client = await createClient();
+  for (const code of ['KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyU', 'KeyI', 'KeyO', 'KeyP']) {
+    client.keyDown(code);
+    client.keyUp(code);
+  }
+  assert.deepEqual(client.packets.map(packet => packet.slot),
+    ['weapon', 'armor', 'helmet', 'trinket', 'weapon', 'armor', 'helmet', 'trinket']);
+  client.rightClickSkill('weapon');
+  client.rightClickSkill('armor');
+  assert.deepEqual(client.packets.slice(8), [{ type: 'drop_gear', slot: 'armor' }]);
 });

@@ -12,10 +12,10 @@
   const GEAR_SLOTS = ['weapon', 'armor', 'helmet', 'trinket'];
 
   const GEAR_SLOT_LABELS = {
-    weapon: { th: 'อาวุธ (SD/Q)', en: 'Weapon', key: 'Q', combo: 'S+D' },
-    armor:  { th: 'ชุดเกราะ (ASD/W)', en: 'Armor',  key: 'W', combo: 'A+S+D' },
-    helmet: { th: 'หมวก (AD/E)',   en: 'Helmet', key: 'E', combo: 'A+D' },
-    trinket:{ th: 'เครื่องประดับ (AS/R)', en: 'Trinket', key: 'R', combo: 'A+S' }
+    weapon: { th: 'อาวุธ', en: 'Weapon', key: 'Q' },
+    armor:  { th: 'ชุดเกราะ', en: 'Armor', key: 'E' },
+    helmet: { th: 'หมวก', en: 'Helmet', key: 'R' },
+    trinket:{ th: 'เครื่องประดับ', en: 'Trinket', key: 'F' }
   };
 
   // --------------------------------------------------------------------------
@@ -456,6 +456,7 @@
         },
         helmet: {
           id: 'samurai_helmet',
+          type: 'buff',
           heroId: 'samurai',
           slot: 'helmet',
           nameTh: 'จิตอสูรดาบโลหิต',
@@ -653,11 +654,13 @@
         trinket: {
           id: 'cyborg_trinket',
           aimRange: 14,
+          gaugeCost: 50,
+          repeatMs: 950,
           heroId: 'cyborg',
           slot: 'trinket',
           nameTh: 'บูสเตอร์บินยิงเลเซอร์ (Flight Assault)',
           nameEn: 'Cyborg Flight Thruster',
-          descTh: 'จุดไอพ่นปีกทะยานลอยค้างกลางอากาศ พร้อมยิงเลเซอร์สีฟ้าเฉียงลงพื้น!',
+          descTh: 'จุดไอพ่นลอยตัวและยิงเลเซอร์เฉียงลงพื้น ใช้เกจ 50% ต่อครั้งและกดซ้ำได้เมื่อมีเกจพอ',
           cooldownMs: 6500,
           color: '#38bdf8'
         }
@@ -720,6 +723,7 @@
         },
         armor: {
           id: 'viking_armor',
+          type: 'buff',
           aimRange: 3.5,
           heroId: 'viking',
           slot: 'armor',
@@ -824,12 +828,13 @@
         },
         helmet: {
           id: 'striker_helmet',
+          type: 'passive',
+          passive: { moveSpeedMultiplier: 1.12, extraJumps: 1 },
           heroId: 'striker',
           slot: 'helmet',
           nameTh: 'ก้าวพริบตาสายฟ้า',
           nameEn: 'Lightning Footwork',
-          descTh: 'พุ่งตัวความเร็วสูงทิ้งร่างเงาทอง ลดคูลดาวน์สกิลทั้งหมดลง 3 วินาทีทันที',
-          cooldownMs: 6500,
+          descTh: 'ขณะสวมใส่จะวิ่งเร็วขึ้น 12% และกระโดดกลางอากาศเพิ่มได้อีก 1 ครั้ง',
           color: '#fde047'
         },
         trinket: {
@@ -948,6 +953,8 @@
     GEAR_SLOTS.forEach(slot => {
       const sk = hero.skills[slot];
       if (sk) {
+        sk.type ??= sk.usableWhileHit ? 'counter' : 'active';
+        if (sk.type !== 'passive') sk.gaugeCost ??= 100;
         SKILLS_BY_ID[sk.id] = sk;
       }
     });
