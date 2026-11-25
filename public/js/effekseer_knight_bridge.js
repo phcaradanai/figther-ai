@@ -520,6 +520,108 @@
       attachToCaster: false,
       color: '#f472b6',
       desc: 'ดอกซากุระเบ่งบาน + วงแหวนลมและกลีบดอกไม้ปลิวตามหลัง'
+    },
+
+    // ========================================================================
+    // 6. FROST ICE WITCH (แม่มดน้ำแข็ง — CRYOMANCER 3D-ONLY EFFEKSEER SUITE)
+    // ========================================================================
+    witch_basic_icebolt: {
+      id: 'witch_basic_icebolt',
+      hero: 'witch',
+      nameTh: 'ร่ายศรน้ำแข็ง (Cryomancer Ice Bolt)',
+      file: '/assets/vfx/witch/witch_basic_icebolt.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_basic_icebolt.efk',
+      sourceFile: '/assets/vfx/witch/witch_basic_icebolt.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.36,
+      attachToCaster: false,
+      color: '#22d3ee',
+      desc: 'ตราเกล็ดหิมะหมุนปลายคทา + ประกายผลึกน้ำแข็งและสะเก็ดน้ำแข็งคมกริบ'
+    },
+    witch_heavy_breath: {
+      id: 'witch_heavy_breath',
+      hero: 'witch',
+      nameTh: 'ลมหายใจศูนย์องศา (Absolute Zero Ice Pike Cone)',
+      file: '/assets/vfx/witch/witch_heavy_breath.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_heavy_breath.efk',
+      sourceFile: '/assets/vfx/witch/witch_heavy_breath.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.92,
+      attachToCaster: false,
+      color: '#67e8f9',
+      desc: 'พื้นน้ำแข็งแตกร้าว + เสาน้ำแข็งปะทุเป็นรูปพัด 4.5 เมตรพร้อมหมอกเยือกแข็งทะลวงการ์ด'
+    },
+    witch_weapon: {
+      id: 'witch_weapon',
+      hero: 'witch',
+      nameTh: '[Q/SD] พายุหิมะนิรันดร์ (Eternal Blizzard & Frost Pillar)',
+      file: '/assets/vfx/witch/witch_skill_weapon_blizzard.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_skill_weapon_blizzard.efk',
+      sourceFile: '/assets/vfx/witch/witch_skill_weapon_blizzard.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 2.40,
+      attachToCaster: false,
+      color: '#22d3ee',
+      desc: 'วงเวทเกล็ดหิมะ 9 เมตร + เสาผลึก Frost Pillar ยักษ์กลางพายุหมุนหิมะแช่แข็งศัตรู'
+    },
+    witch_armor: {
+      id: 'witch_armor',
+      hero: 'witch',
+      nameTh: '[E/ASD] เกราะผลึกน้ำแข็งนิรันดร์ (Subzero Shield & Ice Blast)',
+      file: '/assets/vfx/witch/witch_skill_armor_icetomb.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_skill_armor_icetomb.efk',
+      sourceFile: '/assets/vfx/witch/witch_skill_armor_icetomb.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.50,
+      attachToCaster: true,
+      color: '#67e8f9',
+      desc: 'โล่ผลึกน้ำแข็งหกเหลี่ยม 6 แผ่นหมุนรอบตัว 1.5 วินาที + คลื่น Ice Blast แช่แข็งและฮีล +25 HP'
+    },
+    witch_helmet: {
+      id: 'witch_helmet',
+      hero: 'witch',
+      nameTh: '[R/AD] เสาน้ำแข็งทะลวงพิภพ (Glacial Spike Eruption)',
+      file: '/assets/vfx/witch/witch_skill_helmet_spikes.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_skill_helmet_spikes.efk',
+      sourceFile: '/assets/vfx/witch/witch_skill_helmet_spikes.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 1.28,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'เสาน้ำแข็ง Ice Pike 6 ต้นปะทุไล่ลำดับระยะ 7.5 เมตรเสยศัตรูลอยฟ้าพร้อมแช่แข็ง'
+    },
+    witch_trinket: {
+      id: 'witch_trinket',
+      hero: 'witch',
+      nameTh: '[F/AS] สเก็ตน้ำแข็งเยือกแข็ง (Frost Skate Trail)',
+      file: '/assets/vfx/witch/witch_skill_trinket_skate.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_skill_trinket_skate.efk',
+      sourceFile: '/assets/vfx/witch/witch_skill_trinket_skate.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.98,
+      attachToCaster: false,
+      color: '#38bdf8',
+      desc: 'ลานน้ำแข็งสเก็ต 5.5 เมตร + วงแหวนความเร็วและละอองหิมะแช่แข็งศัตรูตามเส้นทาง'
+    },
+    witch_mobility_glide: {
+      id: 'witch_mobility_glide',
+      hero: 'witch',
+      nameTh: 'ล่องลอยเยือกแข็ง / สเก็ตแดช (Frost Glide)',
+      file: '/assets/vfx/witch/witch_mobility_glide.efkefc',
+      fallbackFile: '/assets/vfx/witch/witch_mobility_glide.efk',
+      sourceFile: '/assets/vfx/witch/witch_mobility_glide.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.48,
+      attachToCaster: false,
+      color: '#67e8f9',
+      desc: 'ตราเกล็ดหิมะใต้เท้า + วงแหวนน้ำแข็งและเกล็ดหิมะโปรยปรายขณะโดด/แดช'
     }
   };
 
@@ -1149,6 +1251,81 @@
         };
       }
 
+      // --- FROST ICE WITCH (3D + EFFEKSEER) ---
+      if (fx.type === 'blizzard' && fx.fromSkill === 'witch_weapon') {
+        return {
+          effectId: 'witch_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && ['witch_armor', 'witch_trinket'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'ice_spikes' && fx.fromSkill === 'witch_helmet') {
+        return {
+          effectId: 'witch_helmet',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'muzzle' && fx.heroId === 'witch') {
+        return {
+          effectId: 'witch_basic_icebolt',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.22 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_impact' && fx.heroId === 'witch') {
+        return {
+          effectId: 'witch_heavy_breath',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'witch') {
+        return {
+          effectId: 'witch_mobility_glide',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
@@ -1159,10 +1336,10 @@
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       const mapped = this.resolveServerFxMapping(fx);
-      // Samurai & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
+      // Samurai, Witch & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
       if (mapped) {
         const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
-        return !(meta && meta.hero === 'samurai');
+        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch'));
       }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
