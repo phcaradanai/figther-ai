@@ -826,6 +826,108 @@
       attachToCaster: false,
       color: '#fb923c',
       desc: 'คลื่นกระทืบพื้นสั่นสะเทือน + เศษหินและประกายไฟปลิวกระจาย'
+    },
+
+    // ========================================================================
+    // 9. MUAY THAI STRIKER (ยอดนักสู้มวยไทย — GOLDEN TIGER 3D-ONLY SUITE)
+    // ========================================================================
+    striker_basic_combo: {
+      id: 'striker_basic_combo',
+      hero: 'striker',
+      nameTh: 'คอมโบหมัด-ศอก-แข้งมวยไทย (Muay Thai 4-Hit)',
+      file: '/assets/vfx/striker/striker_basic_combo.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_basic_combo.efk',
+      sourceFile: '/assets/vfx/striker/striker_basic_combo.efkproj',
+      scale: 1.0,
+      speed: 1.25,
+      durationSec: 0.30,
+      attachToCaster: false,
+      color: '#fde047',
+      desc: 'หมัดกระแทกทอง-แดง + แข้งกวาดลมและหมัดพยัคฆ์สายฟ้าปิดคอมโบ'
+    },
+    striker_heavy_uppercut: {
+      id: 'striker_heavy_uppercut',
+      hero: 'striker',
+      nameTh: 'อัปเปอร์คัตพยัคฆ์เสยฟ้า (Tiger Uppercut)',
+      file: '/assets/vfx/striker/striker_heavy_uppercut.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_heavy_uppercut.efk',
+      sourceFile: '/assets/vfx/striker/striker_heavy_uppercut.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.88,
+      attachToCaster: false,
+      color: '#facc15',
+      desc: 'พายุเกลียวพยัคฆ์ทองพุ่งเสยฟ้า 4.8 ม. + วงลายบัวกนกไทยและสายฟ้าทะลวงการ์ด'
+    },
+    striker_weapon: {
+      id: 'striker_weapon',
+      hero: 'striker',
+      nameTh: '[Q/SD] หมัดปืนกลอสูร 100 หมัด (Asura Hundred Fists)',
+      file: '/assets/vfx/striker/striker_skill_weapon_fists.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_skill_weapon_fists.efk',
+      sourceFile: '/assets/vfx/striker/striker_skill_weapon_fists.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.24,
+      attachToCaster: false,
+      color: '#eab308',
+      desc: 'ระดมชุดหมัดกระแทก 14 จุด + วงยันต์ลายไทย 6.8 ม. ปิดท้ายด้วยหมัดมังกรทองสายฟ้า'
+    },
+    striker_armor: {
+      id: 'striker_armor',
+      hero: 'striker',
+      nameTh: '[E/ASD] โยกหลบสวนหมัดทะลวงไส้ (Sway & Liver Blow)',
+      file: '/assets/vfx/striker/striker_skill_armor_sway.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_skill_armor_sway.efk',
+      sourceFile: '/assets/vfx/striker/striker_skill_armor_sway.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.92,
+      attachToCaster: false,
+      color: '#facc15',
+      desc: 'วงยันต์โยกหลบ + หมัดสวนคลื่นกระแทก 3 ชั้นและสายฟ้าสตั๊น 2 วินาที'
+    },
+    striker_helmet: {
+      id: 'striker_helmet',
+      hero: 'striker',
+      nameTh: '[R/AD] ก้าวพริบตาสายฟ้า (Lightning Footwork)',
+      file: '/assets/vfx/striker/striker_skill_helmet_footwork.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_skill_helmet_footwork.efk',
+      sourceFile: '/assets/vfx/striker/striker_skill_helmet_footwork.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.85,
+      attachToCaster: false,
+      color: '#fde047',
+      desc: 'แนวสายฟ้าทอง 5 สายตามเส้นทางพุ่ง + วงยันต์รีเซ็ตคูลดาวน์ -3 วิ'
+    },
+    striker_trinket: {
+      id: 'striker_trinket',
+      hero: 'striker',
+      nameTh: '[F/AS] กระทืบพสุธางัดลอย (Seismic Ground Stomp)',
+      file: '/assets/vfx/striker/striker_skill_trinket_stomp.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_skill_trinket_stomp.efk',
+      sourceFile: '/assets/vfx/striker/striker_skill_trinket_stomp.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 1.08,
+      attachToCaster: false,
+      color: '#fbbf24',
+      desc: 'รอยแตกสีทอง 8.6 ม. + วงยันต์ลายไทย + คลื่นงัดลอย 3 ชั้นพุ่งขึ้นฟ้าพร้อมสายฟ้า'
+    },
+    striker_mobility_sway: {
+      id: 'striker_mobility_sway',
+      hero: 'striker',
+      nameTh: 'ฟุตเวิร์คพุ่งกลางอากาศ / โดด 2 ชั้น (Air Sway)',
+      file: '/assets/vfx/striker/striker_mobility_sway.efkefc',
+      fallbackFile: '/assets/vfx/striker/striker_mobility_sway.efk',
+      sourceFile: '/assets/vfx/striker/striker_mobility_sway.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.44,
+      attachToCaster: false,
+      color: '#fde047',
+      desc: 'วงยันต์ลายไทยใต้เท้า + คลื่นฟุตเวิร์คความเร็วสูงและประกายปราณทอง'
     }
   };
 
@@ -1683,6 +1785,81 @@
         };
       }
 
+      // --- MUAY THAI STRIKER (3D + EFFEKSEER) ---
+      if (fx.type === 'hundred_fists' && fx.fromSkill === 'striker_weapon') {
+        return {
+          effectId: 'striker_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && ['striker_armor', 'striker_helmet'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'shockwave' && fx.fromSkill === 'striker_trinket') {
+        return {
+          effectId: 'striker_trinket',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.2),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'slash' && (fx.heroId === 'striker' || fx.weaponType === 'gauntlets')) {
+        return {
+          effectId: 'striker_basic_combo',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.24 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_impact' && fx.heroId === 'striker') {
+        return {
+          effectId: 'striker_heavy_uppercut',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'striker') {
+        return {
+          effectId: 'striker_mobility_sway',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
@@ -1693,10 +1870,10 @@
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       const mapped = this.resolveServerFxMapping(fx);
-      // Samurai, Witch, Cyborg, Viking & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
+      // Samurai, Witch, Cyborg, Viking, Striker & later heroes are 3D-only (do not suppress 2D legacy)
       if (mapped) {
         const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
-        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg' || meta.hero === 'viking'));
+        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg' || meta.hero === 'viking' || meta.hero === 'striker'));
       }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
