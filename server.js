@@ -15,8 +15,13 @@ const GRAVITY = 28.0;
 const PLAYER_RADIUS = 0.35;
 const PLAYER_HEIGHT = 1.7;
 const FLOOR_EPSILON = 0.05;
+const MAX_STAIR_RISE = 0.31;
 
-function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY) {
+function insideRect(area, x, z) {
+  return x >= area.x && x <= area.x + area.w && z >= area.z && z <= area.z + area.d;
+}
+
+function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY, grounded) {
   if (delta === 0) return start;
   const direction = Math.sign(delta);
   const travel = Math.abs(delta);
@@ -35,6 +40,8 @@ function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY) 
     const contactY = y + (nextY - y) * (toContact / travel);
     // A side blocks only the part of the player's path alongside the solid platform.
     if (contactY >= platform.y - FLOOR_EPSILON || contactY + PLAYER_HEIGHT <= platform.y - platform.h) continue;
+    // Only the shallow uphill face of an authored stair is walkable.
+    if (grounded && platform.stair && axis === 'x' && direction > 0 && platform.y - y <= MAX_STAIR_RISE) continue;
     allowed = toContact;
   }
   return start + direction * allowed;
@@ -158,11 +165,46 @@ function dist3D(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
+// A bot crosses adjoining floors through the middle of their shared opening.
+// Keep the first crossing for each destination so chasing at 30 Hz is a lookup.
+function buildWalkingRoutes(platforms) {
+  const links = new Map(platforms.map(p => [p, []]));
+  for (const from of platforms) {
+    for (const to of platforms) {
+      if (from === to || (from.y !== to.y && (!(from.stair || to.stair) || Math.abs(from.y - to.y) > MAX_STAIR_RISE))) continue;
+      const x0 = Math.max(from.x, to.x), x1 = Math.min(from.x + from.w, to.x + to.w);
+      const z0 = Math.max(from.z, to.z), z1 = Math.min(from.z + from.d, to.z + to.d);
+      if (x1 < x0 || z1 < z0 || Math.max(x1 - x0, z1 - z0) < 2 * PLAYER_RADIUS) continue;
+      const insetX = Math.min(0.75, to.w / 2), insetZ = Math.min(0.75, to.d / 2);
+      links.get(from).push({
+        to,
+        x: clamp((x0 + x1) / 2, to.x + insetX, to.x + to.w - insetX),
+        z: clamp((z0 + z1) / 2, to.z + insetZ, to.z + to.d - insetZ)
+      });
+    }
+  }
+  const routes = new Map();
+  for (const start of platforms) {
+    const first = new Map([[start, null]]);
+    const queue = [start];
+    for (const current of queue) {
+      for (const link of links.get(current)) {
+        if (first.has(link.to)) continue;
+        first.set(link.to, current === start ? link : first.get(current));
+        queue.push(link.to);
+      }
+    }
+    routes.set(start, first);
+  }
+  return routes;
+}
+
 class GameRoom {
   constructor(id, name, mapId = 'sky_temple', mode = 'ffa') {
     this.id = id;
     this.name = name;
     this.mapId = GAME_DATA.MAPS[mapId] ? mapId : 'sky_temple';
+    this.walkingRoutes = buildWalkingRoutes(this.getMap().platforms);
     this.mode = mode; // 'ffa', 'team', 'koth'
     this.players = new Map(); // id -> PlayerState
     this.projectiles = [];
@@ -181,6 +223,7 @@ class GameRoom {
   changeMap(mapId) {
     if (this.mapId === mapId) return;
     this.mapId = mapId;
+    this.walkingRoutes = buildWalkingRoutes(this.getMap().platforms);
     this.projectiles.length = 0;
     this.droppedGears.length = 0;
     this.hazards.length = 0;
@@ -288,6 +331,8 @@ class GameRoom {
       lastHitBy: null,
       lastHitTime: 0,
       respawnAt: 0,
+      bouncedOnLava: false,
+      nextShrineHealAt: 0,
       // Authentic Lost Saga 4 Gear Slots: stores heroId of each equipped gear piece (or null if stripped!)
       gear: {
         weapon: validHeroId,
@@ -690,6 +735,10 @@ class GameRoom {
     player.frozenUntil = 0;
     player.burnUntil = 0;
     player.rootUntil = 0;
+    player.bouncedOnLava = false;
+    player.nextShrineHealAt = 0;
+    player.lastHitBy = null;
+    player.lastHitTime = 0;
     // Restore default gear for current hero on respawn
     player.gear = {
       weapon: player.heroId,
@@ -1995,29 +2044,66 @@ class GameRoom {
   // ==========================================================================
   // 3D PLATFORM & ARENA PHYSICS + AI BOT LOGIC (Runs at 30 Hz)
   // ==========================================================================
+  floorPlatformAt(x, z, currentY, tolerance = FLOOR_EPSILON, climbing = false) {
+    let best = null;
+    for (const plat of this.getMap().platforms) {
+      const reach = climbing && plat.stair ? MAX_STAIR_RISE : tolerance;
+      if (insideRect(plat, x, z) && currentY >= plat.y - reach && (!best || plat.y > best.y)) best = plat;
+    }
+    return best;
+  }
+
   getFloorHeightAt(x, z, currentY, tolerance = 0.45) {
-    const map = this.getMap();
-    let bestY = null;
-    for (const plat of map.platforms) {
-      if (x >= plat.x && x <= plat.x + plat.w && z >= plat.z && z <= plat.z + plat.d) {
-        if (currentY >= plat.y - tolerance) {
-          if (bestY === null || plat.y > bestY) {
-            bestY = plat.y;
-          }
+    return this.floorPlatformAt(x, z, currentY, tolerance)?.y ?? null;
+  }
+
+  touchLava(p, lava) {
+    if (p.bouncedOnLava || p.hp <= lava.damage) {
+      this.killPlayer(p, null, 'คูลาวา', true);
+      return;
+    }
+    p.hp -= lava.damage;
+    p.bouncedOnLava = true;
+    p.y = lava.y;
+    p.vy = lava.boostY;
+    this.emitFx('hit', p.x, p.y + 0.85, p.z, { damage: lava.damage, color: '#ff9650' });
+  }
+
+  updateShrine(shrine, now) {
+    const occupants = [];
+    for (const p of this.players.values()) {
+      if (p.state !== 'dead' && p.grounded && Math.abs(p.y - shrine.y) < FLOOR_EPSILON && distXZ(p, shrine) <= shrine.r) {
+        occupants.push(p);
+      } else {
+        p.nextShrineHealAt = 0;
+      }
+    }
+    const contested = occupants.some(p => this.areEnemies(occupants[0], p));
+    for (const p of occupants) {
+      if (contested) {
+        p.nextShrineHealAt = 0;
+      } else if (!p.nextShrineHealAt) {
+        p.nextShrineHealAt = now + shrine.periodMs;
+      } else if (now >= p.nextShrineHealAt) {
+        p.nextShrineHealAt = now + shrine.periodMs;
+        const heal = Math.min(shrine.heal, p.maxHp - p.hp);
+        if (heal > 0) {
+          p.hp += heal;
+          this.emitFx('heal', p.x, p.y + 1.2, p.z, { text: '+' + heal + ' HP', color: '#86d5a0' });
         }
       }
     }
-    return bestY;
+    if (!occupants.length) return 'idle';
+    return contested ? 'contested' : 'held';
   }
 
-  isPointOnAnyPlatform(x, z) {
-    const map = this.getMap();
-    for (const plat of map.platforms) {
-      if (x >= plat.x + 1.4 && x <= plat.x + plat.w - 1.4 && z >= plat.z + 1.4 && z <= plat.z + plat.d - 1.4) {
-        return true;
+  hasSafeFooting(x, z, y) {
+    for (const dx of [-PLAYER_RADIUS, PLAYER_RADIUS]) {
+      for (const dz of [-PLAYER_RADIUS, PLAYER_RADIUS]) {
+        if (!this.floorPlatformAt(x + dx, z + dz, y, MAX_STAIR_RISE)) return false;
       }
     }
-    return false;
+    return true;
   }
 
   updateAI(bot, now) {
@@ -2057,23 +2143,34 @@ class GameRoom {
       }
     }
 
-    if (!target) {
+    const map = this.getMap();
+    const seekShrine = map.shrine && bot.hp < bot.maxHp * 0.72;
+    if (!target && !seekShrine) {
       bot.input.mx = 0;
       bot.input.mz = 0;
       return;
     }
 
     const hero = GAME_DATA.HEROES[bot.heroId];
-    const dx = target.x - bot.x;
-    const dz = target.z - bot.z;
-    const angleToTarget = Math.atan2(dz, dx);
+    const goal = seekShrine ? map.shrine : target;
+    const enemy = target || goal;
+    const angleToTarget = Math.atan2(enemy.z - bot.z, enemy.x - bot.x);
     bot.facing = angleToTarget;
 
     const idealDist = hero.attackType === 'ranged' ? 5.2 : 1.7;
-
-    if (minDist > idealDist + 0.5) {
-      bot.input.mx = Math.cos(angleToTarget);
-      bot.input.mz = Math.sin(angleToTarget);
+    const from = this.floorPlatformAt(bot.x, bot.z, bot.y);
+    if (seekShrine || minDist > idealDist + 0.5) {
+      const to = this.floorPlatformAt(goal.x, goal.z, goal.y);
+      const crossing = this.walkingRoutes.get(from)?.get(to);
+      let next = crossing || goal;
+      if (!crossing && from && to && map.lava && map.jumpPads.length && to.y > from.y && bot.grounded) {
+        next = map.jumpPads.reduce((best, pad) => distXZ(bot, pad) < distXZ(bot, best) ? pad : best);
+      }
+      const dx = next.x - bot.x, dz = next.z - bot.z;
+      const distance = Math.hypot(dx, dz);
+      const holdPosition = seekShrine && distXZ(bot, goal) < map.shrine.r * 0.6;
+      bot.input.mx = distance && !holdPosition ? dx / distance : 0;
+      bot.input.mz = distance && !holdPosition ? dz / distance : 0;
     } else if (hero.attackType === 'ranged' && minDist < 2.6) {
       bot.input.mx = -Math.cos(angleToTarget);
       bot.input.mz = -Math.sin(angleToTarget);
@@ -2083,20 +2180,20 @@ class GameRoom {
       bot.input.mz = Math.sin(angleToTarget + Math.PI * 0.5) * 0.4;
     }
 
-    // Edge avoidance: Don't walk off the void!
     const nextX = bot.x + bot.input.mx * 1.3;
     const nextZ = bot.z + bot.input.mz * 1.3;
-    if (!this.isPointOnAnyPlatform(nextX, nextZ)) {
-      // Steer back toward center (0,0) or jump
-      const toCenter = Math.atan2(-bot.z, -bot.x);
-      bot.input.mx = Math.cos(toCenter);
-      bot.input.mz = Math.sin(toCenter);
-      if (bot.grounded && Math.random() < 0.25) {
-        bot.vy = hero.jumpForce;
-        bot.grounded = false;
+    if (bot.grounded && from && !this.hasSafeFooting(nextX, nextZ, bot.y)) {
+      const jumpReach = hero.speed * (2 * hero.jumpForce / GRAVITY - DT);
+      if (this.hasSafeFooting(bot.x + bot.input.mx * jumpReach, bot.z + bot.input.mz * jumpReach, bot.y)) {
+        this.performJumpOrFly(bot);
+      } else {
+        const inward = Math.atan2(from.z + from.d / 2 - bot.z, from.x + from.w / 2 - bot.x);
+        bot.input.mx = Math.cos(inward);
+        bot.input.mz = Math.sin(inward);
       }
     }
 
+    if (!target) return;
     // Jump / Double Jump / Dash if target is higher or chasing
     if (target.y > bot.y + 0.8 && Math.random() < 0.12) {
       this.performJumpOrFly(bot);
@@ -2165,6 +2262,8 @@ class GameRoom {
       const mob = hero.mobility || {};
       const canMove = p.state !== 'hurt' && p.state !== 'knockdown' && p.state !== 'frozen' && now >= p.rootUntil;
       const isBurstDashing = now < p.dashUntil;
+      const support = p.grounded ? this.floorPlatformAt(p.x, p.z, p.y) : null;
+      const onIce = support?.finish === 'ice';
 
       if (canMove) {
         let moveSpeed = hero.speed;
@@ -2180,7 +2279,8 @@ class GameRoom {
         const nx = ilen > 1 ? imx / ilen : imx;
         const nz = ilen > 1 ? imz / ilen : imz;
 
-        const blend = isBurstDashing ? 0.14 : 0.28;
+        let blend = isBurstDashing ? 0.14 : 0.28;
+        if (onIce) blend = ilen > 0.05 ? 0.075 : 0.045;
         p.vx = p.vx * (1 - blend) + nx * moveSpeed * blend;
         p.vz = p.vz * (1 - blend) + nz * moveSpeed * blend;
 
@@ -2199,8 +2299,9 @@ class GameRoom {
           else p.state = 'idle';
         }
       } else {
-        p.vx *= 0.91;
-        p.vz *= 0.91;
+        const drag = onIce ? 0.98 : 0.91;
+        p.vx *= drag;
+        p.vz *= drag;
       }
 
       // Check Active Flight / Hover Mode:
@@ -2238,18 +2339,23 @@ class GameRoom {
 
       const previousY = p.y;
       const nextY = p.y + p.vy * DT;
-      const nextX = p.x + p.vx * DT;
-      const nextZ = p.z + p.vz * DT;
-      p.x = moveAlongPlatformAxis(map.platforms, 'x', p.x, p.z, p.vx * DT, previousY, nextY);
-      p.z = moveAlongPlatformAxis(map.platforms, 'z', p.z, p.x, p.vz * DT, previousY, nextY);
+      const belt = map.conveyor;
+      const onBelt = belt && support && support.y === belt.y && insideRect(belt, p.x, p.z);
+      const travelX = (p.vx + (onBelt ? belt.speedX : 0)) * DT;
+      const travelZ = p.vz * DT;
+      const nextX = p.x + travelX;
+      const nextZ = p.z + travelZ;
+      p.x = moveAlongPlatformAxis(map.platforms, 'x', p.x, p.z, travelX, previousY, nextY, !!support);
+      p.z = moveAlongPlatformAxis(map.platforms, 'z', p.z, p.x, travelZ, previousY, nextY, !!support);
       if (p.x !== nextX) p.vx = 0;
       if (p.z !== nextZ) p.vz = 0;
       p.y = nextY;
 
       // Platform Floor Collision
-      const floorY = this.getFloorHeightAt(p.x, p.z, previousY, FLOOR_EPSILON);
-      if (floorY !== null && p.y <= floorY) {
-        p.y = floorY;
+      const floor = this.floorPlatformAt(p.x, p.z, previousY, FLOOR_EPSILON, !!support && travelX > 0);
+      const descendingStair = support?.stair && floor && travelX < 0 && previousY - floor.y <= MAX_STAIR_RISE;
+      if (floor && (p.y <= floor.y || descendingStair)) {
+        p.y = floor.y;
         p.vy = 0;
         p.grounded = true;
         p.jumpCount = 0;
@@ -2258,6 +2364,7 @@ class GameRoom {
         p.flyUntil = 0;
         p.hoverUntil = 0;
         p.flyExhausted = false;
+        p.bouncedOnLava = false;
       } else {
         p.grounded = false;
       }
@@ -2273,17 +2380,16 @@ class GameRoom {
         const dx = p.x - pil.x;
         const dz = p.z - pil.z;
         const d = Math.hypot(dx, dz);
-        const minR = pil.r + 0.55;
-        if (d < minR && p.y < pil.y + pil.h) {
-          const push = (minR - d) / (d || 1);
-          p.x += dx * push;
-          p.z += dz * push;
+        const minR = pil.r + PLAYER_RADIUS;
+        if (d < minR && p.y < pil.y + pil.h && p.y + PLAYER_HEIGHT > pil.y) {
+          p.x = pil.x + (d ? dx / d : 1) * minR;
+          p.z = pil.z + (d ? dz / d : 0) * minR;
         }
       }
 
       // Jump Pads
       for (const jp of map.jumpPads) {
-        if (Math.hypot(p.x - jp.x, p.z - jp.z) <= jp.r && Math.abs(p.y) < 1.2 && p.vy <= 2.0) {
+        if (p.grounded && Math.hypot(p.x - jp.x, p.z - jp.z) <= jp.r && Math.abs(p.y - (jp.y ?? 0)) < FLOOR_EPSILON) {
           p.vy = jp.boostY;
           p.grounded = false;
           this.emitFx('jumppad', jp.x, 0.2, jp.z, { color: '#38bdf8' });
@@ -2294,7 +2400,9 @@ class GameRoom {
       this.tryPickupGear(p, false);
 
       // Check Ring-Out / Fall into Void!
-      if (p.y < map.voidY) {
+      if (map.lava && previousY >= map.lava.y && p.y <= map.lava.y && insideRect(map.lava, p.x, p.z)) {
+        this.touchLava(p, map.lava);
+      } else if (p.y < map.voidY) {
         this.killPlayer(p, null, 'RING OUT', true);
       }
     }
@@ -2427,11 +2535,11 @@ class GameRoom {
     }
 
     // 5. Broadcast Snapshot to Connected LAN Clients
-    this.broadcastState(now);
+    this.broadcastState(now, map.shrine && this.updateShrine(map.shrine, now));
     this.fxEvents = [];
   }
 
-  broadcastState(now) {
+  broadcastState(now, shrineState) {
     const playersPayload = [];
     for (const p of this.players.values()) {
       playersPayload.push({
@@ -2491,6 +2599,7 @@ class GameRoom {
       mapId: this.mapId,
       mode: this.mode,
       players: playersPayload,
+      shrineState,
       projectiles: this.projectiles.map(pr => ({
         id: pr.id,
         type: pr.type,

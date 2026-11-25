@@ -921,21 +921,19 @@
       id: 'sky_temple',
       nameTh: 'วิหารลอยฟ้า (Sky Sanctuary)',
       nameEn: 'Sky Sanctuary Courtyard',
-      descTh: 'ลานประลองกว้าง มีระเบียงศิลายกสูงตลอดแนวด้านหลังและชานหน้าให้ถอยตั้งหลัก',
+      descTh: 'ฝึกคอมโบและสวนกลับบนลานศิลาราบ กลางลานมีพื้นที่ถอยตั้งหลัก ส่วนขอบทั้งสี่เปิดให้ผลักคู่ต่อสู้ตกเหว',
       skyTop: '#052e16',
       skyBottom: '#14532d',
       voidType: 'green_matrix',
       voidY: -6.5,
       platforms: [
-        { id: 'sanctuary_court', x: -16, z: -13, w: 32, d: 25, y: 0, h: 3.4 },
-        { id: 'sanctuary_gallery', x: -13.5, z: -11.5, w: 27, d: 6, y: 1.25, h: 1.25 },
-        { id: 'sanctuary_apron', x: -6, z: 12, w: 12, d: 6, y: 0, h: 1.6 }
+        { id: 'sanctuary_court', x: -16, z: -16, w: 32, d: 32, y: 0, h: 3.4 }
       ],
       pillars: [],
       jumpPads: [],
       spawns: [
         { x: -9, z: 6.5 }, { x: 9, z: -8.5 }, { x: -9, z: -8.5 }, { x: 9, z: 6.5 },
-        { x: 0, z: 14.5 }, { x: 0, z: -8.5 }, { x: -10, z: 0 }, { x: 10, z: 0 }
+        { x: 0, z: 10 }, { x: 0, z: -10 }, { x: -10, z: 0 }, { x: 10, z: 0 }
       ]
     },
 
@@ -943,26 +941,31 @@
       id: 'lava_citadel',
       nameTh: 'ป้อมปราการลาวา (Lava Citadel)',
       nameEn: 'Lava Citadel',
-      descTh: 'ทางเดินหินภูเขาไฟล้อมบ่อลาวา ใช้แท่นกระโดดข้ามไปยังเกาะยกสูงตรงกลาง',
-      skyTop: '#362c37',
-      skyBottom: '#967169',
+      descTh: 'ข้ามคูลาวาทางสะพานหินฝั่งใต้ หรือวิ่งเข้าแท่นส่งตัวที่ชี้ไปยังเกาะกลาง ถ้าตกลงลาวาจะเสีย 18 HP และเด้งขึ้นให้หนีกลับฝั่งได้หนึ่งครั้ง',
+      skyTop: '#302935',
+      skyBottom: '#987268',
       voidType: 'lava',
       voidY: -6.5,
       platforms: [
-        { id: 'lava_north', x: -17.5, z: -17.5, w: 35, d: 11, y: 0, h: 3.2 },
-        { id: 'lava_west', x: -17.5, z: -6.5, w: 11, d: 13, y: 0, h: 3.2 },
-        { id: 'lava_east', x: 6.5, z: -6.5, w: 11, d: 13, y: 0, h: 3.2 },
-        { id: 'lava_south', x: -17.5, z: 6.5, w: 35, d: 11, y: 0, h: 3.2 },
-        { id: 'lava_altar', x: -4.7, z: -4.7, w: 9.4, d: 9.4, y: 1.5, h: 3.2 }
+        { id: 'lava_west', x: -30, z: -24, w: 23, d: 41, y: 0, h: 4.6 },
+        { id: 'lava_west_apron', x: -24, z: 17, w: 17, d: 9, y: 0, h: 4.6 },
+        { id: 'lava_east', x: 8, z: -15, w: 22, d: 41, y: 0, h: 4.6 },
+        { id: 'lava_east_apron', x: 8, z: -26, w: 16, d: 11, y: 0, h: 4.6 },
+        { id: 'lava_bridge', x: -7, z: 8, w: 15, d: 6, y: 0, h: 0.7, finish: 'archstone' },
+        { id: 'lava_altar', x: -3.5, z: -8, w: 8, d: 8, y: 1.2, h: 4.8, finish: 'cinder' }
       ],
-      pillars: [],
+      lava: { x: -7, z: -26, w: 15, d: 52, y: -2.2, damage: 18, boostY: 14.8 },
+      pillars: [
+        { x: -27, z: -20, r: 0.6, y: 0, h: 1.25 }, { x: 21, z: -23, r: 0.6, y: 0, h: 1.25 },
+        { x: -21, z: 23, r: 0.6, y: 0, h: 1.25 }, { x: 27, z: 23, r: 0.6, y: 0, h: 1.25 }
+      ],
       jumpPads: [
-        { x: -8.2, z: 0, r: 1.15, boostY: 15.5 },
-        { x: 8.2, z: 0, r: 1.15, boostY: 15.5 }
+        { x: -8.5, z: -4, r: 0.95, boostY: 19.1, directionX: 1 },
+        { x: 9.5, z: -4, r: 0.95, boostY: 19.1, directionX: -1 }
       ],
       spawns: [
-        { x: -11, z: 11 }, { x: 11, z: -11 }, { x: -11, z: -11 }, { x: 11, z: 11 },
-        { x: 0, z: 11 }, { x: 0, z: -11 }, { x: -12.5, z: 0 }, { x: 12.5, z: 0 }
+        { x: -16, z: 7 }, { x: 17, z: 7 }, { x: -23, z: -10 }, { x: 23, z: -10 },
+        { x: -17, z: 19 }, { x: 18, z: 19 }, { x: -15, z: -13 }, { x: 16, z: -13 }
       ]
     },
 
@@ -970,23 +973,23 @@
       id: 'cyber_rooftop',
       nameTh: 'ดาดฟ้าไซเบอร์ (Cyber Rooftops)',
       nameEn: 'Cyber Rooftops',
-      descTh: 'ดาดฟ้าสองฝั่งคั่นด้วยช่องเหว มีสะพานกลางและแท่นสูงคนละมุม',
+      descTh: 'สะพานกลางแคบจนแรงกระแทกครั้งเดียวอาจผลักตกตึกได้ อีกทางคือกระโดดขึ้นระเบียงซ่อมบำรุงสองฝั่งเพื่อยิงคุมสะพานหรือโดดข้ามรอยขาด',
       skyTop: '#243a55',
       skyBottom: '#8298a5',
       voidType: 'neon_city',
       voidY: -6.5,
       platforms: [
         { id: 'cyber_west', x: -19, z: -14, w: 14.5, d: 25, y: 0, h: 4.5 },
-        { id: 'cyber_bridge', x: -4.5, z: -3.6, w: 9, d: 7.2, y: 0, h: 1.2 },
+        { id: 'cyber_bridge', x: -4.5, z: -2, w: 9, d: 4, y: 0, h: 0.8, finish: 'catwalk' },
         { id: 'cyber_east', x: 4.5, z: -11, w: 14.5, d: 25, y: 0, h: 4.5 },
-        { id: 'cyber_terminal_west', x: -17.5, z: 3, w: 8, d: 6.5, y: 1.45, h: 1.45 },
-        { id: 'cyber_terminal_east', x: 9.5, z: -9.5, w: 8, d: 6.5, y: 1.45, h: 1.45 }
+        { id: 'cyber_west_gantry', x: -7.8, z: -8.2, w: 6.6, d: 3.2, y: 1.5, h: 0.42, finish: 'catwalk' },
+        { id: 'cyber_east_gantry', x: 1.2, z: -8.2, w: 6.6, d: 3.2, y: 1.5, h: 0.42, finish: 'catwalk' }
       ],
-      pillars: [],
-      jumpPads: [
-        { x: -8.5, z: -4.5, r: 1.1, boostY: 15 },
-        { x: 8.5, z: 4.5, r: 1.1, boostY: 15 }
+      pillars: [
+        { x: -17.8, z: -12.8, r: 0.3, y: 0, h: 2.05 }, { x: 17.8, z: 12.8, r: 0.3, y: 0, h: 2.05 },
+        { x: -17.8, z: 9.8, r: 0.3, y: 0, h: 2.05 }, { x: 17.8, z: -9.8, r: 0.3, y: 0, h: 2.05 }
       ],
+      jumpPads: [],
       spawns: [
         { x: -12.5, z: 6 }, { x: 12.5, z: -6 }, { x: -12.5, z: -8 }, { x: 12.5, z: 8 },
         { x: -7, z: 1.5 }, { x: 7, z: -1.5 }, { x: -14, z: 0 }, { x: 14, z: 0 }
@@ -997,21 +1000,21 @@
       id: 'tideglass_harbor',
       nameTh: 'ท่าเรือคลื่นคราม (Tideglass Harbor)',
       nameEn: 'Tideglass Harbor',
-      descTh: 'ท่าไม้ทอดขนานชายฝั่ง มีชานเรือต่อคนละด้านและทะเลล้อมรอบ',
+      descTh: 'สายพานขนสินค้าพาไปยังปลายท่าฝั่งตะวันออก เดินสวนหรือก้าวออกด้านข้างได้ ทางไม้สองข้างใช้บุกอ้อมได้โดยมีทะเลอยู่หลังคู่ต่อสู้',
       skyTop: '#668b9b',
       skyBottom: '#d9d5bb',
       voidType: 'sea',
       voidY: -5,
       platforms: [
         { id: 'harbor_boardwalk', x: -17, z: -6, w: 34, d: 12, y: 0, h: 1.2 },
-        { id: 'harbor_north_pier', x: -15, z: -16, w: 12, d: 10, y: 0, h: 1 },
-        { id: 'harbor_south_pier', x: 3, z: 6, w: 12, d: 10, y: 0, h: 1 },
-        { id: 'harbor_lookout', x: -14.5, z: -15.3, w: 6, d: 5, y: 1.1, h: 1.1 }
+        { id: 'harbor_north_pier', x: -15, z: -16, w: 12, d: 10, y: 0, h: 1, course: 'z' },
+        { id: 'harbor_south_pier', x: 3, z: 6, w: 12, d: 10, y: 0, h: 1, course: 'z' }
       ],
+      conveyor: { x: -12, z: -1.45, w: 29, d: 2.9, y: 0, speedX: 2.8 },
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -9, z: -8.5 }, { x: 9, z: 8.5 }, { x: -12, z: 1.5 }, { x: 12, z: -1.5 },
+        { x: -9, z: -8.5 }, { x: 9, z: 8.5 }, { x: -12, z: 3.2 }, { x: 12, z: -3.2 },
         { x: -5.5, z: -12 }, { x: 9, z: 12 }, { x: -6, z: 2.5 }, { x: 6, z: -2.5 }
       ]
     },
@@ -1020,23 +1023,25 @@
       id: 'brasswind_courier',
       nameTh: 'เรือเหาะทองเหลือง (Brasswind Courier)',
       nameEn: 'Brasswind Courier',
-      descTh: 'ดาดฟ้าเรือเหาะทรงยาว มีแท่นกระโดดส่งขึ้นหอบังคับการที่หัวและท้ายเรือ',
+      descTh: 'บันไดกลางลำพาขึ้นจุดยิงบนหัวเรือ แท่นส่งตัวด้านข้างใช้บุกขึ้นประชิดได้เร็ว ส่วนทางเดินริมกราบทั้งสองใช้เข้าด้านหลัง',
       skyTop: '#728aa9',
       skyBottom: '#ecdbc3',
       voidType: 'clouds',
       voidY: -6.5,
       platforms: [
         { id: 'courier_deck', x: -19, z: -8, w: 38, d: 16, y: 0, h: 1.8 },
-        { id: 'courier_stern', x: -17.5, z: -6.6, w: 7.5, d: 10.8, y: 1.55, h: 1.55 },
-        { id: 'courier_bow', x: 10, z: -4.2, w: 7.5, d: 10.8, y: 1.55, h: 1.55 }
+        ...Array.from({ length: 8 }, (_, i) => ({
+          id: 'courier_tread_' + (i + 1), x: 2 + i, z: -1.8, w: 1, d: 3.6,
+          y: (i + 1) * 0.2, h: (i + 1) * 0.2, stair: true, finish: 'forecastle'
+        })),
+        { id: 'courier_forecastle', x: 10, z: -4, w: 8, d: 8, y: 1.6, h: 1.6, finish: 'forecastle' }
       ],
       pillars: [],
       jumpPads: [
-        { x: -7.7, z: -2, r: 1.05, boostY: 15 },
-        { x: 7.7, z: 2, r: 1.05, boostY: 15 }
+        { x: 7.8, z: -3.3, r: 0.9, boostY: 15.5 }
       ],
       spawns: [
-        { x: -12.5, z: -1.5 }, { x: 12.5, z: 1.5 }, { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 },
+        { x: -12.5, z: -1.5 }, { x: 12.5, z: 5.8 }, { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 },
         { x: 0, z: 5.5 }, { x: 0, z: -5.5 }, { x: -3, z: -4.5 }, { x: 3, z: 4.5 }
       ]
     },
@@ -1045,22 +1050,24 @@
       id: 'mossgate_ruins',
       nameTh: 'ซากวิหารมอสส์ (Mossgate Ruins)',
       nameEn: 'Mossgate Ruins',
-      descTh: 'ลานวิหารกลางป่าเขียวชื้น มีแท่นบูชาและชานหินแยกที่ต้องกระโดดข้าม',
+      descTh: 'สะพานหินนำจากลานสองฝั่งเข้าสู่วงฟื้นพลัง ยืนในวงเพื่อฟื้นเลือดทีละ 6 HP ทุกวินาที เมื่อศัตรูเข้าวง การฟื้นพลังจะหยุดจนกว่าจะชิงพื้นที่คืนได้',
       skyTop: '#587768',
       skyBottom: '#ced1ad',
       voidType: 'forest',
       voidY: -6.5,
       platforms: [
-        { id: 'mossgate_court', x: -12, z: -12, w: 24, d: 24, y: 0, h: 3.7 },
-        { id: 'mossgate_west', x: -21, z: -10, w: 7, d: 12, y: 0, h: 2.6 },
-        { id: 'mossgate_east', x: 14, z: -2, w: 7, d: 12, y: 0.65, h: 3.25 },
-        { id: 'mossgate_altar', x: -5.5, z: -8.5, w: 11, d: 7.5, y: 1.35, h: 1.35 }
+        { id: 'mossgate_court', x: -5.5, z: -5.5, w: 11, d: 11, y: 0, h: 3.7 },
+        { id: 'mossgate_west', x: -21, z: -10, w: 13, d: 17, y: 0, h: 3.4 },
+        { id: 'mossgate_east', x: 8, z: -7, w: 13, d: 17, y: 0, h: 3.4 },
+        { id: 'mossgate_west_arch', x: -8, z: -2.8, w: 2.5, d: 3.8, y: 0, h: 1.2 },
+        { id: 'mossgate_east_arch', x: 5.5, z: -1, w: 2.5, d: 3.8, y: 0, h: 1.2 }
       ],
+      shrine: { x: 0, z: 0, y: 0, r: 3, heal: 6, periodMs: 1000 },
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -8, z: 7 }, { x: 8, z: -7 }, { x: -8, z: -4.5 }, { x: 8, z: 7 },
-        { x: 0, z: 7 }, { x: 0, z: -5.5 }, { x: -17, z: -4.5 }, { x: 17, z: 4.5 }
+        { x: -12, z: -3 }, { x: 12, z: 3 }, { x: -16, z: 3 }, { x: 16, z: -3 },
+        { x: -12, z: 4 }, { x: 12, z: -4 }, { x: -16, z: -6 }, { x: 16, z: 6 }
       ]
     },
 
@@ -1068,21 +1075,23 @@
       id: 'frostline_pass',
       nameTh: 'ช่องเขาเหมันต์ (Frostline Pass)',
       nameEn: 'Frostline Pass',
-      descTh: 'ชั้นหิมะสามระดับตามแนวหน้าผา แต่ละชั้นเยื้องด้านข้างให้มีทางขึ้นลงต่างกัน',
+      descTh: 'ข้ามลำธารน้ำแข็งกลางช่องเขาได้เร็ว แต่ต้องเผื่อระยะเบรกก่อนถึงขอบเหว ทางหิมะเลียบผาฝั่งตะวันตกเดินอ้อมได้และหยุดเท้าได้มั่นคงกว่า',
       skyTop: '#6e89a4',
       skyBottom: '#d7e3e6',
       voidType: 'snow',
       voidY: -6.5,
       platforms: [
-        { id: 'frostline_middle', x: -14, z: -7.5, w: 28, d: 15, y: 0, h: 3.2 },
-        { id: 'frostline_upper', x: -16, z: -16, w: 24, d: 8.5, y: 1.25, h: 4.45 },
-        { id: 'frostline_lower', x: -8, z: 7.5, w: 24, d: 8.5, y: -0.65, h: 2.55 }
+        { id: 'frostline_passage', x: -3.5, z: -5, w: 7, d: 10, y: 0, h: 2.6, finish: 'ice' },
+        { id: 'frostline_north', x: -16, z: -16, w: 24, d: 11, y: 0, h: 3.2 },
+        { id: 'frostline_south', x: -8.5, z: 5, w: 24.5, d: 11, y: 0, h: 3.2 },
+        { id: 'frostline_shelf', x: -13.5, z: -5, w: 4.5, d: 12, y: 0, h: 3.2 },
+        { id: 'frostline_bend', x: -13.5, z: 7, w: 5, d: 4, y: 0, h: 3.2 }
       ],
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -9, z: 3 }, { x: 9, z: -3 }, { x: -10, z: -11.5 }, { x: 10, z: 11.5 },
-        { x: -3, z: 12 }, { x: 3, z: -12 }, { x: -6, z: 0 }, { x: 6, z: 0 }
+        { x: -4, z: 8 }, { x: 4, z: -8 }, { x: -10, z: -11.5 }, { x: 10, z: 11.5 },
+        { x: -3, z: 12 }, { x: 3, z: -12 }, { x: -11, z: -8 }, { x: 6, z: 8 }
       ]
     }
   };

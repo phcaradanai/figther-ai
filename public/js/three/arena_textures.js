@@ -21,81 +21,350 @@ function paintTexture(width, height, paint, repeat = false) {
   return tex;
 }
 
-export function makeArenaFloor(theme) {
-  const { props, surface } = theme;
-  return paintTexture(384, 384, (ctx, size) => {
-    const rand = randomSource(152);
-    const [base, seam, light, accent] = surface;
-    const wood = props === 'harbor';
-    const metal = props === 'courier';
-    const cyber = props === 'astral';
-    const ruins = props === 'ruins';
-    const snow = props === 'snow';
-    const tileW = wood ? 192 : 96;
-    const tileH = wood ? 32 : snow ? 128 : 96;
-    ctx.fillStyle = seam;
-    ctx.fillRect(0, 0, size, size);
-    for (let row = 0; row < size / tileH; row++) {
-      for (let x = row % 2 ? -tileW / 2 : 0; x < size; x += tileW) {
-        const y = row * tileH;
-        const grad = ctx.createLinearGradient(x, y, x, y + tileH);
-        grad.addColorStop(0, light);
-        grad.addColorStop(0.25, base);
-        grad.addColorStop(1, accent);
-        ctx.fillStyle = grad;
-        ctx.fillRect(x + 1, y + 1, tileW - 2, tileH - 2);
+function grain(ctx, size, rand, light, dark) {
+  for (let i = 0; i < 4100; i++) {
+    ctx.fillStyle = i % 2 ? light : dark;
+    ctx.globalAlpha = 0.035 + rand() * 0.12;
+    ctx.fillRect(rand() * size, rand() * size, 1 + rand() * 4, 1 + rand() * 2);
+  }
+  ctx.globalAlpha = 1;
+}
 
-        if (cyber) {
-          ctx.strokeStyle = 'rgba(121,211,250,0.65)';
-          ctx.lineWidth = 2;
+function patches(ctx, size, rand, rgb, count, radius, opacity, stretch = 1) {
+  for (let i = 0; i < count; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const r = radius * (0.3 + rand() * 0.7);
+    for (let dy = -size; dy <= size; dy += size) {
+      for (let dx = -size; dx <= size; dx += size) {
+        const px = x + dx;
+        const py = y + dy;
+        if (px + r * stretch <= 0 || px - r * stretch >= size || py + r <= 0 || py - r >= size) continue;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.scale(stretch, 1);
+        const wash = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        wash.addColorStop(0, `rgba(${rgb},${opacity})`);
+        wash.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = wash;
+        ctx.fillRect(-r, -r, r * 2, r * 2);
+        ctx.restore();
+      }
+    }
+  }
+}
+
+function boards(ctx, size, rand, palette, height) {
+  const [base, seam, light, shade] = palette;
+  const width = size / 2;
+  ctx.fillStyle = seam;
+  ctx.fillRect(0, 0, size, size);
+  for (let row = 0; row < size / height; row++) {
+    const y = row * height;
+    for (let col = 0; col < 2; col++) {
+      const x = col * width - (row % 4) * width / 4;
+      const seed = 51 + row * 13 + col * 19;
+      for (const left of [x, x + size]) {
+        const boardRand = randomSource(seed);
+        const wash = ctx.createLinearGradient(left, y, left, y + height);
+        wash.addColorStop(0, light);
+        wash.addColorStop(0.14, (row + col) % 3 === 0 ? shade : base);
+        wash.addColorStop(1, shade);
+        ctx.fillStyle = wash;
+        ctx.fillRect(left + 1, y + 1, width - 2, height - 2);
+        ctx.strokeStyle = seam;
+        for (let i = 0; i < 12; i++) {
+          const start = left + 8 + boardRand() * 54;
+          const lineY = y + 3 + boardRand() * (height - 6);
+          ctx.globalAlpha = 0.07 + boardRand() * 0.2;
           ctx.beginPath();
-          ctx.moveTo(x + 7, y + 13);
-          ctx.lineTo(x + 38, y + 13);
-          ctx.lineTo(x + 49, y + 24);
-          ctx.lineTo(x + 83, y + 24);
+          ctx.moveTo(start, lineY);
+          ctx.bezierCurveTo(start + 42, lineY - 2, start + 94, lineY + 3, start + 155, lineY - 1);
           ctx.stroke();
-          ctx.fillStyle = '#619cc5';
-          ctx.fillRect(x + 77, y + 22, 6, 5);
-        } else if (wood || metal) {
+        }
+        ctx.globalAlpha = 0.7;
+        for (const end of [left + 7, left + width - 7]) {
           ctx.fillStyle = seam;
-          for (const u of [x + 7, x + tileW - 7]) {
-            ctx.beginPath();
-            ctx.arc(u, y + tileH - 8, metal ? 2.4 : 1.5, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        } else {
-          ctx.strokeStyle = snow ? seam : light;
-          ctx.globalAlpha = 0.5;
+          ctx.fillRect(end, y + height * 0.35, 2, 2);
+          ctx.fillRect(end, y + height * 0.65, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+  grain(ctx, size, rand, light, seam);
+}
+
+function paving(ctx, size, rand, palette, kind) {
+  const [base, seam, light, shade] = palette;
+  const width = size / 4;
+  const height = kind === 'lava' ? size / 4 : size / 8;
+  ctx.fillStyle = seam;
+  ctx.fillRect(0, 0, size, size);
+  for (let row = 0; row < size / height; row++) {
+    for (let col = 0; col < 4; col++) {
+      const x = col * width - (row % 2) * width / 2;
+      const y = row * height;
+      const cut = 4 + rand() * (kind === 'lava' ? 22 : 8);
+      const face = rand() > 0.65 ? shade : base;
+      for (const left of [x, x + size]) {
+        const wash = ctx.createLinearGradient(left, y, left + width, y + height);
+        wash.addColorStop(0, light);
+        wash.addColorStop(0.31, face);
+        wash.addColorStop(1, shade);
+        ctx.fillStyle = wash;
+        ctx.beginPath();
+        ctx.moveTo(left + cut, y + 3);
+        ctx.lineTo(left + width - cut * 0.6, y + 2);
+        ctx.lineTo(left + width - 3, y + cut);
+        ctx.lineTo(left + width - 4, y + height - cut * 0.7);
+        ctx.lineTo(left + width - cut, y + height - 3);
+        ctx.lineTo(left + cut * 0.8, y + height - 3);
+        ctx.lineTo(left + 3, y + height - cut);
+        ctx.lineTo(left + 3, y + cut);
+        ctx.closePath();
+        ctx.fill();
+        if (kind === 'lava' && (row + col) % 3 !== 1) {
+          ctx.strokeStyle = seam;
+          ctx.globalAlpha = 0.49;
           ctx.beginPath();
-          ctx.moveTo(x + 12, y + tileH * 0.7);
-          ctx.lineTo(x + tileW * 0.48, y + tileH * 0.53);
-          ctx.lineTo(x + tileW * 0.6, y + tileH * 0.3);
+          ctx.moveTo(left + cut + 3, y + 8);
+          ctx.lineTo(left + width * 0.42, y + height * 0.25);
+          ctx.lineTo(left + width * 0.36, y + height * 0.33);
+          ctx.lineTo(left + width * 0.56, y + height * 0.44);
           ctx.stroke();
           ctx.globalAlpha = 1;
         }
       }
     }
+  }
+  if (kind === 'ruins') patches(ctx, size, rand, '82,108,48', 45, 61, 0.7);
+  if (kind === 'lava') patches(ctx, size, rand, '153,94,64', 57, 32, 0.25);
+  grain(ctx, size, rand, light, seam);
+}
 
-    if (ruins || snow) {
-      for (let i = 0; i < 65; i++) {
-        const x = rand() * size;
-        const y = rand() * size;
-        const r = 4 + rand() * (ruins ? 16 : 22);
-        const patch = ctx.createRadialGradient(x, y, 0, x, y, r);
-        patch.addColorStop(0, ruins ? 'rgba(120,143,65,0.5)' : 'rgba(255,255,255,0.48)');
-        patch.addColorStop(1, ruins ? 'rgba(120,143,65,0)' : 'rgba(255,255,255,0)');
-        ctx.fillStyle = patch;
-        ctx.fillRect(x - r, y - r, 2 * r, 2 * r);
+function plates(ctx, size, rand, palette, finish) {
+  const [base, seam, light, shade] = palette;
+  const catwalk = finish === 'catwalk';
+  const forecastle = finish === 'forecastle';
+  const airship = finish === 'courier';
+  const width = size / (catwalk ? 8 : airship ? 2 : 4);
+  const height = size / (catwalk ? 2 : airship ? 8 : 4);
+  ctx.fillStyle = seam;
+  ctx.fillRect(0, 0, size, size);
+  for (let y = 0; y < size; y += height) {
+    for (let x = 0; x < size; x += width) {
+      const wash = ctx.createLinearGradient(x, y, x, y + height);
+      wash.addColorStop(0, light);
+      wash.addColorStop(0.16, base);
+      wash.addColorStop(1, shade);
+      ctx.fillStyle = wash;
+      ctx.fillRect(x + 1, y + 1, width - 2, height - 2);
+      ctx.fillStyle = seam;
+      if (catwalk || forecastle) {
+        for (let row = y + 11; row < y + height - 6; row += catwalk ? 15 : 24) {
+          ctx.globalAlpha = 0.55;
+          ctx.fillRect(x + 9, row, width - 18, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+      if (airship) {
+        ctx.globalAlpha = 0.55;
+        for (let bolt = x + 18; bolt < x + width - 10; bolt += 19) {
+          ctx.fillRect(bolt, y + height - 5, 2.5, 2.5);
+        }
+        ctx.globalAlpha = 1;
+      }
+      for (const u of [x + 6, x + width - 6]) {
+        for (const v of [y + 6, y + height - 6]) {
+          ctx.beginPath();
+          ctx.arc(u, v, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
+  }
+  grain(ctx, size, rand, light, seam);
+}
 
-    for (let i = 0; i < 1700; i++) {
-      ctx.fillStyle = i % 2 ? light : seam;
-      ctx.globalAlpha = 0.04 + rand() * 0.12;
-      const x = rand() * size;
-      const y = rand() * size;
-      ctx.fillRect(x, y, (wood ? 32 : 5) * rand() + 1, wood ? 1 : 2.5);
+export function makeArenaFloor(theme, finish) {
+  const { props } = theme;
+  const palette = finish === 'cinder' ? ['#806459', '#463334', '#a58a72', '#6b534b']
+    : finish === 'archstone' ? ['#746764', '#40393a', '#9b8c81', '#665958']
+    : theme.surface;
+  return paintTexture(512, 512, (ctx, size) => {
+    const rand = randomSource(152);
+    if (props === 'harbor') {
+      boards(ctx, size, rand, palette, size / 16);
+    } else if (finish === 'archstone') {
+      paving(ctx, size, rand, palette, 'ashlar');
+    } else if (finish === 'ice') {
+      ctx.fillStyle = '#77a7b8';
+      ctx.fillRect(0, 0, size, size);
+      patches(ctx, size, rand, '213,240,238', 38, 93, 0.48, 1.9);
+      patches(ctx, size, rand, '58,106,134', 24, 62, 0.3, 1.4);
+      // Hairline fractures meet their neighbours across the tile boundaries.
+      for (const points of [
+        [[0, 155], [79, 174], [128, 150], [204, 178], [248, 159], [287, 168], [360, 139], [414, 146], [512, 155]],
+        [[128, 150], [145, 118], [175, 107], [186, 79]],
+        [[360, 139], [373, 183], [365, 200], [390, 227]],
+        [[268, 0], [280, 51], [258, 85], [269, 119], [248, 159]],
+        [[268, 512], [256, 477], [270, 453], [266, 435]]
+      ]) {
+        ctx.beginPath();
+        for (const [i, [x, y]] of points.entries()) {
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = 'rgba(67,115,135,0.46)';
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(226,247,245,0.82)';
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+      }
+      grain(ctx, size, rand, '#e1f3ee', '#56869a');
+    } else if (props === 'snow') {
+      ctx.fillStyle = palette[0];
+      ctx.fillRect(0, 0, size, size);
+      patches(ctx, size, rand, '242,250,252', 54, 103, 0.56, 2.4);
+      patches(ctx, size, rand, '112,152,177', 30, 58, 0.18, 2.7);
+      ctx.strokeStyle = '#e4eff4';
+      for (let i = 0; i < 86; i++) {
+        const x = rand() * size;
+        const y = rand() * size;
+        const length = 6 + rand() * 42;
+        ctx.globalAlpha = 0.08 + rand() * 0.13;
+        for (const offset of [0, -size]) {
+          ctx.beginPath();
+          ctx.moveTo(x + offset, y);
+          ctx.quadraticCurveTo(x + offset + length * 0.6, y - 1.6, x + offset + length, y);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      grain(ctx, size, rand, palette[2], palette[1]);
+    } else if (props === 'courier' || props === 'astral') {
+      plates(ctx, size, rand, palette, finish ?? props);
+    } else {
+      paving(ctx, size, rand, palette, props);
     }
+  }, true);
+}
+
+export function makeConveyorTread() {
+  return paintTexture(384, 256, (ctx, width, height) => {
+    ctx.fillStyle = '#344745';
+    ctx.fillRect(0, 0, width, height);
+    for (let x = 0; x < width; x += 32) {
+      const rubber = ctx.createLinearGradient(x, 0, x + 32, 0);
+      rubber.addColorStop(0, '#85908a');
+      rubber.addColorStop(0.08, '#566762');
+      rubber.addColorStop(1, '#43534f');
+      ctx.fillStyle = rubber;
+      ctx.fillRect(x + 1, 0, 29, height);
+      ctx.fillStyle = '#a0a59a';
+      for (const y of [15, height - 15]) ctx.fillRect(x + 7, y, 7, 3);
+    }
+    ctx.lineJoin = 'bevel';
+    ctx.strokeStyle = '#d4b977';
+    ctx.lineWidth = 8;
+    for (const x of [113, 147]) {
+      ctx.beginPath();
+      ctx.moveTo(x, 72);
+      ctx.lineTo(x + 50, height / 2);
+      ctx.lineTo(x, height - 72);
+      ctx.stroke();
+    }
+    grain(ctx, width, randomSource(711), '#e0d4a3', '#273d3c');
+  }, true);
+}
+
+export function makeShrineInlay() {
+  return paintTexture(512, 512, (ctx, size) => {
+    ctx.translate(size / 2, size / 2);
+    ctx.fillStyle = 'rgba(53,78,63,0.70)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 248, 0, 2 * Math.PI);
+    ctx.fill();
+    for (const [r, width, color] of [[237, 14, '#adb18c'], [219, 3, '#dbd9ae'], [91, 4, '#a0b39a']]) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, 2 * Math.PI);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.stroke();
+    }
+    for (let i = 0; i < 8; i++) {
+      ctx.save();
+      ctx.rotate(i * Math.PI / 4);
+      ctx.beginPath();
+      ctx.moveTo(0, -25);
+      ctx.bezierCurveTo(-36, -68, -32, -122, 0, -169);
+      ctx.bezierCurveTo(28, -117, 37, -71, 0, -25);
+      ctx.fillStyle = i % 2 ? '#92b49d' : '#b2c6a1';
+      ctx.fill();
+      ctx.strokeStyle = '#4d725e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, -34);
+      ctx.quadraticCurveTo(-8, -93, 0, -148);
+      ctx.stroke();
+      ctx.fillStyle = '#d8c99e';
+      ctx.fillRect(-3, -215, 6, i % 2 ? 12 : 22);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#dacb9e';
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+}
+
+export function makeArenaWall(theme) {
+  const { props, cliff: [light, dark] } = theme;
+  return paintTexture(512, 512, (ctx, size) => {
+    const rand = randomSource(391);
+    const wash = ctx.createLinearGradient(0, 0, 0, size);
+    wash.addColorStop(0, light);
+    wash.addColorStop(0.5, dark);
+    wash.addColorStop(1, light);
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, size, size);
+    if (props === 'harbor') {
+      boards(ctx, size, rand, [light, dark, '#ad8261', '#6e4e3c'], size / 8);
+    } else if (props === 'astral' || props === 'courier') {
+      const airship = props === 'courier';
+      const step = size / (airship ? 4 : 8);
+      for (let x = 0; x < size; x += step) {
+        ctx.fillStyle = dark;
+        ctx.fillRect(x, 0, 4, size);
+        ctx.fillStyle = airship ? '#937151' : '#61748c';
+        ctx.globalAlpha = 0.65;
+        ctx.fillRect(x + 4, 0, 2, size);
+        for (let y = 22; y < size; y += 48) ctx.fillRect(x + 9, y, 3, 3);
+        ctx.globalAlpha = 1;
+      }
+    } else if (props === 'lava') {
+      const masonry = ['#695b58', '#342d33', '#8e7f74', '#55494a'];
+      paving(ctx, size, rand, masonry, 'lava');
+      patches(ctx, size, rand, '64,48,51', 28, 42, 0.22);
+    } else if (props === 'snow') {
+      ctx.strokeStyle = '#bed5df';
+      for (let i = 0; i < 29; i++) {
+        const y = rand() * size;
+        const slope = (rand() - 0.5) * 28;
+        ctx.globalAlpha = 0.12 + rand() * 0.4;
+        ctx.lineWidth = 1 + rand() * 8;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.bezierCurveTo(size / 3, y + slope, 2 * size / 3, y - slope, size, y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      paving(ctx, size, rand, [light, dark, light, theme.under], props);
+    }
+    grain(ctx, size, rand, light, dark);
   }, true);
 }
 

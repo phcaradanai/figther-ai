@@ -50,14 +50,14 @@ async function startServer(t, testMaps = {}) {
       socket,
       messages,
       send: message => socket.send(JSON.stringify(message)),
-      async waitFor(predicate) {
+      async waitFor(predicate, timeoutMs = 3000) {
         return new Promise((resolve, reject) => {
           const check = setInterval(() => {
             const found = messages.findLast(predicate);
             if (found) finish(null, found);
             else if (socket.readyState === WebSocket.CLOSED) finish(new Error(`Socket closed: ${stderr}`));
           }, 5);
-          const timeout = setTimeout(() => finish(new Error(`Expected game message was not received: ${stderr}`)), 3000);
+          const timeout = setTimeout(() => finish(new Error(`Expected game message was not received: ${stderr}`)), timeoutMs);
           function finish(error, value) {
             clearInterval(check);
             clearTimeout(timeout);
@@ -311,4 +311,136 @@ test('raised walls block walking, allow sliding and jumping, and leave level pat
   await observe(p => p.grounded && p.y === 0 && p.x > 3);
   await observe(p => p.grounded && p.y === 0 && p.x > 5.5);
   server.assertRunning();
+});
+
+// Use the shipped arenas and the normal LAN inputs. Only the spawn locations
+// are moved so each test starts beside the feature it exercises.
+async function arenaClients(t, mapId, spawns, heroId = 'knight') {
+  const server = await startServer(t, { [mapId]: { ...MAPS[mapId], spawns } });
+  const clients = [];
+  for (const _spawn of spawns) {
+    const client = await server.connect();
+    client.send({ type: 'join_room', roomId: 'TERRAIN', heroId, mapId });
+    const { clientId } = await client.waitFor(m => m.type === 'joined');
+    client.player = state => state.players.find(p => p.id === clientId);
+    client.observe = (predicate, timeout) => client.waitFor(m => m.type === 'state' && predicate(client.player(m), m), timeout);
+    clients.push(client);
+  }
+  return clients;
+}
+
+test('the loading belt carries an idle fighter into the sea while the pier beside it stays still', async t => {
+  const [rider, walker] = await arenaClients(t, 'tideglass_harbor', [{ x: 14, z: 0 }, { x: 14, z: 4 }]);
+  const start = walker.player(await walker.observe(p => p.grounded));
+  await rider.observe(p => p.grounded && p.x > 15.5);
+  const fall = await rider.observe(p => p.deaths === 1);
+  assert.ok(fall.killFeed.some(entry => entry.isRingOut));
+  assert.equal(walker.player(fall).x, start.x);
+  assert.equal(walker.player(fall).deaths, 0);
+});
+
+test('releasing movement on the frozen crossing has a longer stopping distance than on the snow bypass', async t => {
+  const [skater, walker] = await arenaClients(t, 'frostline_pass', [{ x: 0, z: -3.7 }, { x: -11, z: -3.7 }]);
+  await skater.observe((p, m) => p.grounded && walker.player(m)?.grounded);
+  for (const c of [skater, walker]) c.send({ type: 'input', mz: 1 });
+  const moving = await skater.observe((p, m) => p.vz > 4 && walker.player(m).vz > 4);
+  for (const c of [skater, walker]) c.send({ type: 'input', mz: 0 });
+  skater.messages.length = 0;
+  const stopped = await skater.observe((p, m) => Math.abs(p.vz) < 0.4 && Math.abs(walker.player(m).vz) < 0.4);
+  const distance = c => c.player(stopped).z - c.player(moving).z;
+  assert.ok(distance(skater) > distance(walker) + 1.2, 'Ice must preserve measurable momentum after release');
+});
+
+test('the lava moat burns and launches once, allowing a recovery or a second-contact ring-out', async t => {
+  const [escape, fall] = await arenaClients(t, 'lava_citadel', [{ x: -5.7, z: -11 }, { x: 0, z: 5.8 }]);
+  const bounced = escape.player(await escape.observe(p => p.hp < p.maxHp && p.vy > 0));
+  assert.equal(bounced.maxHp - bounced.hp, 18);
+  escape.send({ type: 'input', mx: -1 });
+  const landed = escape.player(await escape.observe(p => p.x < -7.5 && p.grounded));
+  assert.equal(landed.deaths, 0);
+  assert.equal(landed.hp, bounced.hp);
+  assert.ok((await fall.observe(p => p.deaths === 1)).killFeed.some(entry => entry.isRingOut));
+});
+
+test('the expanded lava citadel has a walkable crossing and open bridge edges', { timeout: 14000 }, async t => {
+  const [walker, fall] = await arenaClients(t, 'lava_citadel', [{ x: -19, z: 11 }, { x: 0, z: 11 }]);
+  await walker.observe(p => p.grounded);
+  await fall.observe(p => p.grounded);
+  walker.send({ type: 'input', mx: 1 });
+  fall.send({ type: 'input', mz: 1 });
+  await fall.observe(p => p.z > 14 && p.y < 0);
+  await walker.observe(p => p.x > 14 && p.grounded && p.hp === p.maxHp && p.deaths === 0, 10000);
+  const crossing = walker.messages.filter(m => m.type === 'state').map(walker.player)
+    .filter(p => p && p.x > -5 && p.x < 6);
+  assert.ok(crossing.length > 10);
+  assert.ok(crossing.every(p => p.grounded && p.y === 0), 'The bridge should join both banks at ground level');
+});
+
+test('both lava launch pads reach the raised island at regular movement speed', async t => {
+  const [west, east] = await arenaClients(t, 'lava_citadel', [{ x: -13.5, z: -4 }, { x: 14.5, z: -4 }], 'mage');
+  await Promise.all([west.observe(p => p.grounded), east.observe(p => p.grounded)]);
+  west.send({ type: 'input', mx: 1 });
+  east.send({ type: 'input', mx: -1 });
+  for (const rider of [west, east]) {
+    await rider.observe((p, m) => p.vy > 10 && m.fx.some(f => f.type === 'jumppad'), 3500);
+    const landed = rider.player(await rider.observe(p => p.grounded && p.y === 1.2 && p.x > -3.5 && p.x < 4.5, 3500));
+    rider.send({ type: 'input', mx: 0 });
+    assert.equal(landed.hp, landed.maxHp);
+    assert.equal(landed.deaths, 0);
+  }
+});
+
+test('the airship stairs can be climbed on foot while the side of the forecastle blocks movement', async t => {
+  const [climber, blocker] = await arenaClients(t, 'brasswind_courier', [{ x: 1, z: 0 }, { x: 13, z: 6 }]);
+  await climber.observe((p, m) => p.grounded && blocker.player(m)?.grounded);
+  climber.send({ type: 'input', mx: 1 });
+  blocker.send({ type: 'input', mz: -1 });
+  const top = await climber.observe(p => p.grounded && p.x > 10.5 && p.y === MAPS.brasswind_courier.platforms.at(-1).y);
+  assert.ok(blocker.player(top).z >= 4.3);
+  assert.equal(blocker.player(top).y, 0);
+  climber.send({ type: 'input', mx: -1 });
+  await climber.observe(p => p.grounded && p.x < 2 && p.y === 0 && p.vx < 0);
+});
+
+test('a gunslinger on the forecastle can shoot a fighter on the lower deck', async t => {
+  const [gunner, target] = await arenaClients(t, 'brasswind_courier', [{ x: 13, z: 2.5 }, { x: 13, z: 6 }]);
+  gunner.send({ type: 'swap_hero', heroId: 'cowboy' });
+  const ready = await gunner.observe((p, m) => p.heroId === 'cowboy' && p.y > 1 && p.grounded &&
+    target.player(m)?.grounded && !target.player(m).buffs.invuln);
+  const shooter = gunner.player(ready), opponent = target.player(ready);
+  const facing = Math.atan2(opponent.z - shooter.z, opponent.x - shooter.x);
+  gunner.send({ type: 'input', facing });
+  await gunner.observe(p => Math.abs(p.facing - facing) < 0.01);
+  gunner.send({ type: 'attack' });
+  await target.observe(p => p.y === 0 && p.hp < p.maxHp);
+});
+
+test('an enemy contests the healing circle until they leave', { timeout: 12000 }, async t => {
+  const [holder, challenger] = await arenaClients(t, 'mossgate_ruins', [{ x: -0.25, z: 0 }, { x: 0.5, z: 0 }]);
+  const ready = await challenger.observe((p, m) => p.grounded && !holder.player(m)?.buffs.invuln && m.shrineState === 'contested');
+  const facing = Math.atan2(holder.player(ready).z - challenger.player(ready).z, holder.player(ready).x - challenger.player(ready).x);
+  challenger.send({ type: 'input', facing });
+  await challenger.observe(p => Math.abs(p.facing - facing) < 0.01);
+  challenger.send({ type: 'attack' });
+  const hit = holder.player(await holder.observe(p => p.hp < p.maxHp));
+  await new Promise(resolve => setTimeout(resolve, 1300));
+  const contested = holder.messages.findLast(m => m.type === 'state');
+  assert.equal(contested.shrineState, 'contested');
+  assert.equal(holder.player(contested).hp, hit.hp);
+  challenger.socket.close();
+  const healed = holder.player(await holder.observe((p, m) => m.shrineState === 'held' && p.hp > hit.hp));
+  assert.ok(healed.hp <= healed.maxHp);
+});
+
+test('a melee bot takes the bridge to an enemy across the rooftop chasm', { timeout: 18000 }, async t => {
+  const mapId = 'cyber_rooftop';
+  const spawns = [{ x: 14, z: 8.5 }, { x: -11, z: 8.5 }];
+  const server = await startServer(t, { [mapId]: { ...MAPS[mapId], spawns } });
+  const client = await server.connect();
+  client.send({ type: 'join_room', roomId: 'CROSSING', mapId });
+  await client.waitFor(m => m.type === 'joined');
+  client.send({ type: 'add_bot', heroId: 'knight' });
+  await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && Math.abs(p.x) < 1.5 && Math.abs(p.z) < 1.9), 10000);
+  const arrival = await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && p.x > 5 && p.grounded), 4000);
+  assert.equal(arrival.players.find(p => p.isBot).deaths, 0);
 });

@@ -775,7 +775,7 @@ export class ThreeRenderer {
     }
 
     this.updateCamera(dt, me);
-    this.stage.update(this.time, dt);
+    this.stage.update(this.time, dt, state?.shrineState);
     this.fx.update(dt);
     if (this.knightVfx) this.knightVfx.update(dt, state);
     if (this.ninjaVfx) this.ninjaVfx.update(dt);
