@@ -1,0 +1,57 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A LAN multiplayer 2.5D arena brawler (Lost Saga–style gameplay, Tree of Savior–style art): 10 heroes, each with 4 gear pieces (weapon/armor/helmet/trinket) that carry one skill apiece (40 skills total). Gear can be knocked off on hit, dropped on the floor, and picked up by anyone, so a player can wear a mix of heroes' gear. Plain Node.js + vanilla browser JS — no bundler, no framework, no TypeScript.
+
+## Commands
+
+```powershell
+npm install        # required: pulls `ws`, `three` and `pixelfx` (GitHub dep patch-gg/pixelfx)
+npm start          # node server.js on http://localhost:3000 (PORT env var overrides)
+node --test tests/                                # all tests (node:test; there is no npm test script)
+node --test tests/websocket_messages.test.js      # one file
+node --test --test-name-pattern "malformed" tests/ # tests whose name matches
+```
+
+Open `http://localhost:3000/?renderer=3d` (or the "3D (ทดลอง)" HUD button) for the Three.js renderer; without the param the 2D canvas renderer is used.
+
+`START_LAN_SERVER.bat` does the same as `npm start` and opens the browser. There is no build step or linter. The tests cover the network/input layer only: `tests/websocket_messages.test.js` spawns `server.js` on a random port and sends malformed packets; `tests/input_focus.test.js` runs `game_client.js` inside `vm` with a stubbed DOM and socket, so `game_client.js` must keep working against those stubs. Rendering, animation and gameplay feel are verified by running the server and playing in a browser (the server listens on 0.0.0.0 and prints LAN URLs; default rooms come pre-populated with bots). Restart the server after editing `server.js` or `shared_data.js`; client-only edits just need a page reload.
+
+## Architecture
+
+**Server-authoritative simulation.** `server.js` is both the static file server and the game server. All physics, combat, skills, AI bots, and gear drops run in `GameRoom.update()` on a 30 Hz `setInterval`. Clients send only intents; the server broadcasts a full JSON `state` snapshot per room every tick (players, projectiles, droppedGears, hazards, one-shot `fx` events, killFeed). `fxEvents` is cleared after each broadcast, so FX are fire-once.
+
+**WebSocket protocol** (all JSON, `type` field): server → client `welcome`, `joined`, `state`; client → server `join_room`, `input` (continuous movement/facing/guard/sprint), and discrete actions `jump`, `dash`, `attack`, `heavy`, `skill` (`slot`), `swap_hero`, `pickup_gear`, `add_bot`, `clear_bots`, `change_map`. Every incoming packet must pass the whitelist in `isValidClientMessage()` (`server.js`), which checks the type and each field's type/allowed ids; anything else is dropped. Adding a new action or field means touching that validator, the switch at the bottom of `server.js`, and the key handlers in `game_client.js`. `game_client.js` releases held inputs on window blur / tab hide. `GET /api/lan-info` returns LAN addresses and room summaries.
+
+**Shared data is the single source of truth.** `public/js/shared_data.js` is a UMD module loaded by both the server (`require`) and the browser (`window.GAME_DATA`). It defines `HEROES` (stats, mobility, basic/heavy attacks, and `skills[slot]`), `HERO_LIST` (order = number-key hero swap: 1..9, 0), `SKILLS_BY_ID`, `GEAR_SLOTS`, and `MAPS` (platforms, jump pads, spawns). Keep it free of Node- or DOM-specific code.
+
+**Skills: data vs. behavior split.** Skill metadata (cooldown, color, names, `usableWhileHit`) lives in `shared_data.js`; behavior lives in the big `switch (skill.id)` inside `GameRoom.castGearSkill()` in `server.js`, keyed by ids like `knight_weapon`. The skill used is determined by `player.gear[slot]` (the hero id of the equipped piece), not `player.heroId`. Adding/changing a skill usually needs: the data entry, the server case, and visuals keyed on `animSkillId` / fx type on the client. Server effects land at cast time (projectiles, AoE, pulls), so client animations put their strike frame early.
+
+**Client script layering** (`public/index.html` load order matters — classic scripts attach to `window`):
+1. `pixelfx_bridge.js` — the only ES module; imports effects from `/pixelfx/...`, which the server maps to `node_modules/pixelfx/src/`. Sets `window.PixelFXBridge`. Loads asynchronously, so consumers must null-check it (they do).
+2. `shared_data.js` → `window.GAME_DATA`
+3. `tos_vfx.js` → `window.ToSVFX` (painterly particles, trails, ground rings)
+4. `tos_sprite_rig.js` → `window.ToSSpriteRig` (paper-doll character rig composed from `public/assets/tos/{head,armor,helmet,weapon,trinket}/<heroId>.png`, so mixed gear renders per slot; per-hero offsets in `HERO_META`)
+5. `pixel_renderer_25d.js` → `window.PixelRenderer25D` (fixed 45° isometric canvas renderer; owns the rig and VFX instances, turns server `fx` events into visuals via `processServerFx`)
+6. `game_client.js` — WebSocket, input, HUD/lobby DOM, WebAudio synthesized SFX (no audio files), render loop. It picks the renderer at startup (async IIFE).
+
+**Two interchangeable renderers.** Both implement `render(state, localClientId)`, `processServerFx(fxList)` and `transformInputByCamera(ix, iz)`; `game_client.js` only talks to that interface. The 3D one lives in `public/js/three/` as ES modules, loaded by dynamic `import()` when `?renderer=3d`. `three` resolves through the import map in `index.html` to `/vendor/three/`, which `server.js` (`MODULE_MOUNTS`) serves from `node_modules/three`.
+- `renderer3d.js` — `ThreeRenderer`: scene, fixed camera looking from +X+Z (must stay that way or WASD mapping breaks), lights/shadows, EffectComposer (bloom → OutputPass → warm grade/vignette), syncs players/projectiles/dropped gear/hazards from snapshots, 2D overlay canvas for nameplates and floating text. `processServerFx` tags `muzzle` events with the shooter's style/clip (`fx._style`, `fx._clip`) and drops them for the twin gunner, whose flashes come from its own barrels. Exposes `window.__threeRenderer` for console tuning (e.g. `camDist`).
+- `chibi.js` — characters built from primitives with toon materials + inverted-hull outlines. Head/hair come from `heroId`; armor/helmet/weapon/trinket meshes come from each `gear[slot]` hero (rebuilt when the gear key changes). After building, `Builder.bake()` merges all static parts into one vertex-coloured mesh + one outline mesh per animated node (`ANIMATED_NODES`) — a new part that must move on its own needs its node name added there. Animation style comes from `HERO_LOOK[heroId].style`; poses are keyframed (`READY`/`STANCE`/`KNEEL`, `buildClips`) per style and played through an `AnimationMixer`. `SKILL_ANIM` maps skill ids to signature clips (spin/slam/roll/flurry/sweep/warcry/charge/seal/windslash/throw/backflip/raise/summon/nova/blink/rollshot/toss/lasso); every clip it names must exist for every style, since anyone can wear any gear. Whole-body spins and flips are data in `SPIN` / `FLIP` (keys may be `style:clip`); `COMMITTED` / `STYLE_COMMIT` hold clips that movement must not cut short.
+  - Styles modelled on Tree of Savior classes: `shield` (knight, Rodelero: guard stance, strikes hold via `STYLE_COMMIT`, shield on `handL` facing along the forearm, FX `FxSystem.knightSlash`), `shinobi` (ninja: low lean, dagger slashes, hand seals, FX `ninjaSlash` / `shadowPoof`, decoy hazard drawn as a log), `pyro` (mage, Pyromancer: upright casts that hold; the staff is its own `staff` node kept upright by a wrist layer, tilted per clip by `staffTilt`; fire FX `flameColumn` / `fireWall` / `flameStream`; Hell Breath fired by `ChibiView` on the finisher's thrust frame) and `twingun` (cowboy, Bullet Marker: bladed side-on shots with the off gun cocked by the face, kneeling burst finisher, Deadeye two-gun magnum, Bloody Overdrive spin ending in a ground shot). The cyborg keeps the plain `gun` style.
+  - Twin-gun shots are timed by `SHOTS` (`style:clip` → `[clip time, 'R'|'L'|'B', power]`); `ChibiView.fire()` kicks the arm and calls `FxSystem.gunShot` from the real barrel tip/direction (`muzzle()`), so aim poses must actually point the forearm at the target — with a twisted torso the gun arm needs the opposite `z` swing.
+  - `ChibiView.applyLayers` adds procedural motion after the mixer each frame (spin, rolls, air tumble, gun recoil, hit flinch, pyro wrist). The mixer only rewrites a joint when its keyed value changes, so `update()` calls `restorePure()` before `mixer.update` and `savePure()` after; joints a layer rotates must be in `LAYER_JOINTS` or the rotation piles up during holds. `play()` fades every still-weighted action out from its current weight, so stale fades don't bleed into the next clip. Hit-stop, flash, squash/stretch and cape springs are in `update`. Model faces +Z, its left is +X; `rotation.y = π/2 - facing`.
+- `fx.js` — `FxSystem.handle(fx)` maps every server fx `type` to particles (GPU points, 4-tile atlas), slash arcs, rings, magic circles, beams, domes, crystals, lingering scorch decals and floating texts. Additive rings/arcs/beams/circles are instances in `InstPool`s (one draw call per type; fade by `fade(obj, alpha)`, not material opacity). New server fx types need a case here (and in `pixel_renderer_25d.js` for 2D). `later(delay, fn)` schedules FX on the FX clock.
+- `stage.js` — arena from `MAPS` platforms (painted floor jpgs, cliff texture, floating-island underside), per-map `THEMES` (lighting, fog, sky, void, props). `floorY()` mirrors the server's floor logic.
+- `textures.js` — all procedural canvas textures (no extra asset files).
+
+**Coordinates.** World is 3D with Y up; movement happens on the XZ plane, `facing` is an angle on XZ (direction `(cos f, sin f)`). The renderer projects to isometric screen space. Map geometry (floor heights, platforms, ring-out edges) comes from `MAPS` and is evaluated server-side (`getFloorHeightAt`, `isPointOnAnyPlatform`).
+
+## Conventions
+
+- User-facing strings are mostly Thai (`nameTh`, `descTh`, kill-feed text, floating `text` fx), often with English in parentheses. Keep new UI text consistent with that.
+- Hero ids (`knight, ninja, mage, cowboy, samurai, witch, cyborg, viking, striker, reaper`) are used as keys across data, server switch cases, sprite asset filenames, `HERO_META`, and the 3D `HERO_LOOK`/`HELMETS`/`WEAPONS`/`TRINKETS` tables — renaming one touches all of them.
+- Tree of Savior is a style reference only: never extract or ship its models, textures or sounds.
