@@ -18,6 +18,7 @@ import { ChibiView, buildGearItem } from './chibi.js';
 import { FxSystem } from './fx.js';
 import { KnightThreeVFX } from './knight_effekseer_3d.js';
 import { NinjaThreeVFX } from './ninja_effekseer_3d.js';
+import { MageThreeVFX } from './mage_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -83,7 +84,7 @@ export class ThreeRenderer {
       floorY: (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     };
 
-    // Dedicated Iron Knight & Shadow Ninja 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
+    // Dedicated Iron Knight, Shadow Ninja & Fire Archmage 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
     this.knightVfx = new KnightThreeVFX(
       this.scene,
       this.camera,
@@ -91,6 +92,12 @@ export class ThreeRenderer {
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
     this.ninjaVfx = new NinjaThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.mageVfx = new MageThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -193,7 +200,8 @@ export class ThreeRenderer {
       }
       const handledByHeroVfx =
         !!(this.knightVfx && this.knightVfx.handleServerFx(fx)) ||
-        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx));
+        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx)) ||
+        !!(this.mageVfx && this.mageVfx.handleServerFx(fx));
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -749,6 +757,7 @@ export class ThreeRenderer {
     this.fx.update(dt);
     if (this.knightVfx) this.knightVfx.update(dt, state);
     if (this.ninjaVfx) this.ninjaVfx.update(dt);
+    if (this.mageVfx) this.mageVfx.update(dt, state);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
