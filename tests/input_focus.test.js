@@ -89,7 +89,7 @@ const neutralInput = {
 
 test('losing focus immediately releases movement, guard, jump and sprint', async () => {
   const client = await createClient();
-  for (const code of ['KeyD', 'ShiftLeft', 'Space', 'KeyL']) client.keyDown(code);
+  for (const code of ['ArrowRight', 'ShiftLeft', 'Space', 'KeyL']) client.keyDown(code);
   client.tick();
   assert.equal(client.input().mx, 1);
   assert.equal(client.input().guard, true);
@@ -113,13 +113,13 @@ test('hiding the tab releases inputs even without a blur event', async () => {
 
 test('returning to the game accepts fresh keys without a phantom double-tap dash', async () => {
   const client = await createClient();
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   client.keyDown('Space');
   client.blur();
   client.advance(100);
   client.focus();
   const start = client.packets.length;
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   client.tick();
   assert.equal(client.input().mx, 1);
   assert.equal(client.input().sprinting, false);
@@ -128,20 +128,20 @@ test('returning to the game accepts fresh keys without a phantom double-tap dash
   assert.equal(client.packets.at(-1).type, 'jump');
   client.keyDown('KeyJ');
   assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: false });
-  client.keyUp('KeyD');
+  client.keyUp('ArrowRight');
   client.tick();
   assert.equal(client.input().mx, 0);
 });
 
 test('focus loss forgets taps made before switching windows', async () => {
   const client = await createClient();
-  client.keyDown('KeyD');
-  client.keyUp('KeyD');
+  client.keyDown('ArrowRight');
+  client.keyUp('ArrowRight');
   client.blur();
   client.advance(100);
   client.focus();
   const start = client.packets.length;
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
 });
 
@@ -149,10 +149,10 @@ test('normal double-tap dash still works after focus returns', async () => {
   const client = await createClient();
   client.blur();
   client.focus();
-  client.keyDown('KeyD');
-  client.keyUp('KeyD');
+  client.keyDown('ArrowRight');
+  client.keyUp('ArrowRight');
   client.advance(100);
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   assert.equal(client.packets.at(-1).type, 'dash');
   client.keyDown('KeyJ');
   assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: true });
@@ -161,7 +161,7 @@ test('normal double-tap dash still works after focus returns', async () => {
 test('holding Shift sprints without sending a dash', async () => {
   const client = await createClient();
   const start = client.packets.length;
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   client.keyDown('ShiftLeft');
   client.tick();
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
@@ -178,7 +178,7 @@ test('holding Shift sprints without sending a dash', async () => {
 
 test('losing focus while disconnected clears inputs without sending to a closed socket', async () => {
   const client = await createClient();
-  client.keyDown('KeyD');
+  client.keyDown('KeyW');
   client.socket.readyState = 3;
   client.blur();
   assert.equal(client.packets.length, 0);
@@ -189,8 +189,27 @@ test('losing focus while disconnected clears inputs without sending to a closed 
 
 test('a visible-tab event does not interrupt active movement', async () => {
   const client = await createClient();
-  client.keyDown('KeyD');
+  client.keyDown('ArrowRight');
   client.visibility(false);
   client.tick();
   assert.equal(client.input().mx, 1);
+});
+
+test('D sends one attack press and release without moving right', async () => {
+  const client = await createClient();
+  client.keyDown('KeyD');
+  client.keyDown('KeyD');
+  client.tick();
+  assert.equal(client.input().mx, 0);
+  client.keyUp('KeyD');
+  assert.deepEqual(client.packets.filter(p => p.type === 'attack').map(p => p.phase), ['press', 'release']);
+});
+
+test('focus loss cancels a held attack without firing it on keyup', async () => {
+  const client = await createClient();
+  client.keyDown('KeyD');
+  client.blur();
+  client.keyUp('KeyD');
+  assert.deepEqual(client.packets.filter(p => p.type === 'attack').map(p => p.phase), ['press']);
+  assert.ok(client.packets.some(p => p.type === 'cancel_targeting'));
 });

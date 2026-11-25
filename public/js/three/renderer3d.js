@@ -213,7 +213,7 @@ export class ThreeRenderer {
     this.shake = Math.min(1.4, Math.max(this.shake, amount * 0.07));
   }
 
-  // Keep WASD aligned with the screen regardless of the camera's world angle.
+  // Keep movement and target switching aligned with the screen.
   transformInputByCamera(ix, iz) {
     if (ix === 0 && iz === 0) return { mx: 0, mz: 0 };
     return { mx: (iz + ix) * COS45, mz: (iz - ix) * COS45 };
@@ -754,6 +754,28 @@ export class ThreeRenderer {
     return { x: (v.x + 1) * 0.5 * this.width, y: (1 - v.y) * 0.5 * this.height };
   }
 
+  drawTargetReticle(player, mode) {
+    const point = this.toScreen(player.x, player.y + 1.15, player.z);
+    if (!point) return;
+    const { x, y } = point;
+    const ctx = this.octx;
+    const radius = mode === 'skill' ? 21 : 16;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    for (let i = 0; i < 4; i++) {
+      const dx = Math.cos(i * Math.PI / 2);
+      const dy = Math.sin(i * Math.PI / 2);
+      ctx.moveTo(x + dx * (radius - 5), y + dy * (radius - 5));
+      ctx.lineTo(x + dx * (radius + 5), y + dy * (radius + 5));
+    }
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(18, 14, 25, 0.9)';
+    ctx.stroke();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = mode === 'skill' ? '#fbbf24' : '#67e8f9';
+    ctx.stroke();
+  }
+
   drawOverlay(state, localId) {
     const ctx = this.octx;
     ctx.clearRect(0, 0, this.width, this.height);
@@ -766,6 +788,7 @@ export class ThreeRenderer {
       for (const pl of state.players) {
         if (pl.state === 'dead') continue;
         if (pl.buffs?.stealth && pl.id !== localId) continue;
+        if (pl.id === me?.targeting?.targetId) this.drawTargetReticle(pl, me.targeting.mode);
         const s = this.toScreen(pl.x, pl.y + 2.25, pl.z);
         if (!s) continue;
         const isMe = pl.id === localId;

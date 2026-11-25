@@ -68,6 +68,7 @@
       skills: {
         weapon: {
           id: 'knight_weapon',
+          aimRange: 14.4,
           heroId: 'knight',
           slot: 'weapon',
           nameTh: 'คลื่นดาบเอ็กซ์คาลิเบอร์',
@@ -78,6 +79,7 @@
         },
         armor: {
           id: 'knight_armor',
+          aimRange: 3.8,
           heroId: 'knight',
           slot: 'armor',
           nameTh: 'ปราการศักดิ์สิทธิ์',
@@ -89,6 +91,7 @@
         },
         helmet: {
           id: 'knight_helmet',
+          aimRange: 4.3,
           heroId: 'knight',
           slot: 'helmet',
           nameTh: 'คำรามราชสีห์',
@@ -99,6 +102,7 @@
         },
         trinket: {
           id: 'knight_trinket',
+          aimRange: 6,
           heroId: 'knight',
           slot: 'trinket',
           nameTh: 'พุ่งชนโล่ราชรถ',
@@ -155,6 +159,7 @@
       skills: {
         weapon: {
           id: 'ninja_weapon',
+          aimRange: 6.1,
           heroId: 'ninja',
           slot: 'weapon',
           nameTh: 'พายุเพลงดาบเงา',
@@ -165,6 +170,7 @@
         },
         armor: {
           id: 'ninja_armor',
+          aimRange: 3.5,
           heroId: 'ninja',
           slot: 'armor',
           nameTh: 'ระเบิดควันพรางตัว',
@@ -176,6 +182,7 @@
         },
         helmet: {
           id: 'ninja_helmet',
+          aimRange: 13.5,
           heroId: 'ninja',
           slot: 'helmet',
           nameTh: 'ดาวกระจายยักษ์ 5 แฉก',
@@ -186,6 +193,7 @@
         },
         trinket: {
           id: 'ninja_trinket',
+          aimRange: 3.4,
           heroId: 'ninja',
           slot: 'trinket',
           nameTh: 'คาถาสลับร่างขอนไม้ระเบิด',
@@ -243,6 +251,7 @@
       skills: {
         weapon: {
           id: 'mage_weapon',
+          aimRange: 9.5,
           heroId: 'mage',
           slot: 'weapon',
           nameTh: 'มหาอุกกาบาตล้างผลาญ',
@@ -253,6 +262,7 @@
         },
         armor: {
           id: 'mage_armor',
+          aimRange: 4.4,
           heroId: 'mage',
           slot: 'armor',
           nameTh: 'วงแหวนเพลิงกัลป์',
@@ -264,6 +274,7 @@
         },
         helmet: {
           id: 'mage_helmet',
+          aimRange: 2.7,
           heroId: 'mage',
           slot: 'helmet',
           nameTh: 'ลูกแก้วสุริยะพิทักษ์',
@@ -274,6 +285,7 @@
         },
         trinket: {
           id: 'mage_trinket',
+          aimRange: 8.8,
           heroId: 'mage',
           slot: 'trinket',
           nameTh: 'พริบตาเพลิงมิติ',
@@ -330,6 +342,7 @@
       skills: {
         weapon: {
           id: 'cowboy_weapon',
+          aimRange: 13,
           heroId: 'cowboy',
           slot: 'weapon',
           nameTh: 'พายุกระสุนเที่ยงตรง',
@@ -340,6 +353,7 @@
         },
         armor: {
           id: 'cowboy_armor',
+          aimRange: 8.5,
           heroId: 'cowboy',
           slot: 'armor',
           nameTh: 'ระเบิดไดนาไมต์ TNT',
@@ -350,6 +364,7 @@
         },
         helmet: {
           id: 'cowboy_helmet',
+          aimRange: 14.4,
           heroId: 'cowboy',
           slot: 'helmet',
           nameTh: 'กลิ้งหลบยิงแฟลช',
@@ -360,6 +375,7 @@
         },
         trinket: {
           id: 'cowboy_trinket',
+          aimRange: 8.5,
           heroId: 'cowboy',
           slot: 'trinket',
           nameTh: 'บ่วงบาศเชือกคล้อง',
@@ -417,6 +433,7 @@
       skills: {
         weapon: {
           id: 'samurai_weapon',
+          aimRange: 6.8,
           heroId: 'samurai',
           slot: 'weapon',
           nameTh: 'ระบำซากุระพันกลีบ',
@@ -427,6 +444,7 @@
         },
         armor: {
           id: 'samurai_armor',
+          aimRange: 4.4,
           heroId: 'samurai',
           slot: 'armor',
           nameTh: 'เนตรแห่งใจสวนกลับ',
@@ -448,6 +466,7 @@
         },
         trinket: {
           id: 'samurai_trinket',
+          aimRange: 5,
           heroId: 'samurai',
           slot: 'trinket',
           nameTh: 'นางแอ่นหวนกลับ (Tsubame)',
@@ -506,6 +525,7 @@
       skills: {
         weapon: {
           id: 'witch_weapon',
+          aimRange: 8.7,
           heroId: 'witch',
           slot: 'weapon',
           nameTh: 'พายุหิมะนิรันดร์',
@@ -516,6 +536,7 @@
         },
         armor: {
           id: 'witch_armor',
+          aimRange: 4,
           heroId: 'witch',
           slot: 'armor',
           nameTh: 'เกราะผลึกน้ำแข็งนิรันดร์',
@@ -527,6 +548,7 @@
         },
         helmet: {
           id: 'witch_helmet',
+          aimRange: 7.5,
           heroId: 'witch',
           slot: 'helmet',
           nameTh: 'เสาน้ำแข็งทะลวงพิภพ',
@@ -537,6 +559,7 @@
         },
         trinket: {
           id: 'witch_trinket',
+          aimRange: 5.5,
           heroId: 'witch',
           slot: 'trinket',
           nameTh: 'สเก็ตน้ำแข็งเยือกแข็ง',
@@ -594,6 +617,7 @@
       skills: {
         weapon: {
           id: 'cyborg_weapon',
+          aimRange: 9.5,
           heroId: 'cyborg',
           slot: 'weapon',
           nameTh: 'บัสเตอร์บีม (Buster Beam)',
@@ -604,6 +628,7 @@
         },
         armor: {
           id: 'cyborg_armor',
+          aimRange: 4.8,
           heroId: 'cyborg',
           slot: 'armor',
           nameTh: 'สนามแม่เหล็กแรงโน้มถ่วง',
@@ -615,16 +640,19 @@
         },
         helmet: {
           id: 'cyborg_helmet',
+          aimRange: 12,
+          confirmTarget: true,
           heroId: 'cyborg',
           slot: 'helmet',
           nameTh: 'มิสไซล์ติดตามเป้าหมาย',
           nameEn: 'Cyborg Homing Missiles',
-          descTh: 'ยิงมิสไซล์นำวิถี พุ่งเลี้ยวติดตามศัตรูที่อยู่ใกล้ที่สุดอัตโนมัติ',
+          descTh: 'กดครั้งแรกเพื่อเล็ง ใช้ลูกศรเปลี่ยนเป้า แล้วกดซ้ำเพื่อยิงมิสไซล์นำวิถี 3 ลูก',
           cooldownMs: 6500,
           color: '#f97316'
         },
         trinket: {
           id: 'cyborg_trinket',
+          aimRange: 14,
           heroId: 'cyborg',
           slot: 'trinket',
           nameTh: 'บูสเตอร์บินยิงเลเซอร์ (Flight Assault)',
@@ -681,6 +709,7 @@
       skills: {
         weapon: {
           id: 'viking_weapon',
+          aimRange: 7.1,
           heroId: 'viking',
           slot: 'weapon',
           nameTh: 'ขวานแร็กนาร็อกผ่าปฐพี',
@@ -691,6 +720,7 @@
         },
         armor: {
           id: 'viking_armor',
+          aimRange: 3.5,
           heroId: 'viking',
           slot: 'armor',
           nameTh: 'โหมดคลั่งวัลฮัลลา',
@@ -702,6 +732,7 @@
         },
         helmet: {
           id: 'viking_helmet',
+          aimRange: 3.2,
           heroId: 'viking',
           slot: 'helmet',
           nameTh: 'จับทุ่มยักษ์ไวกิ้ง',
@@ -712,6 +743,7 @@
         },
         trinket: {
           id: 'viking_trinket',
+          aimRange: 8,
           heroId: 'viking',
           slot: 'trinket',
           nameTh: 'ขวานบินบูมเมอแรง',
@@ -769,6 +801,7 @@
       skills: {
         weapon: {
           id: 'striker_weapon',
+          aimRange: 5.6,
           heroId: 'striker',
           slot: 'weapon',
           nameTh: 'หมัดปืนกลอสูร 100 หมัด',
@@ -779,6 +812,7 @@
         },
         armor: {
           id: 'striker_armor',
+          aimRange: 4.7,
           heroId: 'striker',
           slot: 'armor',
           nameTh: 'โยกหลบสวนหมัดทะลวงไส้',
@@ -800,6 +834,7 @@
         },
         trinket: {
           id: 'striker_trinket',
+          aimRange: 4,
           heroId: 'striker',
           slot: 'trinket',
           nameTh: 'กระทืบพสุธางัดลอย',
@@ -857,6 +892,7 @@
       skills: {
         weapon: {
           id: 'reaper_weapon',
+          aimRange: 6.2,
           heroId: 'reaper',
           slot: 'weapon',
           nameTh: 'เคียวมรณะเกี่ยววิญญาณ',
@@ -867,6 +903,7 @@
         },
         armor: {
           id: 'reaper_armor',
+          aimRange: 3.6,
           heroId: 'reaper',
           slot: 'armor',
           nameTh: 'ร่างหมอกวิญญาณอมตะ',
@@ -878,16 +915,19 @@
         },
         helmet: {
           id: 'reaper_helmet',
+          aimRange: 12,
+          confirmTarget: true,
           heroId: 'reaper',
           slot: 'helmet',
           nameTh: 'ฝูงกะโหลกอาฆาต',
           nameEn: 'Phantom Skull Swarm',
-          descTh: 'ปล่อยกะโหลกวิญญาณอาฆาต 3 หัว พุ่งติดตามศัตรูและระเบิดเพลิงทมิฬ',
+          descTh: 'กดครั้งแรกเพื่อเล็ง ใช้ลูกศรเปลี่ยนเป้า แล้วกดซ้ำเพื่อปล่อยกะโหลกนำวิถี 3 หัว',
           cooldownMs: 7000,
           color: '#e879f9'
         },
         trinket: {
           id: 'reaper_trinket',
+          aimRange: 8.2,
           heroId: 'reaper',
           slot: 'trinket',
           nameTh: 'โซ่ตรวนขุมนรก',
@@ -1125,6 +1165,7 @@
   };
 
   return {
+    RANGED_AIM_HOLD_MS: 220,
     GEAR_SLOTS,
     GEAR_SLOT_LABELS,
     HEROES,

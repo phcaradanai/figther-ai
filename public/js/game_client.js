@@ -90,11 +90,13 @@ window.startArenaGame = function (renderer) {
   let currentGameState = null;
   const interpPlayers = new Map(); // id -> smoothed 3D coordinates
 
-  // Input tracking (Facing is controlled strictly by movement keys W/A/S/D or Arrows, never by mouse!)
   const keys = {};
   let lastTapKey = null;
   let lastTapTime = 0;
   let isDashReady = false;
+  const arrowDirections = {
+    ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
+  };
   let localFacing = null;
 
   // DOM Elements
@@ -245,6 +247,7 @@ window.startArenaGame = function (renderer) {
     });
 
     ws.addEventListener('close', () => {
+      releaseInputs();
       setTimeout(connectWebSocket, 1500);
     });
   }
@@ -309,6 +312,7 @@ window.startArenaGame = function (renderer) {
   btnJoinBattle.disabled = false;
   btnJoinBattle.addEventListener('click', () => joinSelectedRoom(true));
   document.getElementById('btnOpenLobby').addEventListener('click', () => {
+    releaseInputs();
     if (currentGameState) {
       selectArenaMap.value = currentGameState.mapId;
       updateArenaMapDescription();
@@ -431,6 +435,8 @@ window.startArenaGame = function (renderer) {
         const nameEl = document.getElementById(`skillName_${slot}`);
         const ownerEl = document.getElementById(`skillOwner_${slot}`);
         const cdEl = document.getElementById(`skillCd_${slot}`);
+        const aiming = me.targeting?.mode === 'skill' && me.targeting.slot === slot;
+        card.classList.toggle('targeting', aiming);
 
         const eqHeroId = me.gear ? me.gear[slot] : null;
         if (!eqHeroId) {
@@ -448,9 +454,15 @@ window.startArenaGame = function (renderer) {
           card.classList.toggle('stolen', isStolen);
 
           nameEl.textContent = skill ? skill.nameTh : slot;
-          ownerEl.textContent = isStolen
-            ? `★ ขโมยจาก: ${gearHero.nameTh}`
-            : (skill?.usableWhileHit ? '⚡ กดใช้ตอนโดนตีได้!' : gearHero.nameTh);
+          if (aiming) {
+            ownerEl.textContent = me.targeting.targetId ? 'ลูกศรเปลี่ยนเป้า · กดซ้ำเพื่อยิง' : 'กำลังหาเป้าหมาย';
+          } else if (skill?.confirmTarget) {
+            ownerEl.textContent = 'กดเพื่อเล็งเป้าหมาย';
+          } else {
+            ownerEl.textContent = isStolen
+              ? `★ ขโมยจาก: ${gearHero.nameTh}`
+              : (skill?.usableWhileHit ? '⚡ กดใช้ตอนโดนตีได้!' : gearHero.nameTh);
+          }
 
           const cdMs = me.cooldowns ? (me.cooldowns[slot] || 0) : 0;
           if (cdMs > 0) {
@@ -501,14 +513,20 @@ window.startArenaGame = function (renderer) {
     ws.send(JSON.stringify({ type: 'swap_hero', heroId }));
   }
 
-  // Helper to get current movement vector in world coordinates
+  function activeTargeting() {
+    const targeting = interpPlayers.get(localClientId)?.targeting;
+    return targeting?.mode === 'ranged' && !keys['KeyD'] ? null : targeting;
+  }
+
   function getCurrentWorldMove() {
     let ix = 0;
     let iz = 0;
-    if (keys['KeyA'] || keys['ArrowLeft']) ix -= 1;
-    if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
-    if (keys['KeyW'] || keys['ArrowUp']) iz -= 1;
-    if (keys['KeyS'] || keys['ArrowDown']) iz += 1;
+    const aiming = activeTargeting();
+    const arrowMoves = code => !aiming && keys[code];
+    if (keys['KeyA'] || arrowMoves('ArrowLeft')) ix -= 1;
+    if (arrowMoves('ArrowRight')) ix += 1;
+    if (keys['KeyW'] || arrowMoves('ArrowUp')) iz -= 1;
+    if (keys['KeyS'] || arrowMoves('ArrowDown')) iz += 1;
     const worldMove = renderer.transformInputByCamera(ix, iz);
     return { ix, iz, mx: worldMove.mx, mz: worldMove.mz };
   }
@@ -519,11 +537,12 @@ window.startArenaGame = function (renderer) {
   }
 
   // Attacking right after a dodge dash, or while sprinting and moving, is a dash attack (server re-checks)
-  function sendBasicAttack() {
+  function sendBasicAttack(phase) {
     if (!ws || ws.readyState !== 1) return;
     const mv = getCurrentWorldMove();
-    ws.send(JSON.stringify({ type: 'attack', isDash: isDashReady || (isSprintHeld() && (mv.ix !== 0 || mv.iz !== 0)) }));
-    isDashReady = false;
+    const isDash = isDashReady || (isSprintHeld() && (mv.ix !== 0 || mv.iz !== 0));
+    ws.send(JSON.stringify({ type: 'attack', phase, isDash }));
+    if (phase !== 'press') isDashReady = false;
   }
 
   function triggerDash() {
@@ -544,25 +563,37 @@ window.startArenaGame = function (renderer) {
     }
 
     const code = e.code;
-    const now = performance.now();
-
-    // Double-tap a movement key for the dodge Dash / Air Dash
-    const isMoveKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code);
+    if (e.repeat && !keys[code]) return;
     const wasPressed = !!keys[code];
     keys[code] = true;
 
-    if (!wasPressed && isMoveKey) {
-      if (lastTapKey === code && now - lastTapTime < 280) {
-        triggerDash();
+    const isArrow = Object.hasOwn(arrowDirections, code);
+    if (isArrow) {
+      e.preventDefault();
+      // The server can enter aiming before the next state snapshot reaches the client.
+      if (!wasPressed && ws?.readyState === 1) {
+        const { mx, mz } = renderer.transformInputByCamera(...arrowDirections[code]);
+        ws.send(JSON.stringify({ type: 'switch_target', dx: mx, dz: mz }));
       }
+    }
+
+    // Arrow keys switch targets while aiming and dash on double-tap during movement.
+    const isMoveKey = isArrow ? !activeTargeting() : ['KeyW', 'KeyA', 'KeyS'].includes(code);
+    if (isArrow && !isMoveKey) lastTapKey = null;
+    if (!wasPressed && isMoveKey) {
+      const now = performance.now();
+      if (lastTapKey === code && now - lastTapTime < 280) triggerDash();
       lastTapKey = code;
       lastTapTime = now;
     }
 
-    // Dedicated Dash / Air Dash hotkey (C or Left Alt)
     if (!wasPressed && (code === 'KeyC' || code === 'AltLeft')) {
       e.preventDefault();
       triggerDash();
+      return;
+    }
+    if (code === 'Escape') {
+      if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'cancel_targeting' }));
       return;
     }
 
@@ -573,7 +604,13 @@ window.startArenaGame = function (renderer) {
       return;
     }
 
-    // Basic Attack (J)
+    // D taps attack, and holding D on a ranged hero aims until release.
+    if (code === 'KeyD') {
+      if (!wasPressed) sendBasicAttack('press');
+      return;
+    }
+
+    // Instant basic attack (J)
     if (code === 'KeyJ') {
       sendBasicAttack();
       return;
@@ -588,19 +625,19 @@ window.startArenaGame = function (renderer) {
     // 4 Gear Skills: Q (Weapon/SD), E (Armor/ASD), R (Helmet/AD), F (Trinket/AS)
     // Also supports U / I / O / P for two-handed keyboard play!
     if (code === 'KeyQ' || code === 'KeyU') {
-      sendSkillCast('weapon');
+      if (!wasPressed) sendSkillCast('weapon');
       return;
     }
     if (code === 'KeyE' || code === 'KeyI') {
-      sendSkillCast('armor');
+      if (!wasPressed) sendSkillCast('armor');
       return;
     }
     if (code === 'KeyR' || code === 'KeyO') {
-      sendSkillCast('helmet');
+      if (!wasPressed) sendSkillCast('helmet');
       return;
     }
     if (code === 'KeyF' || code === 'KeyP') {
-      sendSkillCast('trinket');
+      if (!wasPressed) sendSkillCast('trinket');
       return;
     }
 
@@ -622,7 +659,11 @@ window.startArenaGame = function (renderer) {
   });
 
   window.addEventListener('keyup', (e) => {
+    const wasPressed = !!keys[e.code];
     keys[e.code] = false;
+    if (e.code === 'KeyD' && wasPressed && lobbyModal.classList.contains('hidden')) {
+      sendBasicAttack('release');
+    }
   });
 
   function releaseInputs() {
@@ -630,9 +671,11 @@ window.startArenaGame = function (renderer) {
     lastTapKey = null;
     lastTapTime = 0;
     isDashReady = false;
+    localFacing = null;
 
     // Send immediately: background tabs can throttle the regular input timer.
     if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'cancel_targeting' }));
       ws.send(JSON.stringify({
         type: 'input',
         mx: 0,
@@ -679,14 +722,8 @@ window.startArenaGame = function (renderer) {
     const jumpHeld = !!keys['Space'];
     const sprinting = isSprintHeld();
 
-    let facing = undefined;
-    if (mv.ix !== 0 || mv.iz !== 0) {
-      facing = Math.atan2(mv.mz, mv.mx);
-      localFacing = facing;
-      // Apply facing immediately on local player for zero-latency turning!
-      const me = interpPlayers.get(localClientId);
-      if (me) me.facing = facing;
-    }
+    const facing = mv.ix !== 0 || mv.iz !== 0 ? Math.atan2(mv.mz, mv.mx) : undefined;
+    localFacing = activeTargeting() ? null : (facing ?? null);
 
     ws.send(JSON.stringify({
       type: 'input',
@@ -711,7 +748,8 @@ window.startArenaGame = function (renderer) {
           pl.y += (pl.targetY - pl.y) * 0.35;
           pl.z += (pl.targetZ - pl.z) * 0.35;
         }
-        if (pl.id === localClientId && localFacing !== null) {
+        if (pl.id === localClientId && localFacing !== null && !pl.targeting &&
+            ['idle', 'run', 'jump', 'guard'].includes(pl.state)) {
           pl.facing = localFacing;
         }
         smoothedPlayers.push(pl);

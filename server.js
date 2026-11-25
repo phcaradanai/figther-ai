@@ -19,6 +19,8 @@ const PLAYER_RADIUS = 0.35;
 const PLAYER_HEIGHT = 1.7;
 const FLOOR_EPSILON = 0.05;
 const MAX_STAIR_RISE = 0.31;
+const TARGET_HEIGHT_LIMIT = 3;
+const SKILL_TARGET_TIMEOUT = 4000;
 
 function insideRect(area, x, z) {
   return x >= area.x && x <= area.x + area.w && z >= area.z && z <= area.z + area.d;
@@ -178,10 +180,6 @@ function distXZ(a, b) {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-function dist3D(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-}
-
 // A bot crosses adjoining floors through the middle of their shared opening.
 // Keep the first crossing for each destination so chasing at 30 Hz is a lookup.
 function buildWalkingRoutes(platforms) {
@@ -327,6 +325,8 @@ class GameRoom {
       comboStep: 0,
       lastComboTime: 0,
       lastAttackTime: 0,
+      attackHeldAt: null,
+      targeting: null,
       lastSwapTime: 0,
       state: 'idle', // 'idle', 'run', 'jump', 'attack', 'heavy', 'skill', 'guard', 'hurt', 'knockdown', 'frozen', 'dead'
       stateUntil: 0,
@@ -432,6 +432,106 @@ class GameRoom {
     return true;
   }
 
+  canAttack(player) {
+    return !['dead', 'hurt', 'knockdown', 'frozen'].includes(player.state);
+  }
+
+  isTargetable(player, target, now) {
+    return this.areEnemies(player, target) && target.state !== 'dead' && now >= target.stealthUntil;
+  }
+
+  targetInRange(player, target, range, height, now) {
+    return this.isTargetable(player, target, now) &&
+      Math.abs(player.y - target.y) <= height && distXZ(player, target) <= range;
+  }
+
+  findTarget(player, range, height, now, direction = null, origin = player) {
+    let nearest = null;
+    let bestDistance = Infinity;
+    for (const candidate of this.players.values()) {
+      if (candidate === origin || !this.targetInRange(player, candidate, range, height, now)) continue;
+      const dx = candidate.x - origin.x;
+      const dz = candidate.z - origin.z;
+      const distance = Math.hypot(dx, dz);
+      if (direction && (dx * direction.dx + dz * direction.dz <= distance * 0.5)) continue;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = candidate;
+      }
+    }
+    return nearest;
+  }
+
+  faceTarget(player, target) {
+    if (!target || (target.x === player.x && target.z === player.z)) return;
+    player.facing = Math.atan2(target.z - player.z, target.x - player.x);
+    player.input.facing = player.facing;
+  }
+
+  clearTargeting(player) {
+    player.attackHeldAt = null;
+    player.targeting = null;
+  }
+
+  lockedTarget(player, now) {
+    const lock = player.targeting;
+    if (!lock) return null;
+    const target = this.players.get(lock.targetId);
+    return this.targetInRange(player, target, lock.range, TARGET_HEIGHT_LIMIT, now) ? target : null;
+  }
+
+  updateTargeting(player, now) {
+    if (!this.canAttack(player)) {
+      this.clearTargeting(player);
+      return null;
+    }
+    if (player.targeting?.mode === 'skill') {
+      const { slot, gearHeroId, expiresAt } = player.targeting;
+      if (now >= expiresAt || player.gear[slot] !== gearHeroId) player.targeting = null;
+    }
+    if (!player.targeting && player.attackHeldAt !== null &&
+        now - player.attackHeldAt >= GAME_DATA.RANGED_AIM_HOLD_MS) {
+      const range = GAME_DATA.HEROES[player.heroId].basicAttack.range;
+      player.targeting = { mode: 'ranged', range, targetId: null };
+    }
+    if (!player.targeting) return null;
+
+    const target = this.lockedTarget(player, now) ||
+      this.findTarget(player, player.targeting.range, TARGET_HEIGHT_LIMIT, now);
+    player.targeting.targetId = target?.id ?? null;
+    return target;
+  }
+
+  switchTarget(player, dx, dz) {
+    const now = Date.now();
+    const current = this.updateTargeting(player, now);
+    if (!player.targeting) return;
+    const distance = Math.hypot(dx, dz);
+    const target = this.findTarget(player, player.targeting.range, TARGET_HEIGHT_LIMIT, now,
+      { dx: dx / distance, dz: dz / distance }, current || player);
+    if (target) {
+      player.targeting.targetId = target.id;
+      this.faceTarget(player, target);
+    }
+  }
+
+  handleAttackInput(player, phase, isDashAttack) {
+    const isJumpAttack = !player.grounded;
+    if (phase === 'release') {
+      if (player.attackHeldAt === null) return;
+      const target = this.updateTargeting(player, Date.now());
+      this.clearTargeting(player);
+      this.performBasicAttack(player, isDashAttack, isJumpAttack, target);
+    } else if (phase === 'press' && GAME_DATA.HEROES[player.heroId].attackType === 'ranged') {
+      if (!this.canAttack(player) || player.attackHeldAt !== null) return;
+      player.targeting = null;
+      player.attackHeldAt = Date.now();
+    } else {
+      this.clearTargeting(player);
+      this.performBasicAttack(player, isDashAttack, isJumpAttack);
+    }
+  }
+
   // Hot-swap hero mid-battle (Keys 1..0) - signature Lost Saga feature!
   swapHero(player, newHeroId) {
     const now = Date.now();
@@ -449,6 +549,7 @@ class GameRoom {
     const hpRatio = player.hp / player.maxHp;
     const newHero = GAME_DATA.HEROES[newHeroId];
     player.heroId = newHeroId;
+    this.clearTargeting(player);
     player.maxHp = newHero.maxHp;
     player.hp = Math.max(10, Math.round(newHero.maxHp * hpRatio));
     player.lastSwapTime = now;
@@ -699,6 +800,7 @@ class GameRoom {
     if (victim.state === 'dead') return;
     victim.hp = 0;
     victim.state = 'dead';
+    this.clearTargeting(victim);
     victim.respawnAt = now + 3000;
     victim.deaths++;
     victim.vx = 0;
@@ -751,6 +853,7 @@ class GameRoom {
     player.flyUntil = 0;
     player.flyExhausted = false;
     player.state = 'idle';
+    this.clearTargeting(player);
     player.stateUntil = 0;
     player.invulnUntil = Date.now() + 2000;
     player.frozenUntil = 0;
@@ -939,12 +1042,12 @@ class GameRoom {
   }
 
   // ==========================================================================
-  // COMBAT ACTIONS: Basic Attack (D), Heavy Attack (Hold D), Jump Attack (A+D),
-  // Dash Attack (Dash+D), and 40 Unique Gear Skills (Q/W/E/R or SD/ASD/AD/AS)
+  // COMBAT ACTIONS: Basic Attack (D/J), Ranged Aim (Hold D), Heavy Attack (K),
+  // Jump and Sprint Attacks, and Gear Skills (Q/E/R/F)
   // ==========================================================================
-  performBasicAttack(player, isDashAttack = false, isJumpAttack = false) {
+  performBasicAttack(player, isDashAttack = false, isJumpAttack = false, lockedTarget = null) {
     const now = Date.now();
-    if (player.state === 'dead' || player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen') return;
+    if (!this.canAttack(player)) return;
     if (now < player.stateUntil && player.state === 'skill') return;
 
     const hero = GAME_DATA.HEROES[player.heroId];
@@ -966,11 +1069,15 @@ class GameRoom {
     player.state = 'attack';
     player.stateUntil = now + Math.round(cd * 0.85);
 
+    const melee = hero.attackType === 'melee';
+    const range = hero.basicAttack.range * (melee && isDashAttack ? 1.25 : 1);
+    const target = lockedTarget || this.findTarget(player, range, melee ? 2.3 : TARGET_HEIGHT_LIMIT, now);
+    this.faceTarget(player, target);
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
 
     // Slight forward step on melee swings
-    if (hero.attackType === 'melee') {
+    if (melee) {
       const lunge = isDashAttack ? 7.5 : (isFinisher ? 4.2 : 2.4);
       player.vx = dirX * lunge;
       player.vz = dirZ * lunge;
@@ -988,7 +1095,6 @@ class GameRoom {
         isFinisher
       });
 
-      const range = hero.basicAttack.range * (isDashAttack ? 1.25 : 1.0);
       const dmg = Math.round(hero.basicAttack.damage * (isFinisher ? 1.35 : 1.0));
       const kb = hero.basicAttack.knockback * (isFinisher ? 1.7 : 0.85);
       const launchY = (isFinisher && player.heroId === 'striker') ? 7.5 : (isJumpAttack ? 5.5 : 0);
@@ -1038,8 +1144,16 @@ class GameRoom {
         : player.heroId === 'witch' ? 'icebolt'
         : player.heroId === 'cyborg' ? 'plasma'
         : 'bullet';
+      const muzzleOffset = target ? Math.min(0.9, distXZ(player, target) * 0.5) : 0.9;
+      const shotX = player.x + dirX * muzzleOffset;
+      const shotY = player.y + 0.95;
+      const shotZ = player.z + dirZ * muzzleOffset;
+      const shotPitch = target
+        ? Math.atan2(target.y + 0.9 - shotY, Math.hypot(target.x - shotX, target.z - shotZ))
+        : Math.asin((isJumpAttack ? -3.5 : 0) / projSpeed);
+      const speedXZ = projSpeed * Math.cos(shotPitch);
 
-      this.emitFx('muzzle', player.x + dirX * 0.9, player.y + 1.0, player.z + dirZ * 0.9, {
+      this.emitFx('muzzle', shotX, player.y + 1.0, shotZ, {
         facing: player.facing,
         heroId: player.heroId,
         playerId: player.id,
@@ -1053,12 +1167,13 @@ class GameRoom {
 
       this.spawnProjectile(player, {
         type: projType,
-        x: player.x + dirX * 0.9,
-        y: player.y + 0.95,
-        z: player.z + dirZ * 0.9,
-        vx: dirX * projSpeed,
-        vy: isJumpAttack ? -3.5 : 0,
-        vz: dirZ * projSpeed,
+        x: shotX,
+        y: shotY,
+        z: shotZ,
+        vx: dirX * speedXZ,
+        vy: projSpeed * Math.sin(shotPitch),
+        vz: dirZ * speedXZ,
+        targetId: lockedTarget?.id,
         radius: 0.65,
         damage: Math.round(hero.basicAttack.damage * (isFinisher ? 1.3 : 1.0)),
         knockback: hero.basicAttack.knockback * (isFinisher ? 1.5 : 0.9),
@@ -1071,10 +1186,10 @@ class GameRoom {
     }
   }
 
-  // Heavy / Charged Attack (Hold D / Right Click / K) - Guard Breaks & Special Mechanics!
+  // Heavy Attack (Right Click / K)
   performHeavyAttack(player) {
     const now = Date.now();
-    if (player.state === 'dead' || player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen') return;
+    if (!this.canAttack(player)) return;
     if (now - player.lastAttackTime < 550) return;
 
     const hero = GAME_DATA.HEROES[player.heroId];
@@ -1084,7 +1199,11 @@ class GameRoom {
     player.stateUntil = now + 520;
     player.guarding = false;
     player.stealthUntil = 0;
+    this.clearTargeting(player);
 
+    const range = player.heroId === 'ninja' ? 6.5 : heavy.range;
+    const target = this.findTarget(player, range, 2.5, now);
+    this.faceTarget(player, target);
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
 
@@ -1101,18 +1220,8 @@ class GameRoom {
 
     // Special hero-specific heavy attack implementations
     if (player.heroId === 'ninja') {
-      // Shadow Backstab: Teleport behind nearest enemy within 6.5 units!
-      let bestTarget = null;
-      let bestDist = 6.5;
-      for (const t of this.players.values()) {
-        if (this.areEnemies(player, t) && t.state !== 'dead') {
-          const d = distXZ(player, t);
-          if (d < bestDist) {
-            bestDist = d;
-            bestTarget = t;
-          }
-        }
-      }
+      // Shadow Backstab: teleport behind the nearest enemy.
+      const bestTarget = target;
       if (bestTarget) {
         const backX = bestTarget.x - Math.cos(bestTarget.facing) * 1.2;
         const backZ = bestTarget.z - Math.sin(bestTarget.facing) * 1.2;
@@ -1126,7 +1235,7 @@ class GameRoom {
         player.x = backX;
         player.z = backZ;
         player.y = bestTarget.y;
-        player.facing = Math.atan2(bestTarget.z - player.z, bestTarget.x - player.x);
+        this.faceTarget(player, bestTarget);
         this.emitFx('teleport', player.x, player.y, player.z, {
           color: '#a855f7',
           heroId: 'ninja',
@@ -1293,7 +1402,26 @@ class GameRoom {
       return;
     }
 
-    // Put skill on cooldown
+    let target;
+    if (skill.confirmTarget && !player.isBot) {
+      const lock = player.targeting;
+      if (lock?.mode !== 'skill' || lock.slot !== slot || lock.gearHeroId !== equippedGearHeroId || now >= lock.expiresAt) {
+        this.clearTargeting(player);
+        player.targeting = {
+          mode: 'skill', slot, gearHeroId: equippedGearHeroId, range: skill.aimRange,
+          expiresAt: now + SKILL_TARGET_TIMEOUT, targetId: null
+        };
+        this.faceTarget(player, this.updateTargeting(player, now));
+        return;
+      }
+      target = this.lockedTarget(player, now);
+      if (!target) return;
+    } else if (skill.aimRange) {
+      target = this.findTarget(player, skill.aimRange, TARGET_HEIGHT_LIMIT, now);
+    }
+
+    this.clearTargeting(player);
+    this.faceTarget(player, target);
     player.cooldowns[slot] = now + skill.cooldownMs;
     player.state = 'skill';
     player.stateUntil = now + 550;
@@ -1853,7 +1981,7 @@ class GameRoom {
             vy: 1.5,
             vz: Math.sin(ang) * 14,
             radius: 0.95,
-            homing: true,
+            targetId: target?.id,
             damage: 14,
             knockback: 6.0,
             launchY: 6.0,
@@ -1868,21 +1996,9 @@ class GameRoom {
         player.vy = 11.5;
         player.grounded = false;
         player.hoverUntil = now + 2600;
-        // Find nearest enemy to fire diagonal aerial cyan laser beam right down at them!
-        let bestT = null;
-        let bestD = 14.0;
-        for (const t of this.players.values()) {
-          if (this.areEnemies(player, t) && t.state !== 'dead') {
-            const d = distXZ(player, t);
-            if (d < bestD) {
-              bestD = d;
-              bestT = t;
-            }
-          }
-        }
-        const tx = bestT ? bestT.x : (player.x + dirX * 5.0);
-        const tz = bestT ? bestT.z : (player.z + dirZ * 5.0);
-        const ty = bestT ? bestT.y : 0;
+        const tx = target?.x ?? (player.x + dirX * 5.0);
+        const tz = target?.z ?? (player.z + dirZ * 5.0);
+        const ty = target?.y ?? 0;
         this.emitFx('aerial_laser', player.x, player.y + 3.2, player.z, {
           tx,
           ty: ty + 0.5,
@@ -1945,15 +2061,8 @@ class GameRoom {
         break;
       }
       case 'viking_helmet': { // Colossus Hurl Throw (Grabs & throws enemy toward facing!)
-        let grabbed = null;
-        for (const t of this.players.values()) {
-          if (this.areEnemies(player, t) && t.state !== 'dead' && distXZ(player, t) <= 3.2) {
-            grabbed = t;
-            break;
-          }
-        }
-        if (grabbed) {
-          this.applyDamage(player, grabbed, {
+        if (target) {
+          this.applyDamage(player, target, {
             damage: 22,
             knockback: 14.0, // Massive throw force!
             launchY: 9.5,
@@ -2108,7 +2217,7 @@ class GameRoom {
             vy: 0,
             vz: Math.sin(ang) * 12,
             radius: 0.9,
-            homing: true,
+            targetId: target?.id,
             damage: 14,
             knockback: 5.0,
             burn: true,
@@ -2449,6 +2558,7 @@ class GameRoom {
 
       const hero = GAME_DATA.HEROES[p.heroId] || GAME_DATA.HEROES.knight;
       const mob = hero.mobility || {};
+      const aimTarget = this.updateTargeting(p, now);
       const canMove = p.state !== 'hurt' && p.state !== 'knockdown' && p.state !== 'frozen' && now >= p.rootUntil;
       const isBurstDashing = now < p.dashUntil;
       // Hold-Shift sprint: faster run that drains the mobility gauge (stamina).
@@ -2481,12 +2591,15 @@ class GameRoom {
         p.vx = p.vx * (1 - blend) + nx * moveSpeed * blend;
         p.vz = p.vz * (1 - blend) + nz * moveSpeed * blend;
 
-        // Always face the direction of movement when moving!
-        if (ilen > 0.05) {
-          p.facing = Math.atan2(nz, nx);
-          p.input.facing = p.facing;
-        } else if (!p.isBot && typeof p.input.facing === 'number') {
-          p.facing = p.input.facing;
+        if (aimTarget) {
+          this.faceTarget(p, aimTarget);
+        } else if (p.state !== 'attack' && p.state !== 'heavy' && p.state !== 'skill') {
+          if (ilen > 0.05) {
+            p.facing = Math.atan2(nz, nx);
+            p.input.facing = p.facing;
+          } else if (!p.isBot) {
+            p.facing = p.input.facing;
+          }
         }
 
         if (p.state === 'idle' || p.state === 'run' || p.state === 'jump' || p.state === 'guard') {
@@ -2622,26 +2735,24 @@ class GameRoom {
 
       const owner = this.players.get(pr.ownerId);
 
-      // Homing behavior (Cyborg missiles & Reaper skulls)
-      if (pr.homing && owner) {
-        let bestTarget = null;
-        let bestD = 12.0;
-        for (const t of this.players.values()) {
-          if (this.areEnemies(owner, t) && t.state !== 'dead') {
-            const d = dist3D(pr, t);
-            if (d < bestD) {
-              bestD = d;
-              bestTarget = t;
-            }
-          }
-        }
-        if (bestTarget) {
-          const speed = Math.hypot(pr.vx, pr.vz) || 13;
-          const tx = bestTarget.x - pr.x;
-          const tz = bestTarget.z - pr.z;
-          const tlen = Math.hypot(tx, tz) || 1;
-          pr.vx = pr.vx * 0.88 + (tx / tlen) * speed * 0.12;
-          pr.vz = pr.vz * 0.88 + (tz / tlen) * speed * 0.12;
+      if (pr.targetId) {
+        const target = this.players.get(pr.targetId);
+        if (!this.isTargetable(owner, target, now)) {
+          pr.targetId = null;
+        } else {
+          const dx = target.x - pr.x;
+          const dy = target.y + 0.9 - pr.y;
+          const dz = target.z - pr.z;
+          const distance = Math.hypot(dx, dy, dz) || 1;
+          const speed = Math.hypot(pr.vx, pr.vy, pr.vz);
+          const steering = 0.32 * speed / distance;
+          const vx = pr.vx * 0.68 + dx * steering;
+          const vy = pr.vy * 0.68 + dy * steering;
+          const vz = pr.vz * 0.68 + dz * steering;
+          const scale = speed / (Math.hypot(vx, vy, vz) || 1);
+          pr.vx = vx * scale;
+          pr.vy = vy * scale;
+          pr.vz = vz * scale;
         }
       }
 
@@ -2774,6 +2885,7 @@ class GameRoom {
         score: p.score,
         state: p.state,
         animSkillId: p.animSkillId,
+        targeting: p.targeting && { mode: p.targeting.mode, targetId: p.targeting.targetId, slot: p.targeting.slot },
         comboStep: p.comboStep,
         guarding: p.guarding,
         gear: p.gear,
@@ -2889,7 +3001,10 @@ function isValidClientMessage(msg) {
     case 'dash':
       return ['dx', 'dz'].every(key => msg[key] === null || optionalNumber(key));
     case 'attack':
-      return optionalBoolean('isDash');
+      return optionalBoolean('isDash') && (msg.phase === undefined || ['press', 'release'].includes(msg.phase));
+    case 'switch_target':
+      return ['dx', 'dz'].every(key => typeof msg[key] === 'number' && Math.abs(msg[key]) <= 1)
+        && Math.hypot(msg.dx, msg.dz) >= 0.5;
     case 'skill':
       return GAME_DATA.GEAR_SLOTS.includes(msg.slot);
     case 'swap_hero':
@@ -2900,6 +3015,7 @@ function isValidClientMessage(msg) {
       return isId(msg.mapId, GAME_DATA.MAPS);
     case 'jump':
     case 'heavy':
+    case 'cancel_targeting':
     case 'pickup_gear':
     case 'clear_bots':
       return true;
@@ -3007,7 +3123,16 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'attack': {
-        currentRoom.performBasicAttack(currentPlayer, !!msg.isDash && (currentPlayer.isSprinting || Date.now() < currentPlayer.dashUntil + 400), !currentPlayer.grounded);
+        const isDash = !!msg.isDash && (currentPlayer.isSprinting || Date.now() < currentPlayer.dashUntil + 400);
+        currentRoom.handleAttackInput(currentPlayer, msg.phase, isDash);
+        break;
+      }
+      case 'switch_target': {
+        currentRoom.switchTarget(currentPlayer, msg.dx, msg.dz);
+        break;
+      }
+      case 'cancel_targeting': {
+        currentRoom.clearTargeting(currentPlayer);
         break;
       }
       case 'heavy': {

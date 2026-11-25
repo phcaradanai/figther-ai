@@ -100,6 +100,80 @@ async function join(client, name = 'Player A') {
   return client.waitFor(message => message.type === 'joined');
 }
 
+test('a melee attack turns toward the closest enemy in reach', { timeout: 10000 }, async t => {
+  const map = {
+    ...MAPS.sky_temple,
+    id: 'melee_aim_test',
+    spawns: [{ x: 0, z: 1.5 }, { x: -1.3, z: 1.5 }, { x: 4.5, z: 1.5 }]
+  };
+  const server = await startServer(t, { [map.id]: map });
+  const attacker = await server.connect();
+  const close = await server.connect();
+  const distant = await server.connect();
+  for (const client of [attacker, close, distant]) {
+    client.send({ type: 'join_room', roomId: 'MELEE-AIM', mapId: map.id, heroId: 'reaper' });
+    client.id = (await client.waitFor(msg => msg.type === 'joined')).clientId;
+  }
+  const ready = await attacker.waitFor(msg => msg.type === 'state' && msg.players.length === 3 &&
+    msg.players.every(p => p.grounded && !p.buffs.invuln));
+  assert.equal(ready.players.find(p => p.id === attacker.id).facing, 0);
+
+  attacker.send({ type: 'attack', phase: 'press' });
+  const hit = await attacker.waitFor(msg => msg.type === 'state' &&
+    msg.players.some(p => p.id === close.id && p.hp < p.maxHp));
+  assert.ok(Math.cos(hit.players.find(p => p.id === attacker.id).facing) < 0);
+  assert.ok(hit.players.some(p => p.id === distant.id && p.hp === p.maxHp));
+});
+
+test('held ranged fire can switch enemies and homing gear only fires on confirmation', { timeout: 10000 }, async t => {
+  const map = {
+    ...MAPS.sky_temple,
+    id: 'targeting_test',
+    platforms: [{ x: -20, z: -20, w: 40, d: 40, y: 0, h: 4 }],
+    jumpPads: [],
+    spawns: [{ x: 0, z: 0 }, { x: 0, z: 1.1 }, { x: -4.1, z: -0.5 }, { x: 0, z: 6.5 }]
+  };
+  const server = await startServer(t, { [map.id]: map });
+  const owner = await server.connect();
+  const ally = await server.connect();
+  const near = await server.connect();
+  const far = await server.connect();
+
+  for (const [client, heroId, team] of [[owner, 'cyborg', 1], [ally, 'knight', 1], [near, 'knight', 2], [far, 'knight', 2]]) {
+    client.send({ type: 'join_room', roomId: 'TARGETING', mapId: map.id, mode: 'team', heroId, team });
+    client.id = (await client.waitFor(message => message.type === 'joined')).clientId;
+  }
+  const local = state => state.players.find(p => p.id === owner.id);
+  await owner.waitFor(msg => msg.type === 'state' && msg.players.length === 4 && msg.players.every(p => p.grounded && !p.buffs.invuln));
+
+  owner.send({ type: 'attack', phase: 'press' });
+  const aimed = await owner.waitFor(msg => msg.type === 'state' && local(msg).targeting?.mode === 'ranged');
+  assert.equal(local(aimed).targeting.targetId, near.id);
+  assert.equal(aimed.projectiles.length, 0);
+
+  owner.send({ type: 'switch_target', dx: 0, dz: 1 });
+  await owner.waitFor(msg => msg.type === 'state' && local(msg).targeting?.targetId === far.id);
+  owner.send({ type: 'attack', phase: 'release' });
+  const fired = await owner.waitFor(msg => msg.type === 'state' && msg.projectiles.some(pr => pr.type === 'plasma'));
+  assert.equal(local(fired).targeting, null);
+  const shot = fired.projectiles.find(pr => pr.type === 'plasma');
+  assert.ok(shot.vz > 0);
+  far.send({ type: 'input', mx: 1, mz: 0 });
+  await owner.waitFor(msg => msg.type === 'state' && msg.projectiles.some(pr => pr.id === shot.id && pr.vx > shot.vx + 0.5));
+  await owner.waitFor(msg => msg.type === 'state' && msg.players.some(p => p.id === far.id && p.hp < p.maxHp));
+  far.send({ type: 'input', mx: 0, mz: 0 });
+
+  owner.send({ type: 'skill', slot: 'helmet' });
+  const preview = await owner.waitFor(msg => msg.type === 'state' && local(msg).targeting?.mode === 'skill');
+  assert.equal(local(preview).cooldowns.helmet, 0);
+  assert.equal(preview.projectiles.some(pr => pr.type === 'homing_missile'), false);
+
+  owner.send({ type: 'skill', slot: 'helmet' });
+  const cast = await owner.waitFor(msg => msg.type === 'state' && msg.projectiles.some(pr => pr.type === 'homing_missile'));
+  assert.equal(local(cast).targeting, null);
+  assert.ok(local(cast).cooldowns.helmet > 0);
+});
+
 test('null, primitive, array and malformed JSON packets leave the server running', { timeout: 10000 }, async t => {
   const server = await startServer(t);
   const client = await server.connect();

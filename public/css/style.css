@@ -384,6 +384,10 @@ kbd {
   border-color: #4ade80;
   box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
 }
+.skill-card.targeting {
+  border-color: #fbbf24;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+}
 
 .skill-hotkey {
   font-size: 13px;
