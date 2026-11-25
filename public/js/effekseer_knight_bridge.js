@@ -630,44 +630,44 @@
     cyborg_basic_plasma: {
       id: 'cyborg_basic_plasma',
       hero: 'cyborg',
-      nameTh: 'ยิงไรเฟิลพลาสม่า (Plasma Rifle Cast)',
+      nameTh: 'ยิงไรเฟิลพลาสม่า (Grooving Muzzle Plasma)',
       file: '/assets/vfx/cyborg/cyborg_basic_plasma.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_basic_plasma.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_basic_plasma.efkproj',
       scale: 1.0,
       speed: 1.2,
-      durationSec: 0.34,
+      durationSec: 0.36,
       attachToCaster: false,
-      color: '#38bdf8',
-      desc: 'เป้าเล็ง HUD หกเหลี่ยมปลายกระบอกปืน + แสงแฟลร์พลาสม่าและสะเก็ดไอออน'
+      color: '#a78bfa',
+      desc: 'ระเบิดดาวแฉกไฟฟ้าขาว-ม่วง (Grooving Muzzle) + ริบบิ้นพลังงานฟ้าครามและวงคลื่นใต้เท้า'
     },
     cyborg_heavy_laser: {
       id: 'cyborg_heavy_laser',
       hero: 'cyborg',
-      nameTh: 'ไซบอร์กเลเซอร์บีม (Cyborg Laser Cannon)',
+      nameTh: 'ไซบอร์กเลเซอร์บีม (Penetration Cone Cannon)',
       file: '/assets/vfx/cyborg/cyborg_heavy_laser.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_heavy_laser.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_heavy_laser.efkproj',
       scale: 1.0,
       speed: 1.1,
-      durationSec: 0.65,
+      durationSec: 0.72,
       attachToCaster: false,
-      color: '#38bdf8',
-      desc: 'วงแหวนเร่งอนุภาคเรลกัน 3 ชั้น + แฟลร์แรงสูงและประกายไฟฟ้ารอบปากกระบอก'
+      color: '#f97316',
+      desc: 'กรวยลำแสง Penetration Shot สีส้มทอง-ฟ้าพวยพุ่ง 4.8 ม. + ริบบิ้นพลังงานและวงคลื่นคู่ใต้เท้า'
     },
     cyborg_weapon: {
       id: 'cyborg_weapon',
       hero: 'cyborg',
-      nameTh: '[Q/SD] บัสเตอร์บีม (Buster Beam)',
+      nameTh: '[Q/SD] บัสเตอร์บีม (Buster Beam & Snipe Shatter)',
       file: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_skill_weapon_buster.efkproj',
       scale: 1.0,
       speed: 1.0,
-      durationSec: 1.25,
+      durationSec: 1.28,
       attachToCaster: false,
       color: '#38bdf8',
-      desc: 'ลำแสงพลาสม่าบัสเตอร์แคนนอนสีฟ้าขนาดยักษ์ยาว 9.5 เมตร + ท่อตาข่ายหกเหลี่ยมและระเบิดปลายทาง'
+      desc: 'ลำแสงพลาสม่ายักษ์ 9.5 ม. + กรวยลำแสงสีส้มทองปากกระบอกและเสาผลึกสายฟ้า Snipe Shatter ปลายทาง'
     },
     cyborg_armor: {
       id: 'cyborg_armor',
@@ -680,41 +680,41 @@
       speed: 1.0,
       durationSec: 1.38,
       attachToCaster: false,
-      color: '#2dd4bf',
-      desc: 'โดมตาข่ายหกเหลี่ยม EMP 9.6 เมตรดูดศัตรูเข้าศูนย์กลาง + สายฟ้าแรงสูง 6 สายช็อตสตั๊น'
+      color: '#818cf8',
+      desc: 'คลื่นพื้นฟ้าครามขอบส้ม 9.8 ม. + โดมตาข่ายหกเหลี่ยมม่วงฟ้า + ริบบิ้นดูดเข้าใน 4 สายและสายฟ้า 6 สาย'
     },
     cyborg_helmet: {
       id: 'cyborg_helmet',
       hero: 'cyborg',
-      nameTh: '[R/AD] มิสไซล์ติดตามเป้าหมาย (Cyborg Homing Missiles)',
+      nameTh: '[R/AD] มิสไซล์ติดตามเป้าหมาย (Covering Fire Salvo)',
       file: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_skill_helmet_missiles.efkproj',
       scale: 1.0,
       speed: 1.1,
-      durationSec: 0.92,
+      durationSec: 0.90,
       attachToCaster: false,
       color: '#f97316',
-      desc: 'เป้าล็อค HUD 3 จุดบนบ่า + ไอพ่นยิงมิสไซล์และกลุ่มควันจรวดปล่อยมิสไซล์นำวิถี'
+      desc: 'กรวยไฟ Covering Fire 3 แนว + โค้งริบบิ้น Birdfall กวาดหน้าพร้อมปล่อยมิสไซล์นำวิถี'
     },
     cyborg_trinket: {
       id: 'cyborg_trinket',
       hero: 'cyborg',
-      nameTh: '[F/AS] บูสเตอร์บินยิงเลเซอร์ (Flight Assault)',
+      nameTh: '[F/AS] บูสเตอร์บินยิงเลเซอร์ (Flight Assault & Snipe Spire)',
       file: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_skill_trinket_flight.efkproj',
       scale: 1.0,
       speed: 1.05,
-      durationSec: 1.18,
+      durationSec: 1.20,
       attachToCaster: false,
-      color: '#38bdf8',
-      desc: 'เปลวไอพ่นปีกคู่ทะยานขึ้นฟ้า + ลำแสงเลเซอร์สีฟ้าเฉียงลงพื้นพร้อมระเบิดเป้า HUD 7.2 เมตร'
+      color: '#818cf8',
+      desc: 'ไอพ่นปีกคู่ทะยานฟ้า + ลำแสงเฉียงลงจุดเป้า + เสา Snipe Energy Shatter พุ่งทะยานสูงจากหลุม'
     },
     cyborg_mobility_jetpack: {
       id: 'cyborg_mobility_jetpack',
       hero: 'cyborg',
-      nameTh: 'บินไอพ่น / บูสต์กลางอากาศ (Cyborg Jetpack)',
+      nameTh: 'บินไอพ่น / บูสต์กลางอากาศ (Prime Ribbon Jetpack)',
       file: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkproj',
@@ -722,8 +722,8 @@
       speed: 1.15,
       durationSec: 0.48,
       attachToCaster: false,
-      color: '#f97316',
-      desc: 'เปลวไอพ่นปีกคู่ความเร็วเหนือเสียง + วงแหวนแรงขับและประกายไอออน'
+      color: '#67e8f9',
+      desc: 'เปลวไอพ่นปีกคู่ + ริบบิ้นพลังงาน Prime & Load หมุนรอบตัวและระเบิด Grooving Starburst'
     }
   };
 

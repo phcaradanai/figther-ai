@@ -1,27 +1,29 @@
 // ============================================================================
-// LOST SAGA 3D - CYBORG (MECHA FLIGHT TROOPER) 3D EFFEKSEER + THREE.JS VFX
+// LOST SAGA 3D - CYBORG (TOS RANK 9 MUSKETEER x CYBER-PLASMA) 3D VFX SUITE
 // ============================================================================
-// Dedicated 7-move Cyborg 3D VFX suite:
-//   1. PRIMARY: Compiled EffekseerForWebGL (.efkefc) runtime synced to camera
-//   2. NATIVE 3D THREE.JS HIGH-CONTRAST DUAL-PASS: Deep titanium-navy & reactor-
-//      obsidian NormalBlending silhouettes (#09152b / #3a1204) paired with
-//      electric Buster-cyan (#38bdf8 / #e0f7ff), EMP teal (#2dd4bf), and
-//      supersonic jetpack amber-orange (#f97316 / #fbbf24) Additive HDR Bloom
-//      using our 10 512x512 sci-fi mecha PNGs!
+// Dedicated 7-move Cyborg 3D VFX suite redesigned from Tree of Savior's
+// Rank 9 Musketeer (_ssPpuHq_lg) fused with sci-fi Cyborg plasma energy so
+// it is 100% visually distinct from Dual-Gun Cowboy:
+//   - Grooving Muzzle white-core electric violet-cyan starburst bursts
+//   - Penetration Shot roaring amber-crimson/cyan conical energy blasts
+//   - Birdfall / Prime & Load swirling cerulean-violet energy arc ribbons
+//   - Dual-tone cerulean-blue ground waves rimmed with fiery amber-orange
+//   - Snipe vertical electric violet-cyan energy-shatter pillars
+//   - Geodesic hex-grid EMP gravity dome & 9.5m Buster plasma cannon beam
 // ============================================================================
 import * as THREE from 'three';
 
 const CYBORG_TEX_NAMES = [
-  'mecha_hud_reticle',
+  'grooving_starburst',
+  'penetration_cone',
+  'birdfall_ribbon',
   'buster_beam_core',
   'hex_emp_grid',
-  'rail_shock_ring',
-  'plasma_arc_bolt',
+  'cerulean_wave_ring',
+  'snipe_shatter_pillar',
   'jet_thruster_plume',
-  'missile_smoke_puff',
-  'mecha_flare',
-  'cyber_hex_tile',
-  'ion_spark'
+  'plasma_arc_bolt',
+  'overdrive_spark'
 ];
 
 const CYBORG_EFFECT_IDS = new Set([
@@ -167,45 +169,111 @@ export class CyborgThreeVFX {
       return mesh;
     };
 
-    const addParticles = (count, cfg) => {
-      for (let i = 0; i < count; i++) {
-        const kind = cfg.kind || 'spark'; // 'spark' | 'hex' | 'smoke'
-        const tex = cfg.tex || (kind === 'hex' ? 'cyber_hex_tile' : (kind === 'smoke' ? 'missile_smoke_puff' : 'ion_spark'));
-        const additive = cfg.additive !== undefined ? cfg.additive : (kind !== 'smoke');
-        const mat = this.makeMat(tex, cfg.color || (kind === 'smoke' ? '#cbd5e1' : '#38bdf8'), cfg.intensity || (additive ? 2.4 : 1.0), 1.0, additive);
-        const mesh = new THREE.Mesh(this.geo.plane, mat);
-        mesh.renderOrder = additive ? 20 : 18;
+    // Helper: 3D Crossed Vertical Energy-Shatter Column (Musketeer Snipe 2:05!)
+    const addShatterSpire = (ox, baseY, oz, width, height, delay = 0, life = 0.75) => {
+      const spireGroup = new THREE.Group();
+      spireGroup.position.set(ox, baseY, oz);
+      root.add(spireGroup);
 
-        const ang = Math.random() * Math.PI * 2;
-        const rad = (cfg.radiusMin || 0) + Math.random() * ((cfg.radius || 0.7) - (cfg.radiusMin || 0));
-        const spd = (cfg.speedMin !== undefined ? cfg.speedMin : 1.2) + Math.random() * (cfg.speedMax !== undefined ? cfg.speedMax : 3.6);
-        const vx = Math.cos(ang) * spd;
-        const vz = Math.sin(ang) * spd + (cfg.forwardBias || 0);
-        const vy = (cfg.vyMin !== undefined ? cfg.vyMin : 0.6) + Math.random() * (cfg.vyMax !== undefined ? cfg.vyMax : 2.6);
-        const ox = Math.cos(ang) * rad + (cfg.ox || 0);
-        const oy = (cfg.oy !== undefined ? cfg.oy : 0.9) + (Math.random() - 0.5) * (cfg.oySpread || 0.5);
-        const oz = Math.sin(ang) * rad + (cfg.oz || 0) + (Math.random() - 0.5) * (cfg.ozSpread || 0);
-        mesh.position.set(ox, oy, oz);
-        const sz = (cfg.size || (kind === 'smoke' ? 1.35 : (kind === 'hex' ? 0.36 : 0.34))) * (0.75 + Math.random() * 0.65);
-        root.add(mesh);
+      const mats = [];
+      for (let p = 0; p < 3; p++) {
+        const ang = (p / 3) * Math.PI;
+        const darkMat = this.makeMat('snipe_shatter_pillar', '#1e1b4b', 1.0, 0.92, false);
+        const darkM = new THREE.Mesh(this.geo.plane, darkMat);
+        darkM.rotation.y = ang;
+        darkM.position.y = 0.5;
+        darkM.scale.set(1.08, 1.04, 1);
+        darkM.renderOrder = 17;
+        spireGroup.add(darkM);
 
-        particles.push({
-          mesh, mat, kind, ox, oy, oz, vx, vy, vz,
-          gravity: cfg.gravity !== undefined ? cfg.gravity : (kind === 'smoke' ? 0.8 : (kind === 'hex' ? -0.6 : -6.5)),
-          delay: (cfg.baseDelay || 0) + Math.random() * (cfg.maxDelay || 0.12),
-          baseSz: sz,
-          implode: !!cfg.implode,
-          swirl: cfg.swirl || 0,
-          swirlRadius: rad,
-          swirlAngle: ang,
-          rotSpeed: (Math.random() - 0.5) * (kind === 'smoke' ? 1.5 : 8.5),
-          rotInit: Math.random() * Math.PI * 2,
-          alphaPeak: cfg.alphaPeak !== undefined ? cfg.alphaPeak : (kind === 'smoke' ? 0.66 : 0.96)
-        });
+        const glowMat = this.makeMat('snipe_shatter_pillar', p === 0 ? '#ffffff' : '#a78bfa', 2.6, 0.96, true);
+        const glowM = new THREE.Mesh(this.geo.plane, glowMat);
+        glowM.rotation.y = ang;
+        glowM.position.y = 0.52;
+        glowM.renderOrder = 19;
+        spireGroup.add(glowM);
+
+        mats.push(darkMat, glowMat);
       }
+
+      parts.push({
+        mesh: spireGroup,
+        mat: mats[0],
+        extraMats: mats.slice(1),
+        update: (g, _m, t) => {
+          const lt = (t - delay) / life;
+          if (lt <= 0 || lt >= 1) { g.visible = false; return; }
+          g.visible = true;
+          const rise = easeOutCubic(clamp01(lt / 0.16));
+          const fade = lt > 0.65 ? clamp01(1 - (lt - 0.65) / 0.35) : 1.0;
+          g.scale.set(width * (0.55 + 0.55 * rise), Math.max(0.08, height * rise), width * (0.55 + 0.55 * rise));
+          g.rotation.y = lt * 2.2;
+          for (let k = 0; k < mats.length; k++) {
+            mats[k].opacity = (k % 2 === 0 ? 0.88 : 0.96) * fade;
+          }
+        }
+      });
     };
 
-    // Helper: Twin Mecha Jetpack Wing Afterburner Plumes (X-crossed per nozzle so visible from all angles!)
+    // Helper: 3D X-Crossed Penetration Shot Conical Plasma Blast (Musketeer 1:25!)
+    // Originates at (ox, oy, oz) and blasts forward along local +Z (optionally angled by rotY)
+    const addBlastCone = (cfg) => {
+      const coneGroup = new THREE.Group();
+      coneGroup.position.set(cfg.ox || 0, cfg.oy !== undefined ? cfg.oy : 1.04, cfg.oz || 0.9);
+      if (cfg.rotY) coneGroup.rotation.y = cfg.rotY;
+      root.add(coneGroup);
+
+      const mats = [];
+      // Horizontal + Vertical crossed planes so the roaring plasma cone reads 3D from every angle
+      const setups = [
+        { rx: -Math.PI * 0.5, ry: 0, rz: -Math.PI * 0.5, hex: cfg.hexA || '#f97316' },
+        { rx: 0, ry: Math.PI * 0.5, rz: 0, hex: cfg.hexB || '#38bdf8' }
+      ];
+      for (const s of setups) {
+        const darkMat = this.makeMat('penetration_cone', cfg.darkHex || '#2a0a18', 1.0, 0.92, false);
+        const darkM = new THREE.Mesh(this.geo.plane, darkMat);
+        darkM.rotation.set(s.rx, s.ry, s.rz);
+        darkM.position.z = 0.5;
+        darkM.scale.set(1.04, 1.12, 1);
+        darkM.renderOrder = 17;
+        coneGroup.add(darkM);
+
+        const glowMat = this.makeMat('penetration_cone', s.hex, cfg.intensity || 2.7, 0.98, true);
+        const glowM = new THREE.Mesh(this.geo.plane, glowMat);
+        glowM.rotation.set(s.rx, s.ry, s.rz);
+        glowM.position.z = 0.51;
+        glowM.renderOrder = 19;
+        coneGroup.add(glowM);
+
+        mats.push(darkMat, glowMat);
+      }
+
+      const delay = cfg.delay || 0;
+      const life = cfg.life || 0.55;
+      const len = cfg.length || 4.4;
+      const wid = cfg.width || 2.8;
+
+      parts.push({
+        mesh: coneGroup,
+        mat: mats[0],
+        extraMats: mats.slice(1),
+        update: (g, _m, t) => {
+          const lt = (t - delay) / life;
+          if (lt <= 0 || lt >= 1) { g.visible = false; return; }
+          g.visible = true;
+          const e = easeOutCubic(lt);
+          const curL = len * (0.35 + 0.72 * e);
+          const curW = wid * (0.45 + 0.65 * e) * (1 - lt * 0.35);
+          g.scale.set(curW, curW, curL);
+          const fade = clamp01(1 - lt * 1.1);
+          for (let k = 0; k < mats.length; k++) {
+            mats[k].opacity = (k % 2 === 0 ? 0.88 : 0.98) * fade;
+          }
+        }
+      });
+    };
+
+    // Helper: Twin Wing-Pack Afterburner Plumes
     const addThrusterPlume = (ox, oy, oz, length, width, tiltX = 0.22, tiltZ = 0.0, delay = 0, life = 0.85) => {
       const nozzle = new THREE.Group();
       nozzle.position.set(ox, oy, oz);
@@ -215,7 +283,7 @@ export class CyborgThreeVFX {
       const mats = [];
       for (let p = 0; p < 2; p++) {
         const ang = p * Math.PI * 0.5;
-        const darkMat = this.makeMat('jet_thruster_plume', '#3a1204', 1.0, 0.88, false);
+        const darkMat = this.makeMat('jet_thruster_plume', '#2a0d16', 1.0, 0.88, false);
         const darkM = new THREE.Mesh(this.geo.plane, darkMat);
         darkM.rotation.y = ang;
         darkM.position.y = -0.48;
@@ -223,7 +291,7 @@ export class CyborgThreeVFX {
         darkM.renderOrder = 17;
         nozzle.add(darkM);
 
-        const glowMat = this.makeMat('jet_thruster_plume', p === 0 ? '#f97316' : '#38bdf8', 2.6, 0.96, true);
+        const glowMat = this.makeMat('jet_thruster_plume', p === 0 ? '#f97316' : '#818cf8', 2.6, 0.96, true);
         const glowM = new THREE.Mesh(this.geo.plane, glowMat);
         glowM.rotation.y = ang;
         glowM.position.y = -0.46;
@@ -252,207 +320,265 @@ export class CyborgThreeVFX {
       });
     };
 
+    const addSparks = (count, cfg) => {
+      for (let i = 0; i < count; i++) {
+        const mat = this.makeMat(cfg.tex || 'overdrive_spark', cfg.color || '#fbbf24', cfg.intensity || 2.5, 1.0, cfg.additive !== false);
+        const mesh = new THREE.Mesh(this.geo.plane, mat);
+        mesh.renderOrder = cfg.additive === false ? 18 : 20;
+
+        const ang = Math.random() * Math.PI * 2;
+        const rad = (cfg.radiusMin || 0) + Math.random() * ((cfg.radius || 0.7) - (cfg.radiusMin || 0));
+        const spd = (cfg.speedMin !== undefined ? cfg.speedMin : 1.4) + Math.random() * (cfg.speedMax !== undefined ? cfg.speedMax : 4.2);
+        const vx = Math.cos(ang) * spd;
+        const vz = Math.sin(ang) * spd + (cfg.forwardBias || 0);
+        const vy = (cfg.vyMin !== undefined ? cfg.vyMin : 0.6) + Math.random() * (cfg.vyMax !== undefined ? cfg.vyMax : 2.8);
+        const ox = Math.cos(ang) * rad + (cfg.ox || 0);
+        const oy = (cfg.oy !== undefined ? cfg.oy : 0.9) + (Math.random() - 0.5) * (cfg.oySpread || 0.5);
+        const oz = Math.sin(ang) * rad + (cfg.oz || 0) + (Math.random() - 0.5) * (cfg.ozSpread || 0);
+        mesh.position.set(ox, oy, oz);
+        const sz = (cfg.size || 0.34) * (0.75 + Math.random() * 0.65);
+        root.add(mesh);
+
+        particles.push({
+          mesh, mat, ox, oy, oz, vx, vy, vz,
+          gravity: cfg.gravity !== undefined ? cfg.gravity : -6.0,
+          delay: (cfg.baseDelay || 0) + Math.random() * (cfg.maxDelay || 0.10),
+          baseSz: sz,
+          implode: !!cfg.implode,
+          swirl: cfg.swirl || 0,
+          swirlRadius: rad,
+          swirlAngle: ang,
+          rotSpeed: (Math.random() - 0.5) * 9.0,
+          rotInit: Math.random() * Math.PI * 2,
+          alphaPeak: cfg.alphaPeak !== undefined ? cfg.alphaPeak : 0.98
+        });
+      }
+    };
+
     // ------------------------------------------------------------------------
-    // 1. BASIC ATTACK: PLASMA RIFLE HUD MUZZLE CAST (Barrel VFX ONLY!)
+    // 1. BASIC ATTACK: GROOVING MUZZLE ELECTRIC STARBURST + SWIRLING ENERGY RIBBON
+    //    (ToS Musketeer 3:25 — 0% Cowboy smoke/star/crosshair!)
     // ------------------------------------------------------------------------
     if (effectId === 'cyborg_basic_plasma') {
-      duration = opts.isFinisher ? 0.44 : 0.30;
+      duration = opts.isFinisher ? 0.50 : 0.34;
+      const spinDir = (opts.comboStep % 2 === 0) ? -1 : 1;
 
-      // Vertical Spinning Sci-Fi HUD Targeting Aperture right at Rifle Muzzle (z = 0.92m)
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
-        m.position.set(0, 1.02, 0.90);
-      }, (m, mat, t, ease) => {
-        const s = (opts.isFinisher ? 1.50 : 1.05) + ease * 0.85;
-        m.scale.set(s, s, 1);
-        m.rotation.z = t * 6.0;
-        mat.opacity = clamp01(1 - t * 1.15) * 0.90;
-      }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.5, (m) => {
-        m.position.set(0, 1.02, 0.94);
-      }, (m, mat, t, ease) => {
-        const s = (opts.isFinisher ? 1.44 : 1.00) + ease * 0.80;
-        m.scale.set(s, s, 1);
-        m.rotation.z = t * 6.0;
-        mat.opacity = clamp01(1 - t * 1.2);
-      });
-
-      // Anamorphic Plasma Lens Flare Flash
-      addMesh(this.geo.plane, 'mecha_flare', '#e0f7ff', 3.0, (m) => {
-        m.position.set(0, 1.02, 0.98);
-      }, (m, mat, t, ease) => {
-        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-        const s = (opts.isFinisher ? 1.5 : 1.05) + ease * 1.4;
-        m.scale.set(s * 1.4, s * 0.78, 1);
-        mat.opacity = clamp01(1 - t * 1.9);
-      });
-
-      // Overcharged Finisher: Mechanical Rail Shock Ring + Plasma Discharge Bolt!
-      if (opts.isFinisher) {
-        addMesh(this.geo.plane, 'rail_shock_ring', '#09152b', 1.0, (m) => {
-          m.position.set(0, 1.02, 1.04);
-        }, (m, mat, t, ease) => {
-          const s = 0.85 + ease * 2.1;
-          m.scale.set(s, s, 1);
-          mat.opacity = clamp01(1 - t * 1.2) * 0.88;
-        }, false);
-        addMesh(this.geo.plane, 'rail_shock_ring', '#38bdf8', 2.7, (m) => {
-          m.position.set(0, 1.02, 1.08);
-        }, (m, mat, t, ease) => {
-          const s = 0.80 + ease * 2.0;
-          m.scale.set(s, s, 1);
-          mat.opacity = clamp01(1 - t * 1.25);
-        });
-      }
-
-      addParticles(opts.isFinisher ? 10 : 6, {
-        kind: 'spark', additive: true, color: '#e0f7ff',
-        ox: 0, oy: 1.02, oz: 1.02, radius: 0.25,
-        forwardBias: 3.4, speedMin: 0.9, speedMax: 2.8, vyMin: 0.2, vyMax: 1.8, size: 0.32
-      });
-      addParticles(opts.isFinisher ? 8 : 4, {
-        kind: 'hex', additive: false, color: '#0284c7',
-        ox: 0, oy: 1.02, oz: 1.05, radius: 0.30,
-        forwardBias: 1.8, speedMin: 0.6, speedMax: 2.0, vyMin: 0.3, vyMax: 1.5, size: 0.28
-      });
-    }
-
-    // ------------------------------------------------------------------------
-    // 2. HEAVY ATTACK: CYBORG LASER CANNON (Railgun 3-Ring Accelerator Launch!)
-    //    (Real piercing 3D railgun lance fires right through these 3 coil rings!)
-    // ------------------------------------------------------------------------
-    else if (effectId === 'cyborg_heavy_laser') {
-      duration = 0.65;
-
-      // Precision Lock-On HUD Reticle at Railgun Barrel
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
-        m.position.set(0, 1.04, 1.00);
-      }, (m, mat, t, ease) => {
-        const s = 1.3 + ease * 1.65;
-        m.scale.set(s, s, 1);
-        m.rotation.z = -t * 7.5;
-        mat.opacity = clamp01(1 - t * 1.15) * 0.94;
-      }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.7, (m) => {
-        m.position.set(0, 1.04, 1.04);
-      }, (m, mat, t, ease) => {
-        const s = 1.25 + ease * 1.55;
-        m.scale.set(s, s, 1);
-        m.rotation.z = -t * 7.5;
-        mat.opacity = clamp01(1 - t * 1.2);
-      });
-
-      // 3 Staggered Electromagnetic Rail Accelerator Shock Rings along Firing Axis!
-      for (let i = 0; i < 3; i++) {
-        const rz = 1.15 + i * 1.25;
-        const delay = i * 0.045;
-        addMesh(this.geo.plane, 'rail_shock_ring', '#09152b', 1.0, (m) => {
-          m.position.set(0, 1.04, rz);
-        }, (m, mat, t) => {
-          const lt = (t - delay) / 0.50;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 0.85 + easeOutCubic(lt) * (2.6 - i * 0.35);
-          m.scale.set(s, s, 1);
-          m.rotation.z = (i % 2 === 0 ? 1 : -1) * lt * 3.0;
-          mat.opacity = clamp01(1 - lt) * 0.92;
-        }, false);
-        addMesh(this.geo.plane, 'rail_shock_ring', i === 2 ? '#f97316' : '#e0f7ff', 2.7, (m) => {
-          m.position.set(0, 1.04, rz + 0.04);
-        }, (m, mat, t) => {
-          const lt = (t - delay) / 0.50;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 0.80 + easeOutCubic(lt) * (2.5 - i * 0.35);
-          m.scale.set(s, s, 1);
-          m.rotation.z = (i % 2 === 0 ? 1 : -1) * lt * 3.0;
-          mat.opacity = clamp01(1 - lt);
-        });
-      }
-
-      // Blinding Anamorphic Cannon Ignition Lens Flare
-      addMesh(this.geo.plane, 'mecha_flare', '#ffffff', 3.0, (m) => {
-        m.position.set(0, 1.05, 1.12);
-      }, (m, mat, t, ease) => {
-        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-        const s = 1.6 + ease * 2.4;
-        m.scale.set(s * 1.8, s * 0.85, 1);
-        mat.opacity = clamp01(1 - t * 2.1);
-      });
-
-      // Crackling Electric Recoil Plasma Arcs around the Barrel
-      for (let i = 0; i < 2; i++) {
-        const side = i === 0 ? -0.45 : 0.45;
-        addMesh(this.geo.plane, 'plasma_arc_bolt', '#38bdf8', 2.6, (m) => {
-          m.position.set(side, 1.04, 1.85);
-          m.rotation.set(0, Math.PI * 0.5, Math.PI * 0.5 + side * 0.35);
-        }, (m, mat, t) => {
-          const s = 0.9 + t * 1.1;
-          m.scale.set(s * 0.75, s * 1.9, 1);
-          mat.opacity = clamp01(1 - t * 1.6) * (0.65 + 0.35 * Math.sin(t * 60 + i * 2));
-        });
-      }
-
-      addParticles(14, {
-        kind: 'spark', additive: true, color: '#38bdf8',
-        ox: 0, oy: 1.04, oz: 1.4, radius: 0.45,
-        forwardBias: 5.5, speedMin: 1.5, speedMax: 4.5, vyMin: 0.2, vyMax: 2.2, size: 0.36
-      });
-      addParticles(10, {
-        kind: 'hex', additive: false, color: '#0284c7',
-        ox: 0, oy: 1.04, oz: 1.6, radius: 0.55,
-        forwardBias: 3.0, speedMin: 1.0, speedMax: 3.0, size: 0.32
-      });
-    }
-
-    // ------------------------------------------------------------------------
-    // 3. [Q/SD] WEAPON SKILL: BUSTER BEAM (9.5m Giant Forward Plasma Cannon!)
-    //    (Matches server.js hitLine(player, 9.5, 2.6) to the exact decimeter!)
-    // ------------------------------------------------------------------------
-    else if (effectId === 'cyborg_weapon') {
-      duration = 1.25;
-
-      // Ground Launch Calibration HUD Seal under Cyborg
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
+      // Ground Icy-Cerulean Caster Ring beneath Cyborg's boots (Musketeer 1:21!)
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset, 0);
       }, (m, mat, t, ease) => {
-        const s = 1.6 + ease * 2.8;
+        const s = 1.0 + ease * (opts.isFinisher ? 2.2 : 1.4);
+        m.scale.set(s, s, 1);
+        m.rotation.z = spinDir * t * 3.5;
+        mat.opacity = clamp01(1 - t) * 0.78;
+      }, false);
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.1, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.03, 0);
+      }, (m, mat, t, ease) => {
+        const s = 0.95 + ease * (opts.isFinisher ? 2.1 : 1.35);
+        m.scale.set(s, s, 1);
+        m.rotation.z = spinDir * t * 3.5;
+        mat.opacity = clamp01(1 - t) * 0.90;
+      });
+
+      // Iconic Grooving Muzzle Electric White-Violet-Cyan Spiky Starburst at Cannon Tip!
+      addMesh(this.geo.plane, 'grooving_starburst', '#1e1b4b', 1.0, (m) => {
+        m.position.set(0, 1.04, 0.96);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(spinDir * t * 4.5);
+        const s = (opts.isFinisher ? 1.65 : 1.10) + ease * (opts.isFinisher ? 2.1 : 1.35);
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.25) * 0.90;
+      }, false);
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 2.9, (m) => {
+        m.position.set(0, 1.05, 1.00);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(spinDir * t * 4.5);
+        const s = (opts.isFinisher ? 1.55 : 1.02) + ease * (opts.isFinisher ? 1.95 : 1.28);
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.35);
+      });
+
+      // Sweeping Translucent Cerulean-Violet Birdfall Energy Ribbon arcing around barrel!
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
+        m.position.set(0, 1.04, 1.02);
+      }, (m, mat, t, ease) => {
+        m.rotation.set(-Math.PI * 0.44, spinDir * 0.28, spinDir * (-1.1 + ease * 2.6) - Math.PI * 0.5);
+        const s = (opts.isFinisher ? 2.5 : 1.75) + ease * 1.1;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.1) * 0.86;
+      }, false);
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
+        m.position.set(0, 1.07, 1.05);
+      }, (m, mat, t, ease) => {
+        m.rotation.set(-Math.PI * 0.44, spinDir * 0.28, spinDir * (-1.0 + ease * 2.6) - Math.PI * 0.5);
+        const s = (opts.isFinisher ? 2.35 : 1.65) + ease * 1.05;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.15);
+      });
+
+      // Finisher (3rd shot): Roaring Amber-Cyan Penetration Energy Cone erupts forward!
+      if (opts.isFinisher) {
+        addBlastCone({
+          ox: 0, oy: 1.04, oz: 0.95, length: 2.9, width: 1.85,
+          life: 0.72, hexA: '#fb923c', hexB: '#a78bfa', darkHex: '#1e1b4b', intensity: 2.7
+        });
+      }
+
+      // Warm Amber-Gold & Electric-Violet Grooving Muzzle Radial Spark Streaks (3:25!)
+      addSparks(opts.isFinisher ? 12 : 7, {
+        color: '#fbbf24', ox: 0, oy: 1.04, oz: 1.04, radius: 0.28,
+        forwardBias: 3.4, speedMin: 1.4, speedMax: 4.2, vyMin: 0.4, vyMax: 2.2, size: 0.34
+      });
+      addSparks(opts.isFinisher ? 8 : 4, {
+        color: '#a78bfa', ox: 0, oy: 1.04, oz: 1.04, radius: 0.30,
+        forwardBias: 2.4, speedMin: 1.0, speedMax: 3.2, vyMin: 0.3, vyMax: 1.8, size: 0.30
+      });
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. HEAVY ATTACK: PENETRATION SHOT CONICAL ENERGY BLAST + PRIME RECOIL RIBBONS!
+    //    (ToS Musketeer 1:21–1:25 — Wide Roaring Plasma Cone, ZERO Cowboy rings/crosshair!)
+    // ------------------------------------------------------------------------
+    else if (effectId === 'cyborg_heavy_laser') {
+      duration = 0.72;
+
+      // Dual-Tone Cerulean-Orange Ground Lock Wave beneath Cyborg's boots (Musketeer 1:21 & 2:35!)
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.4 + ease * 3.4;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 4.0;
-        mat.opacity = clamp01(1 - t) * 0.90;
+        mat.opacity = clamp01(1 - t * 1.05) * 0.92;
       }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.4, (m) => {
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.3, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.04, 0);
       }, (m, mat, t, ease) => {
-        const s = 1.5 + ease * 2.7;
+        const s = 1.3 + ease * 3.3;
         m.scale.set(s, s, 1);
         m.rotation.z = t * 4.0;
-        mat.opacity = clamp01(1 - t);
-      });
-
-      // Vertical Buster Cannon Firing Aperture HUD Ring (z = 0.95m)
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
-        m.position.set(0, 1.08, 0.92);
-      }, (m, mat, t, ease) => {
-        const s = 1.9 + ease * 1.9;
-        m.scale.set(s, s, 1);
-        m.rotation.z = -t * 7.5;
-        mat.opacity = clamp01(1 - t * 1.05) * 0.94;
-      }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.7, (m) => {
-        m.position.set(0, 1.08, 0.96);
-      }, (m, mat, t, ease) => {
-        const s = 1.8 + ease * 1.85;
-        m.scale.set(s, s, 1);
-        m.rotation.z = -t * 7.5;
         mat.opacity = clamp01(1 - t * 1.1);
       });
 
-      // COLOSSAL 9.5m 3D HORIZONTAL GIGA BUSTER PLASMA BEAM (Crossed H+V + 3D Hex Containment Tube!)
+      // WIDE ROARING 4.8m PENETRATION SHOT CONICAL PLASMA BLAST (Amber-Crimson + Electric Cyan/Violet!)
+      addBlastCone({
+        ox: 0, oy: 1.06, oz: 0.95, length: 4.8, width: 3.1,
+        life: 0.78, hexA: '#f97316', hexB: '#38bdf8', darkHex: '#24091c', intensity: 2.85
+      });
+
+      // Blinding Grooving Muzzle Electric White-Violet Starburst Explosion at Barrel!
+      addMesh(this.geo.plane, 'grooving_starburst', '#1e1b4b', 1.0, (m) => {
+        m.position.set(0, 1.06, 1.12);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(-t * 5.2);
+        const s = 1.6 + ease * 2.8;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.35) * 0.92;
+      }, false);
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 3.0, (m) => {
+        m.position.set(0, 1.08, 1.16);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(-t * 5.2);
+        const s = 1.5 + ease * 2.65;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.45);
+      });
+
+      // Twin Swirling Prime & Load Cerulean-Violet Energy Ribbons whipping around Cyborg!
+      for (let i = 0; i < 2; i++) {
+        const dir = i === 0 ? 1 : -1;
+        addMesh(this.geo.plane, 'birdfall_ribbon', i === 0 ? '#38bdf8' : '#a78bfa', 2.6, (m) => {
+          m.position.set(0, 0.95 + i * 0.45, 0.2);
+        }, (m, mat, t, ease) => {
+          m.rotation.set(-Math.PI * 0.46, dir * 0.22, dir * t * 9.0 + i * Math.PI);
+          const s = 1.6 + ease * 2.4;
+          m.scale.set(s, s, 1);
+          mat.opacity = clamp01(1 - t * 1.15);
+        });
+      }
+
+      // Crackling High-Voltage Violet-Cyan Recoil Lightning Bolts
+      for (let i = 0; i < 2; i++) {
+        const side = i === 0 ? -0.55 : 0.55;
+        addMesh(this.geo.plane, 'plasma_arc_bolt', '#a78bfa', 2.7, (m) => {
+          m.position.set(side, 1.08, 2.1);
+          m.rotation.set(0, Math.PI * 0.5, Math.PI * 0.5 + side * 0.35);
+        }, (m, mat, t) => {
+          const s = 1.0 + t * 1.2;
+          m.scale.set(s * 0.85, s * 2.3, 1);
+          mat.opacity = clamp01(1 - t * 1.5) * (0.55 + 0.45 * Math.abs(Math.sin(t * 58 + i * 2)));
+        });
+      }
+
+      addSparks(16, {
+        color: '#fbbf24', ox: 0, oy: 1.06, oz: 1.8, radius: 0.6, ozSpread: 2.2,
+        forwardBias: 6.2, speedMin: 1.8, speedMax: 5.0, vyMin: 0.4, vyMax: 2.6, size: 0.38
+      });
+      addSparks(12, {
+        color: '#a78bfa', ox: 0, oy: 1.06, oz: 1.6, radius: 0.6, ozSpread: 2.0,
+        forwardBias: 4.5, speedMin: 1.5, speedMax: 4.2, vyMin: 0.4, vyMax: 2.4, size: 0.34
+      });
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. [Q/SD] WEAPON SKILL: BUSTER BEAM (9.5m Plasma Cannon + Warm Cone + Snipe Shatter!)
+    //    (Matches server.js hitLine(player, 9.5, 2.6)!)
+    // ------------------------------------------------------------------------
+    else if (effectId === 'cyborg_weapon') {
+      duration = 1.28;
+
+      // Dual-Tone Cerulean-Orange Caster Shockwave Ring beneath Cyborg (Musketeer 2:35!)
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.8 + ease * 4.0;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 4.5;
+        mat.opacity = clamp01(1 - t) * 0.94;
+      }, false);
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.4, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.04, 0);
+      }, (m, mat, t, ease) => {
+        const s = 1.7 + ease * 3.85;
+        m.scale.set(s, s, 1);
+        m.rotation.z = t * 4.5;
+        mat.opacity = clamp01(1 - t);
+      });
+
+      // Swirling Prime & Load Cerulean-Violet Charge Ribbons coiling around Cyborg!
+      for (let i = 0; i < 3; i++) {
+        addMesh(this.geo.plane, 'birdfall_ribbon', i % 2 === 0 ? '#38bdf8' : '#a78bfa', 2.6, (m) => {
+          m.position.set(0, 0.7 + i * 0.55, 0);
+        }, (m, mat, t, ease) => {
+          m.rotation.set(-Math.PI * 0.48, 0, (i % 2 === 0 ? 1 : -1) * t * 11.0 + i * 2.1);
+          const s = 1.8 + ease * 2.6;
+          m.scale.set(s, s, 1);
+          mat.opacity = clamp01(1 - t * 1.15);
+        });
+      }
+
+      // Roaring Amber-Gold Penetration Shot Muzzle Blast Cone at Cannon Mouth (Warm-vs-Cool Contrast!)
+      addBlastCone({
+        ox: 0, oy: 1.08, oz: 0.90, length: 4.2, width: 3.2,
+        life: 0.76, hexA: '#f97316', hexB: '#fbbf24', darkHex: '#2a0c08', intensity: 2.75
+      });
+
+      // COLOSSAL 9.5m 3D HORIZONTAL BUSTER PLASMA BEAM (Crossed H+V + Rotating Hex Tube!)
       const beamLen = 9.6;
       const beamCenterZ = 0.95 + beamLen * 0.5;
 
-      // Pass 1 (NormalBlending Deep Cobalt-Navy Outer Plasma Silhouette — pops sharply on sunlit stone!)
-      addMesh(this.geo.plane, 'buster_beam_core', '#091a3a', 1.0, (m) => {
+      addMesh(this.geo.plane, 'buster_beam_core', '#0f1035', 1.0, (m) => {
         m.rotation.set(-Math.PI * 0.5, 0, -Math.PI * 0.5);
         m.position.set(0, 1.02, beamCenterZ);
       }, (m, mat, t) => {
@@ -461,11 +587,10 @@ export class CyborgThreeVFX {
         const taper = t > 0.65 ? clamp01(1 - (t - 0.65) / 0.35) : 1.0;
         const curLen = beamLen * extend;
         m.position.z = 0.95 + curLen * 0.5;
-        m.scale.set(curLen, 3.35 * pulse * (0.35 + 0.65 * taper), 1);
+        m.scale.set(curLen, 3.45 * pulse * (0.35 + 0.65 * taper), 1);
         mat.opacity = 0.94 * taper;
       }, false);
 
-      // Pass 2 (Additive HDR Electric Cyan Horizontal Beam)
       addMesh(this.geo.plane, 'buster_beam_core', '#38bdf8', 2.8, (m) => {
         m.rotation.set(-Math.PI * 0.5, 0, -Math.PI * 0.5);
         m.position.set(0, 1.08, beamCenterZ);
@@ -479,7 +604,6 @@ export class CyborgThreeVFX {
         mat.opacity = taper;
       });
 
-      // Pass 3 (Additive White-Hot Vertical Cross-Sheet so Beam reads huge from every 3D angle!)
       addMesh(this.geo.plane, 'buster_beam_core', '#e0f7ff', 3.0, (m) => {
         m.rotation.set(0, Math.PI * 0.5, 0);
         m.position.set(0, 1.08, beamCenterZ);
@@ -489,192 +613,148 @@ export class CyborgThreeVFX {
         const taper = t > 0.65 ? clamp01(1 - (t - 0.65) / 0.35) : 1.0;
         const curLen = beamLen * extend;
         m.position.z = 0.95 + curLen * 0.5;
-        m.scale.set(curLen, 2.55 * pulse * (0.25 + 0.75 * taper), 1);
+        m.scale.set(curLen, 2.60 * pulse * (0.25 + 0.75 * taper), 1);
         mat.opacity = taper;
       });
 
-      // Pass 4 (3D Rotating Hex-Grid Plasma Containment Sleeve wrapping the entire 9.5m Cannon Beam!)
-      addMesh(this.geo.beamTube, 'hex_emp_grid', '#38bdf8', 2.2, (m) => {
+      // 3D Rotating Electric-Violet Hex-Grid Plasma Containment Sleeve wrapping the 9.5m Beam!
+      addMesh(this.geo.beamTube, 'hex_emp_grid', '#818cf8', 2.4, (m) => {
         m.rotation.x = Math.PI * 0.5;
         m.position.set(0, 1.08, beamCenterZ);
       }, (m, mat, t) => {
         const extend = easeOutCubic(clamp01(t / 0.14));
         const taper = t > 0.62 ? clamp01(1 - (t - 0.62) / 0.38) : 1.0;
         const curLen = beamLen * extend;
-        const rad = (1.15 + 0.14 * Math.sin(t * 42)) * (0.4 + 0.6 * taper);
+        const rad = (1.18 + 0.14 * Math.sin(t * 42)) * (0.4 + 0.6 * taper);
         m.position.z = 0.95 + curLen * 0.5;
         m.scale.set(rad, curLen, rad);
         m.rotation.z = t * 9.5;
-        mat.opacity = 0.80 * taper;
+        mat.opacity = 0.84 * taper;
       });
 
-      // 3 Staggered Mechanical Shock Accelerator Rings blasted along the 9.5m Beam!
-      for (let i = 0; i < 3; i++) {
-        const rz = 1.65 + i * 2.45;
-        const delay = i * 0.055;
-        addMesh(this.geo.plane, 'rail_shock_ring', '#09152b', 1.0, (m) => {
-          m.position.set(0, 1.08, rz);
-        }, (m, mat, t) => {
-          const lt = (t - delay) / 0.62;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 1.4 + easeOutCubic(lt) * 3.4;
-          m.scale.set(s, s, 1);
-          m.rotation.z = (i % 2 === 0 ? 1 : -1) * lt * 4.0;
-          mat.opacity = clamp01(1 - lt) * 0.90;
-        }, false);
-        addMesh(this.geo.plane, 'rail_shock_ring', i === 1 ? '#f97316' : '#e0f7ff', 2.7, (m) => {
-          m.position.set(0, 1.08, rz + 0.05);
-        }, (m, mat, t) => {
-          const lt = (t - delay) / 0.62;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 1.3 + easeOutCubic(lt) * 3.25;
-          m.scale.set(s, s, 1);
-          m.rotation.z = (i % 2 === 0 ? 1 : -1) * lt * 4.0;
-          mat.opacity = clamp01(1 - lt);
-        });
-      }
-
-      // 4 Crackling High-Voltage Plasma Arcs dancing along the Buster Beam!
+      // 4 Crackling High-Voltage Violet-Cyan Lightning Arcs dancing along the Beam!
       for (let i = 0; i < 4; i++) {
         const az = 2.4 + i * 2.0;
-        addMesh(this.geo.plane, 'plasma_arc_bolt', '#e0f7ff', 2.7, (m) => {
-          m.position.set((i % 2 === 0 ? -0.65 : 0.65), 1.1, az);
+        addMesh(this.geo.plane, 'plasma_arc_bolt', i % 2 === 0 ? '#a78bfa' : '#e0f7ff', 2.8, (m) => {
+          m.position.set((i % 2 === 0 ? -0.68 : 0.68), 1.12, az);
         }, (m, mat, t) => {
           const taper = t > 0.68 ? clamp01(1 - (t - 0.68) / 0.32) : 1.0;
           m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
           m.rotateZ(Math.PI * 0.5 + Math.sin(t * 32 + i * 1.9) * 0.6);
-          const s = 1.35 + 0.35 * Math.sin(t * 44 + i);
-          m.scale.set(s * 0.85, s * 2.2, 1);
+          const s = 1.4 + 0.35 * Math.sin(t * 44 + i);
+          m.scale.set(s * 0.85, s * 2.3, 1);
           mat.opacity = taper * (0.55 + 0.45 * Math.abs(Math.sin(t * 50 + i * 2.1)));
         });
       }
 
-      // Blinding Terminal Plasma Detonation at Beam End (z = 9.5m!)
-      addMesh(this.geo.plane, 'mecha_flare', '#ffffff', 3.0, (m) => {
-        m.position.set(0, 1.15, 9.5);
+      // Musketeer Snipe (2:05) Tall Vertical Energy-Shatter Column + Grooving Starburst at z = 9.5m!
+      addShatterSpire(0, gyOffset, 9.5, 2.8, 5.2, 0.08, 0.85);
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 3.0, (m) => {
+        m.position.set(0, 1.35, 9.5);
       }, (m, mat, t) => {
-        const lt = clamp01((t - 0.08) / 0.65);
+        const lt = clamp01((t - 0.08) / 0.68);
         if (t < 0.08) { mat.opacity = 0; return; }
         m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-        const s = 2.0 + easeOutCubic(lt) * 4.4;
-        m.scale.set(s * 1.45, s * 0.9, 1);
+        m.rotateZ(lt * 3.5);
+        const s = 2.2 + easeOutCubic(lt) * 4.8;
+        m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - lt);
       });
-      addMesh(this.geo.plane, 'rail_shock_ring', '#38bdf8', 2.6, (m) => {
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.5, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.08, 9.5);
       }, (m, mat, t) => {
-        const lt = clamp01((t - 0.08) / 0.72);
+        const lt = clamp01((t - 0.08) / 0.76);
         if (t < 0.08) { mat.opacity = 0; return; }
-        const s = 1.2 + easeOutCubic(lt) * 4.8;
+        const s = 1.4 + easeOutCubic(lt) * 5.2;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - lt);
       });
 
-      // Flying Cyber Hex Shards, Electric Ion Sparks & Terminal Exhaust Smoke!
-      addParticles(24, {
-        kind: 'hex', additive: false, color: '#0284c7',
-        ox: 0, oy: 1.0, oz: 5.2, radius: 1.2, ozSpread: 8.2,
-        speedMin: 1.6, speedMax: 4.5, vyMin: 1.4, vyMax: 4.6, gravity: -2.0, maxDelay: 0.25, size: 0.42
+      addSparks(26, {
+        color: '#fbbf24', ox: 0, oy: 1.05, oz: 5.2, radius: 1.1, ozSpread: 8.4,
+        forwardBias: 3.5, speedMin: 2.0, speedMax: 5.8, vyMin: 1.4, vyMax: 5.2, gravity: -6.0, maxDelay: 0.25, size: 0.40
       });
-      addParticles(24, {
-        kind: 'spark', additive: true, color: '#e0f7ff',
-        ox: 0, oy: 1.05, oz: 5.2, radius: 1.0, ozSpread: 8.4,
-        forwardBias: 3.5, speedMin: 2.0, speedMax: 5.5, vyMin: 1.2, vyMax: 4.8, gravity: -6.0, maxDelay: 0.25, size: 0.38
-      });
-      addParticles(8, {
-        kind: 'smoke', additive: false, color: '#475569', alphaPeak: 0.56,
-        ox: 0, oy: 0.8, oz: 9.4, radius: 1.2,
-        speedMin: 1.0, speedMax: 3.2, vyMin: 1.2, vyMax: 3.2, baseDelay: 0.08, size: 1.8
+      addSparks(18, {
+        color: '#a78bfa', ox: 0, oy: 1.1, oz: 5.2, radius: 1.2, ozSpread: 8.2,
+        speedMin: 1.6, speedMax: 4.6, vyMin: 1.6, vyMax: 5.0, gravity: -3.5, maxDelay: 0.25, size: 0.36
       });
     }
 
     // ------------------------------------------------------------------------
-    // 4. [E/ASD] ARMOR SKILL: EMP GRAVITY FIELD (9.6m Geodesic Pull Dome & Shock!)
-    //    (Radius 4.8m -> 9.6m diameter; pulls enemies inward + 1.5s electric stun!)
+    // 4. [E/ASD] ARMOR SKILL: EMP GRAVITY FIELD (9.6m Dual-Tone Wave + Hex Dome + Ribbons!)
+    //    (Musketeer 2:35 Cerulean-Orange Wave + Prime & Load Swirling Arcs + Geodesic EMP Dome!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_armor') {
       duration = 1.38;
 
-      // Giant 9.6m Rotating Cyber-HUD Gravity Lock Seal on Floor
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
+      // Giant 9.8m Dual-Tone Cerulean-Blue / Fiery-Orange Rim Ground Wave (Musketeer 2:35!)
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#121236', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset, 0);
       }, (m, mat, t, ease) => {
         const s = 2.4 + ease * 7.6;
         m.scale.set(s, s, 1);
-        m.rotation.z = -t * 4.8;
+        m.rotation.z = -t * 3.8;
         const fade = t > 0.72 ? 1 - (t - 0.72) / 0.28 : 1.0;
         mat.opacity = clamp01(fade) * 0.94;
       }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.4, (m) => {
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.45, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.04, 0);
       }, (m, mat, t, ease) => {
-        const s = 2.3 + ease * 7.4;
+        const s = 2.3 + ease * 7.5;
         m.scale.set(s, s, 1);
-        m.rotation.z = -t * 4.8;
+        m.rotation.z = -t * 3.8;
         const fade = t > 0.72 ? 1 - (t - 0.72) / 0.28 : 1.0;
-        mat.opacity = clamp01(fade) * (0.86 + 0.14 * Math.sin(t * 36));
+        mat.opacity = clamp01(fade) * (0.88 + 0.12 * Math.sin(t * 34));
       });
 
-      // TRUE 3D GEODESIC HEX-GRID EMP GRAVITY DOME (Radius 4.8m -> Snaps Open then Pulls Inward!)
-      addMesh(this.geo.empDome, 'hex_emp_grid', '#091c3a', 1.0, (m) => {
+      // TRUE 3D GEODESIC VIOLET-CYAN HEX-GRID EMP GRAVITY DOME (4.8m -> Implodes Inward!)
+      addMesh(this.geo.empDome, 'hex_emp_grid', '#131138', 1.0, (m) => {
         m.position.set(0, gyOffset, 0);
       }, (m, mat, t) => {
-        // Expands fast to 4.8m (0..0.18), holds with gravity pulse, then implodes slightly as enemies get pulled!
         const pop = t < 0.16 ? easeOutCubic(t / 0.16) : 1.0;
         const pull = t > 0.30 ? (1 - 0.24 * easeOutCubic((t - 0.30) / 0.70)) : 1.0;
         const r = 4.8 * pop * pull;
         m.scale.set(r, r * 0.84, r);
-        m.rotation.y = t * 2.4;
+        m.rotation.y = t * 2.6;
         const fade = t > 0.74 ? 1 - (t - 0.74) / 0.26 : 1.0;
         mat.opacity = 0.62 * clamp01(fade);
       }, false);
-      addMesh(this.geo.empDome, 'hex_emp_grid', '#2dd4bf', 2.25, (m) => {
+      addMesh(this.geo.empDome, 'hex_emp_grid', '#818cf8', 2.35, (m) => {
         m.position.set(0, gyOffset + 0.02, 0);
       }, (m, mat, t) => {
         const pop = t < 0.16 ? easeOutCubic(t / 0.16) : 1.0;
         const pull = t > 0.30 ? (1 - 0.24 * easeOutCubic((t - 0.30) / 0.70)) : 1.0;
         const r = 4.72 * pop * pull;
         m.scale.set(r, r * 0.82, r);
-        m.rotation.y = -t * 3.4;
+        m.rotation.y = -t * 3.6;
         const fade = t > 0.74 ? 1 - (t - 0.74) / 0.26 : 1.0;
-        mat.opacity = (0.74 + 0.18 * Math.sin(t * 40)) * clamp01(fade);
+        mat.opacity = (0.76 + 0.18 * Math.sin(t * 42)) * clamp01(fade);
       });
 
-      // 2 REVERSE-IMPLODING Gravity Suction Shock Rings (contracting 9.8m -> 1.4m!)
-      for (let i = 0; i < 2; i++) {
-        const delay = i * 0.24;
-        addMesh(this.geo.plane, 'rail_shock_ring', '#09152b', 1.0, (m) => {
-          m.rotation.x = -Math.PI * 0.5;
-          m.position.set(0, gyOffset + 0.08 + i * 0.18, 0);
+      // 4 Reverse-Imploding Swirling Prime & Load Energy Arc Ribbons pulling inward (9.2m -> 1.6m!)
+      for (let i = 0; i < 4; i++) {
+        const delay = i * 0.11;
+        const dir = i % 2 === 0 ? 1 : -1;
+        addMesh(this.geo.plane, 'birdfall_ribbon', i % 2 === 0 ? '#67e8f9' : '#f97316', 2.65, (m) => {
+          m.position.set(0, 0.55 + i * 0.42, 0);
         }, (m, mat, t) => {
-          const lt = (t - delay) / 0.62;
+          const lt = (t - delay) / 0.74;
           if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 9.8 - easeOutCubic(lt) * 8.4; // Pulls INWARD!
+          const s = 9.2 - easeOutCubic(lt) * 7.6; // Visibly pulls enemies inward!
+          m.rotation.set(-Math.PI * 0.46, dir * 0.18, dir * lt * 12.0 + i * 1.57);
           m.scale.set(s, s, 1);
-          m.rotation.z = lt * 5.0;
-          mat.opacity = clamp01(Math.sin(lt * Math.PI)) * 0.90;
-        }, false);
-        addMesh(this.geo.plane, 'rail_shock_ring', i === 0 ? '#2dd4bf' : '#e0f7ff', 2.7, (m) => {
-          m.rotation.x = -Math.PI * 0.5;
-          m.position.set(0, gyOffset + 0.11 + i * 0.18, 0);
-        }, (m, mat, t) => {
-          const lt = (t - delay) / 0.62;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 9.6 - easeOutCubic(lt) * 8.2;
-          m.scale.set(s, s, 1);
-          m.rotation.z = lt * 5.0;
           mat.opacity = clamp01(Math.sin(lt * Math.PI));
         });
       }
 
-      // 6 Crackling 3D High-Voltage EMP Lightning Bolts snapping inside the Dome!
+      // 6 Crackling 3D High-Voltage Violet-Cyan EMP Lightning Arcs inside the Dome!
       for (let i = 0; i < 6; i++) {
         const ang = (i / 6) * Math.PI * 2;
         const rad = 2.6;
-        addMesh(this.geo.plane, 'plasma_arc_bolt', i % 2 === 0 ? '#e0f7ff' : '#38bdf8', 2.8, (m) => {
+        addMesh(this.geo.plane, 'plasma_arc_bolt', i % 2 === 0 ? '#ffffff' : '#a78bfa', 2.8, (m) => {
           m.position.set(Math.cos(ang) * rad, 1.55, Math.sin(ang) * rad);
         }, (m, mat, t) => {
           const fade = t > 0.72 ? 1 - (t - 0.72) / 0.28 : 1.0;
@@ -683,120 +763,105 @@ export class CyborgThreeVFX {
           m.position.set(Math.cos(spinA) * pullR, 1.45 + Math.sin(t * 24 + i) * 0.35, Math.sin(spinA) * pullR);
           m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
           m.rotateZ(Math.sin(t * 28 + i * 2) * 0.8);
-          m.scale.set(1.35, 3.1, 1);
+          m.scale.set(1.4, 3.2, 1);
           mat.opacity = clamp01(fade) * (0.45 + 0.55 * Math.abs(Math.sin(t * 54 + i * 1.7)));
         });
       }
 
-      // Center EMP Gravity Core Flare
-      addMesh(this.geo.plane, 'mecha_flare', '#e0f7ff', 3.0, (m) => {
+      // Center Grooving Muzzle Electric White-Violet Burst Core!
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 3.0, (m) => {
         m.position.set(0, 1.15, 0);
       }, (m, mat, t, ease) => {
         m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-        const s = 1.6 + ease * 3.8;
-        m.scale.set(s * 1.3, s, 1);
-        mat.opacity = clamp01(1 - t * 1.8);
+        m.rotateZ(t * 4.5);
+        const s = 1.8 + ease * 4.2;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.65);
       });
 
-      // Inward-Spiraling Holographic Hex Cells & EMP Electric Sparks!
-      addParticles(24, {
-        kind: 'hex', additive: true, color: '#2dd4bf',
-        radiusMin: 2.2, radius: 4.8, oy: 1.1, oySpread: 1.4,
-        implode: true, swirl: 5.5, vyMin: 0.2, vyMax: 1.0, gravity: 0, maxDelay: 0.25, size: 0.44
+      // Inward-Spiraling Amber & Violet-Cyan Plasma Sparks!
+      addSparks(22, {
+        color: '#67e8f9', radiusMin: 2.0, radius: 4.8, oy: 1.1, oySpread: 1.4,
+        implode: true, swirl: 5.8, vyMin: 0.2, vyMax: 1.0, gravity: 0, maxDelay: 0.25, size: 0.42
       });
-      addParticles(18, {
-        kind: 'spark', additive: true, color: '#e0f7ff',
-        radiusMin: 1.5, radius: 4.5, oy: 1.2, oySpread: 1.2,
-        implode: true, swirl: -6.5, vyMin: 0.3, vyMax: 1.2, gravity: 0, maxDelay: 0.25, size: 0.36
+      addSparks(16, {
+        color: '#fb923c', radiusMin: 1.6, radius: 4.6, oy: 1.2, oySpread: 1.2,
+        implode: true, swirl: -6.5, vyMin: 0.3, vyMax: 1.2, gravity: 0, maxDelay: 0.25, size: 0.38
       });
     }
 
     // ------------------------------------------------------------------------
-    // 5. [R/AD] HELMET SKILL: CYBORG HOMING MISSILES (Shoulder Pod Salvo Launch!)
-    //    (3 real 3D homing_missile projectiles fire at -0.35, 0, +0.35 rad!)
+    // 5. [R/AD] HELMET SKILL: HOMING MISSILES (Musketeer Covering Fire Fan Cones + Birdfall Sweep!)
+    //    (0% Cowboy smoke/crosshair — 3 roaring amber-crimson energy launch cones + sweeping arc!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_helmet') {
-      duration = 0.92;
+      duration = 0.90;
 
-      // 3 Floating Tactical Orange-Amber Shoulder-Pod Lock-On Reticles (-0.35, 0, +0.35 rad!)
-      const podSpecs = [
-        { ang: -0.35, ox: -0.82, oy: 1.42, oz: 0.82, delay: 0.00 },
-        { ang:  0.00, ox:  0.00, oy: 1.58, oz: 1.05, delay: 0.04 },
-        { ang:  0.35, ox:  0.82, oy: 1.42, oz: 0.82, delay: 0.08 }
-      ];
-      for (const ps of podSpecs) {
-        addMesh(this.geo.plane, 'mecha_hud_reticle', '#3a1204', 1.0, (m) => {
-          m.position.set(ps.ox, ps.oy, ps.oz);
-          m.rotation.y = -ps.ang;
-        }, (m, mat, t) => {
-          const lt = (t - ps.delay) / 0.72;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 0.85 + easeOutCubic(lt) * 1.15;
-          m.scale.set(s, s, 1);
-          m.rotation.z = lt * 6.5;
-          mat.opacity = clamp01(1 - lt) * 0.92;
-        }, false);
-        addMesh(this.geo.plane, 'mecha_hud_reticle', '#f97316', 2.6, (m) => {
-          m.position.set(ps.ox, ps.oy, ps.oz + 0.04);
-          m.rotation.y = -ps.ang;
-        }, (m, mat, t) => {
-          const lt = (t - ps.delay) / 0.72;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 0.80 + easeOutCubic(lt) * 1.10;
-          m.scale.set(s, s, 1);
-          m.rotation.z = lt * 6.5;
-          mat.opacity = clamp01(1 - lt);
-        });
-
-        // Ignition Flare per Missile Pod
-        addMesh(this.geo.plane, 'mecha_flare', '#fde047', 2.9, (m) => {
-          m.position.set(ps.ox, ps.oy, ps.oz + 0.12);
-        }, (m, mat, t) => {
-          const lt = (t - ps.delay) / 0.36;
-          if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-          const s = 1.0 + easeOutCubic(lt) * 1.65;
-          m.scale.set(s * 1.35, s * 0.8, 1);
-          mat.opacity = clamp01(1 - lt);
+      // 3 Fanning Fiery Amber-Orange Covering Fire Launch Cones matching the 3 real 3D homing missiles!
+      const podAngles = [-0.35, 0.0, 0.35];
+      for (let i = 0; i < 3; i++) {
+        const ang = podAngles[i];
+        addBlastCone({
+          ox: Math.sin(-ang) * 0.75, oy: 1.42 + (i === 1 ? 0.14 : 0), oz: 0.72,
+          rotY: -ang, length: 3.1, width: 1.75, delay: i * 0.045, life: 0.62,
+          hexA: '#f97316', hexB: '#fde047', darkHex: '#2e0b05', intensity: 2.8
         });
       }
 
-      // Twin Shoulder Rocket Backblast Plumes firing backward (-Z)
-      addThrusterPlume(-0.55, 1.38, -0.25, 2.0, 0.85, Math.PI * 0.55, 0.18, 0.0, 0.55);
-      addThrusterPlume( 0.55, 1.38, -0.25, 2.0, 0.85, Math.PI * 0.55, -0.18, 0.0, 0.55);
-
-      // Launch Shock Ring on Ground
-      addMesh(this.geo.plane, 'rail_shock_ring', '#f97316', 2.4, (m) => {
-        m.rotation.x = -Math.PI * 0.5;
-        m.position.set(0, gyOffset + 0.05, 0.2);
+      // Wide Sweeping Birdfall Cerulean-Orange Energy Crescent Arc across launch front (3:33!)
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
+        m.position.set(0, 1.38, 0.95);
       }, (m, mat, t, ease) => {
-        const s = 1.0 + ease * 3.2;
+        m.rotation.set(-Math.PI * 0.46, 0, -1.25 + ease * 2.5 - Math.PI * 0.5);
+        const s = 1.9 + ease * 3.1;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.15) * 0.90;
+      }, false);
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#38bdf8', 2.7, (m) => {
+        m.position.set(0, 1.42, 0.98);
+      }, (m, mat, t, ease) => {
+        m.rotation.set(-Math.PI * 0.46, 0, -1.15 + ease * 2.5 - Math.PI * 0.5);
+        const s = 1.8 + ease * 3.0;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.2);
+      });
+
+      // Grooving Muzzle Warm-Gold & White Salvo Ignition Starburst
+      addMesh(this.geo.plane, 'grooving_starburst', '#fde047', 2.9, (m) => {
+        m.position.set(0, 1.45, 0.95);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(t * 5.0);
+        const s = 1.3 + ease * 2.6;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.5);
+      });
+
+      // Twin Wing Backblast Afterburner Plumes + Ground Dual-Tone Launch Wave
+      addThrusterPlume(-0.55, 1.38, -0.25, 2.0, 0.85, Math.PI * 0.55,  0.18, 0.0, 0.55);
+      addThrusterPlume( 0.55, 1.38, -0.25, 2.0, 0.85, Math.PI * 0.55, -0.18, 0.0, 0.55);
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.2, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, gyOffset + 0.05, 0.15);
+      }, (m, mat, t, ease) => {
+        const s = 1.1 + ease * 3.2;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t * 1.25);
       });
 
-      // Billowing Rocket Exhaust Smoke Clouds & Amber Launch Sparks!
-      addParticles(14, {
-        kind: 'smoke', additive: false, color: '#cbd5e1', alphaPeak: 0.72,
-        ox: 0, oy: 1.35, oz: -0.15, radius: 0.9,
-        forwardBias: -2.2, speedMin: 0.6, speedMax: 2.0, vyMin: 0.5, vyMax: 1.8, size: 1.45
-      });
-      addParticles(18, {
-        kind: 'spark', additive: true, color: '#fbbf24',
-        ox: 0, oy: 1.4, oz: 0.65, radius: 0.75,
-        forwardBias: 3.0, speedMin: 1.5, speedMax: 4.5, vyMin: 0.8, vyMax: 3.4, size: 0.34
+      addSparks(20, {
+        color: '#fbbf24', ox: 0, oy: 1.42, oz: 0.85, radius: 0.75,
+        forwardBias: 4.5, speedMin: 1.8, speedMax: 5.2, vyMin: 0.8, vyMax: 3.6, size: 0.36
       });
     }
 
     // ------------------------------------------------------------------------
-    // 6. [F/AS] TRINKET SKILL: FLIGHT ASSAULT (Jetpack Launch + Diagonal Aerial Laser!)
-    //    (Exact point-to-point laser from (originX, originY+3.2, originZ) -> (tx, ty+0.5, tz)
-    //     + 3.6m radius (7.2m diameter) plasma impact crater detonation!)
+    // 6. [F/AS] TRINKET SKILL: FLIGHT ASSAULT (Jetpack Lift + Diagonal Beam + Snipe Shatter Spire!)
+    //    (Exact point-to-point laser -> Musketeer 2:05 Snipe Vertical Shatter Spire at (tx, ty, tz)!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_trinket') {
-      duration = 1.18;
+      duration = 1.20;
 
-      // Convert world target (tx, ty, tz) into root-local space (root is at (x, y, z) rotated by yaw)
       const worldTx = opts.tx !== undefined ? opts.tx : (x + Math.cos(facing) * 5.0);
       const worldTz = opts.tz !== undefined ? opts.tz : (z + Math.sin(facing) * 5.0);
       const targetGroundY = this.groundY(worldTx, opts.ty !== undefined ? opts.ty : y, worldTz);
@@ -807,28 +872,37 @@ export class CyborgThreeVFX {
       const localImpactFloor = new THREE.Vector3(worldTx - x, targetGroundY - y + 0.05, worldTz - z).applyQuaternion(invQ);
       const startPt = new THREE.Vector3(0, 3.2, 0);
 
-      // 1) Ground Takeoff Shockwave Ring + Twin Wing-Pack Afterburners!
-      addMesh(this.geo.plane, 'rail_shock_ring', '#3a1204', 1.0, (m) => {
+      // 1) Takeoff Dual-Tone Cerulean-Orange Wave + Twin Wing Afterburners + Swirling Lift Ribbon!
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.04, 0);
       }, (m, mat, t, ease) => {
         const s = 1.2 + ease * 4.4;
         m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.25) * 0.90;
+        mat.opacity = clamp01(1 - t * 1.2) * 0.90;
       }, false);
-      addMesh(this.geo.plane, 'rail_shock_ring', '#f97316', 2.6, (m) => {
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.4, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.08, 0);
       }, (m, mat, t, ease) => {
         const s = 1.1 + ease * 4.2;
         m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.3);
+        mat.opacity = clamp01(1 - t * 1.25);
+      });
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
+        m.position.set(0, 1.8, 0);
+      }, (m, mat, t, ease) => {
+        m.position.y = 0.6 + ease * 2.8;
+        m.rotation.set(-Math.PI * 0.48, 0, t * 14.0);
+        const s = 1.5 + ease * 2.2;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.2);
       });
 
       addThrusterPlume(-0.55, 2.75, -0.22, 3.1, 1.05, 0.08,  0.14, 0.0, 0.78);
       addThrusterPlume( 0.55, 2.75, -0.22, 3.1, 1.05, 0.08, -0.14, 0.0, 0.78);
 
-      // 2) EXACT POINT-TO-POINT DIAGONAL AERIAL CYAN PLASMA LASER BEAM!
+      // 2) EXACT POINT-TO-POINT DIAGONAL AERIAL CYAN-VIOLET PLASMA LASER BEAM!
       const beamVec = new THREE.Vector3().subVectors(localTarget, startPt);
       const beamDist = Math.max(0.5, beamVec.length());
       const beamMid = new THREE.Vector3().addVectors(startPt, localTarget).multiplyScalar(0.5);
@@ -842,26 +916,23 @@ export class CyborgThreeVFX {
       const beamMats = [];
       for (let p = 0; p < 2; p++) {
         const rotY = p * Math.PI * 0.5;
-        // NormalBlending Deep Navy Silhouette (buster_beam_core is horizontal so rotate Z = 90deg to run along +Y!)
-        const darkMat = this.makeMat('buster_beam_core', '#091a3a', 1.0, 0.92, false);
+        const darkMat = this.makeMat('buster_beam_core', '#131138', 1.0, 0.92, false);
         const darkM = new THREE.Mesh(this.geo.plane, darkMat);
         darkM.rotation.set(0, rotY, Math.PI * 0.5);
-        darkM.scale.set(1.0, 1.45, 1.0);
+        darkM.scale.set(1.0, 1.48, 1.0);
         darkM.renderOrder = 17;
         beamGroup.add(darkM);
 
-        // Additive Blinding Cyan / White Core
         const glowMat = this.makeMat('buster_beam_core', p === 0 ? '#38bdf8' : '#e0f7ff', 2.9, 0.98, true);
         const glowM = new THREE.Mesh(this.geo.plane, glowMat);
         glowM.rotation.set(0, rotY, Math.PI * 0.5);
-        glowM.scale.set(1.0, 1.25, 1.0);
+        glowM.scale.set(1.0, 1.28, 1.0);
         glowM.renderOrder = 19;
         beamGroup.add(glowM);
 
         beamMats.push(darkMat, glowMat);
       }
-      // Hex Containment Sleeve around the Diagonal Laser!
-      const tubeMat = this.makeMat('hex_emp_grid', '#38bdf8', 2.2, 0.80, true);
+      const tubeMat = this.makeMat('hex_emp_grid', '#818cf8', 2.35, 0.82, true);
       const tubeMesh = new THREE.Mesh(this.geo.beamTube, tubeMat);
       tubeMesh.scale.set(0.55, 1.0, 0.55);
       tubeMesh.renderOrder = 19;
@@ -878,112 +949,111 @@ export class CyborgThreeVFX {
           g.visible = true;
           const widthScale = (lt < 0.14 ? easeOutCubic(lt / 0.14) : 1.0) * (1 - lt * 0.55);
           const pulse = 0.90 + 0.15 * Math.sin(lt * 54);
-          g.scale.set(1.25 * widthScale * pulse, beamDist, 1.25 * widthScale * pulse);
+          g.scale.set(1.30 * widthScale * pulse, beamDist, 1.30 * widthScale * pulse);
           tubeMesh.rotation.y = lt * 12.0;
           const fade = clamp01(lt > 0.55 ? 1 - (lt - 0.55) / 0.45 : 1.0);
           for (let k = 0; k < beamMats.length; k++) {
-            beamMats[k].opacity = (k === beamMats.length - 1 ? 0.72 : (k % 2 === 0 ? 0.88 : 0.98)) * fade;
+            beamMats[k].opacity = (k === beamMats.length - 1 ? 0.76 : (k % 2 === 0 ? 0.88 : 0.98)) * fade;
           }
         }
       });
 
-      // 3) 7.2m TARGET GROUND IMPACT DETONATION ZONE (Radius 3.6m at (tx, ty, tz)!)
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#09152b', 1.0, (m) => {
+      // 3) MUSKETEER SNIPE (2:05) IMPACT DETONATION AT (tx, ty, tz) (Radius 3.6m -> 7.2m!)
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#121236', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.copy(localImpactFloor);
       }, (m, mat, t, ease) => {
-        const s = 2.0 + ease * 5.6;
+        const s = 1.8 + ease * 5.8;
         m.scale.set(s, s, 1);
-        m.rotation.z = t * 5.2;
+        m.rotation.z = t * 4.5;
         mat.opacity = clamp01(1 - t * 1.05) * 0.94;
       }, false);
-      addMesh(this.geo.plane, 'mecha_hud_reticle', '#38bdf8', 2.5, (m) => {
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.6, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(localImpactFloor.x, localImpactFloor.y + 0.04, localImpactFloor.z);
       }, (m, mat, t, ease) => {
-        const s = 1.9 + ease * 5.4;
+        const s = 1.7 + ease * 5.6;
         m.scale.set(s, s, 1);
-        m.rotation.z = t * 5.2;
+        m.rotation.z = t * 4.5;
         mat.opacity = clamp01(1 - t * 1.1);
       });
-      addMesh(this.geo.plane, 'rail_shock_ring', '#e0f7ff', 2.8, (m) => {
-        m.rotation.x = -Math.PI * 0.5;
-        m.position.set(localImpactFloor.x, localImpactFloor.y + 0.08, localImpactFloor.z);
-      }, (m, mat, t) => {
-        const wt = clamp01(t / 0.58);
-        const s = 1.2 + easeOutCubic(wt) * 6.4;
-        m.scale.set(s, s, 1);
-        mat.opacity = wt < 1 ? (1 - wt) : 0;
-      });
-      addMesh(this.geo.plane, 'mecha_flare', '#ffffff', 3.0, (m) => {
-        m.position.set(localImpactFloor.x, localImpactFloor.y + 0.55, localImpactFloor.z);
+
+      // Tall Vertical 3D Energy-Shatter Column bursting out of the Target Ground Crater!
+      addShatterSpire(localImpactFloor.x, localImpactFloor.y, localImpactFloor.z, 3.0, 5.4, 0.02, 0.86);
+
+      // Blinding Grooving Muzzle Impact Starburst Nova!
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 3.0, (m) => {
+        m.position.set(localImpactFloor.x, localImpactFloor.y + 0.75, localImpactFloor.z);
       }, (m, mat, t, ease) => {
         m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
-        const s = 1.8 + ease * 4.2;
-        m.scale.set(s * 1.45, s * 0.9, 1);
-        mat.opacity = clamp01(1 - t * 1.65);
+        m.rotateZ(-t * 4.2);
+        const s = 2.0 + ease * 4.6;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.45);
       });
 
-      // Crackling Impact Lightning Arcs & Crater Smoke/Sparks at Target!
+      // 3 Crackling Electric Impact Lightning Arcs
       for (let i = 0; i < 3; i++) {
         const ang = (i / 3) * Math.PI * 2;
-        addMesh(this.geo.plane, 'plasma_arc_bolt', '#38bdf8', 2.7, (m) => {
-          m.position.set(localImpactFloor.x + Math.cos(ang) * 1.2, localImpactFloor.y + 1.1, localImpactFloor.z + Math.sin(ang) * 1.2);
+        addMesh(this.geo.plane, 'plasma_arc_bolt', '#a78bfa', 2.8, (m) => {
+          m.position.set(localImpactFloor.x + Math.cos(ang) * 1.3, localImpactFloor.y + 1.2, localImpactFloor.z + Math.sin(ang) * 1.3);
         }, (m, mat, t) => {
           m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
           m.rotateZ(ang + t * 3.0);
-          m.scale.set(1.1, 2.4, 1);
-          mat.opacity = clamp01(1 - t * 1.45) * (0.5 + 0.5 * Math.abs(Math.sin(t * 48 + i)));
+          m.scale.set(1.2, 2.6, 1);
+          mat.opacity = clamp01(1 - t * 1.4) * (0.5 + 0.5 * Math.abs(Math.sin(t * 48 + i)));
         });
       }
 
-      addParticles(10, {
-        kind: 'smoke', additive: false, color: '#64748b', alphaPeak: 0.62,
-        ox: 0, oy: 0.4, oz: 0, radius: 1.0,
-        speedMin: 1.0, speedMax: 2.8, vyMin: 0.6, vyMax: 2.0, size: 1.55
+      addSparks(22, {
+        color: '#fbbf24', ox: localImpactFloor.x, oy: localImpactFloor.y + 0.5, oz: localImpactFloor.z, radius: 1.3,
+        speedMin: 2.5, speedMax: 7.0, vyMin: 2.8, vyMax: 6.8, gravity: -8.5, size: 0.40
       });
-      addParticles(22, {
-        kind: 'spark', additive: true, color: '#38bdf8',
-        ox: localImpactFloor.x, oy: localImpactFloor.y + 0.5, oz: localImpactFloor.z, radius: 1.2,
-        speedMin: 2.5, speedMax: 6.8, vyMin: 2.5, vyMax: 6.5, gravity: -8.5, size: 0.38
-      });
-      addParticles(12, {
-        kind: 'hex', additive: false, color: '#0284c7',
-        ox: localImpactFloor.x, oy: localImpactFloor.y + 0.4, oz: localImpactFloor.z, radius: 1.5,
-        speedMin: 1.8, speedMax: 4.5, vyMin: 2.0, vyMax: 5.5, gravity: -4.0, size: 0.40
+      addSparks(14, {
+        color: '#a78bfa', ox: localImpactFloor.x, oy: localImpactFloor.y + 0.5, oz: localImpactFloor.z, radius: 1.4,
+        speedMin: 2.0, speedMax: 5.5, vyMin: 2.2, vyMax: 5.8, gravity: -5.0, size: 0.36
       });
     }
 
     // ------------------------------------------------------------------------
-    // 7. MOBILITY: CYBORG JETPACK FLY / AIR BOOST (Twin Wing Thrusters!)
+    // 7. MOBILITY: RECOIL THRUSTER & PRIME-AND-LOAD RIBBON BOOST (Air Jump / Dash!)
+    //    (Musketeer 1:00 Recoil Hop + 4:08 Swirling Blue-Violet Energy Ribbon!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_mobility_jetpack') {
       duration = 0.48;
 
-      addMesh(this.geo.plane, 'rail_shock_ring', '#09152b', 1.0, (m) => {
-        m.rotation.x = -Math.PI * 0.5;
-        m.position.set(0, 0.06, 0);
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
+        m.position.set(0, 0.35, 0);
       }, (m, mat, t, ease) => {
-        const s = 0.85 + ease * 2.15;
+        m.rotation.set(-Math.PI * 0.48, 0, t * 12.0);
+        const s = 1.1 + ease * 2.1;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t) * 0.88;
       }, false);
-      addMesh(this.geo.plane, 'rail_shock_ring', '#38bdf8', 2.5, (m) => {
-        m.rotation.x = -Math.PI * 0.5;
-        m.position.set(0, 0.10, 0);
+      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
+        m.position.set(0, 0.40, 0);
       }, (m, mat, t, ease) => {
-        const s = 0.80 + ease * 2.05;
+        m.rotation.set(-Math.PI * 0.48, 0, t * 12.0);
+        const s = 1.05 + ease * 2.0;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t);
       });
 
-      addThrusterPlume(-0.42, 1.05, -0.22, 1.8, 0.72, 0.25,  0.14, 0.0, 0.88);
-      addThrusterPlume( 0.42, 1.05, -0.22, 1.8, 0.72, 0.25, -0.14, 0.0, 0.88);
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 2.6, (m) => {
+        m.position.set(0, 0.85, -0.15);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        const s = 0.85 + ease * 1.65;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.4);
+      });
 
-      addParticles(10, {
-        kind: 'spark', additive: true, color: '#fbbf24',
-        ox: 0, oy: 0.75, oz: -0.2, radius: 0.45,
-        speedMin: 1.0, speedMax: 2.8, vyMin: -1.8, vyMax: 0.5, gravity: -3.5, size: 0.30
+      addThrusterPlume(-0.42, 1.05, -0.22, 1.85, 0.72, 0.25,  0.14, 0.0, 0.88);
+      addThrusterPlume( 0.42, 1.05, -0.22, 1.85, 0.72, 0.25, -0.14, 0.0, 0.88);
+
+      addSparks(10, {
+        color: '#fbbf24', ox: 0, oy: 0.75, oz: -0.2, radius: 0.45,
+        speedMin: 1.0, speedMax: 2.8, vyMin: -1.6, vyMax: 0.6, gravity: -3.5, size: 0.32
       });
     }
 
@@ -1062,22 +1132,10 @@ export class CyborgThreeVFX {
         sp.mesh.position.set(px, py, pz);
         sp.mesh.quaternion.copy(this.camera.quaternion).premultiply(invRootQ);
 
-        if (sp.kind === 'smoke') {
-          const sc = sp.baseSz * (0.72 + st * 1.15);
-          sp.mesh.scale.set(sc, sc, 1);
-          sp.mesh.rotateZ(sp.rotInit + localT * sp.rotSpeed);
-          sp.mat.opacity = clamp01((st < 0.16 ? st / 0.16 : 1 - (st - 0.16) / 0.84) * sp.alphaPeak);
-        } else if (sp.kind === 'hex') {
-          const sc = sp.baseSz * (1.0 - st * 0.52);
-          sp.mesh.scale.set(sc, sc, 1);
-          sp.mesh.rotateZ(sp.rotInit + localT * sp.rotSpeed);
-          sp.mat.opacity = clamp01((st < 0.12 ? st / 0.12 : 1 - (st - 0.12) / 0.88) * sp.alphaPeak);
-        } else {
-          const sc = sp.baseSz * (1.1 - st * 0.65);
-          sp.mesh.scale.set(sc * 0.45, sc * 1.6, 1);
-          sp.mesh.rotateZ(sp.rotInit + localT * sp.rotSpeed);
-          sp.mat.opacity = clamp01((1 - st) * 1.18);
-        }
+        const sc = sp.baseSz * (1.1 - st * 0.65);
+        sp.mesh.scale.set(sc * 0.44, sc * 1.65, 1);
+        sp.mesh.rotateZ(sp.rotInit + localT * sp.rotSpeed);
+        sp.mat.opacity = clamp01((1 - st) * 1.18 * sp.alphaPeak);
       }
     }
   }

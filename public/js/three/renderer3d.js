@@ -497,17 +497,22 @@ export class ThreeRenderer {
         break;
       }
       case 'plasma': {
-        const bolt = add(new THREE.CylinderGeometry(0.10, 0.14, 0.78, 10), glow('#38bdf8', 2.6), [1, 1, 1], [-0.05, 0, 0]);
-        bolt.rotation.z = Math.PI / 2;
-        const core = add(new THREE.ConeGeometry(0.11, 0.34, 10), glow('#e0f7ff', 3.0), [1, 1, 1], [0.46, 0, 0]);
-        core.rotation.z = -Math.PI / 2;
+        // Futuristic spinning violet-cyan plasma energy disc + white diamond core (0% Cowboy bullet!)
+        const orb = add(new THREE.OctahedronGeometry(0.24, 0), glow('#ffffff', 3.0), [1.35, 0.72, 0.72]);
+        const ring = add(new THREE.TorusGeometry(0.32, 0.06, 8, 20), glow('#818cf8', 2.7), [1, 1, 1]);
+        ring.rotation.x = Math.PI / 2;
+        g.userData.spin = ring;
+        g.userData.spinAxis = 'y';
         break;
       }
       case 'railgun': {
-        const lance = add(new THREE.CylinderGeometry(0.16, 0.22, 1.95, 12), glow('#38bdf8', 2.8), [1, 1, 1], [-0.15, 0, 0]);
-        lance.rotation.z = Math.PI / 2;
-        const spear = add(new THREE.ConeGeometry(0.18, 0.55, 12), glow('#ffffff', 3.2), [1, 1, 1], [1.05, 0, 0]);
-        spear.rotation.z = -Math.PI / 2;
+        // Musketeer Penetration / Birdfall horizontal piercing plasma crescent wave (0% Cowboy magnum!)
+        const waveGeo = new THREE.RingGeometry(0.38, 1.05, 28, 1, -1.25, 2.5);
+        const outer = add(waveGeo, new THREE.MeshBasicMaterial({ color: hdr('#f97316', 2.7), transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), [1.45, 1.45, 1.45]);
+        outer.rotation.x = -Math.PI / 2;
+        const inner = add(new THREE.RingGeometry(0.48, 0.92, 28, 1, -1.1, 2.2), new THREE.MeshBasicMaterial({ color: hdr('#e0f7ff', 3.2), transparent: true, opacity: 0.98, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), [1.32, 1.32, 1.32], [0, 0.04, 0]);
+        inner.rotation.x = -Math.PI / 2;
+        const core = add(new THREE.OctahedronGeometry(0.28, 0), glow('#a78bfa', 3.0), [2.2, 0.45, 0.65], [0.25, 0.02, 0]);
         break;
       }
       default:

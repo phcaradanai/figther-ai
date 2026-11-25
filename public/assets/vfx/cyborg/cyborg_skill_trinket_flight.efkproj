@@ -6,7 +6,7 @@
       <Node>
         <CommonValues>
           <MaxGeneration><Value>1</Value></MaxGeneration>
-          <Life><Center>44</Center><Max>44</Max><Min>44</Min></Life>
+          <Life><Center>46</Center><Max>46</Max><Min>46</Min></Life>
           <GenerationTime><Center>1</Center><Max>1</Max><Min>1</Min></GenerationTime>
           <GenerationTimeOffset><Center>0</Center><Max>0</Max><Min>0</Min></GenerationTimeOffset>
         </CommonValues>
@@ -31,19 +31,19 @@
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
-              <X><Center>5.2</Center><Max>5.2</Max><Min>5.2</Min></X>
-              <Y><Center>5.2</Center><Max>5.2</Max><Min>5.2</Min></Y>
+              <X><Center>5.4</Center><Max>5.4</Max><Min>5.4</Min></X>
+              <Y><Center>5.4</Center><Max>5.4</Max><Min>5.4</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
         </ScalingValues>
         <RendererCommonValues>
-          <ColorTexture>textures/rail_shock_ring.png</ColorTexture>
+          <ColorTexture>textures/cerulean_wave_ring.png</ColorTexture>
           <AlphaBlend>2</AlphaBlend>
           <ZWrite>False</ZWrite>
           <ZTest>True</ZTest>
           <FadeOutType>1</FadeOutType>
-          <FadeOut><Frame>12</Frame></FadeOut>
+          <FadeOut><Frame>13</Frame></FadeOut>
         </RendererCommonValues>
         <DrawingValues>
           <Type>2</Type>
@@ -52,10 +52,10 @@
             <ColorAll>2</ColorAll>
             <ColorAll_Easing>
               <Start>
-                <R><Center>249</Center><Max>249</Max><Min>249</Min></R>
-                <G><Center>115</Center><Max>115</Max><Min>115</Min></G>
-                <B><Center>22</Center><Max>22</Max><Min>22</Min></B>
-                <A><Center>250</Center><Max>250</Max><Min>250</Min></A>
+                <R><Center>255</Center><Max>255</Max><Min>255</Min></R>
+                <G><Center>255</Center><Max>255</Max><Min>255</Min></G>
+                <B><Center>255</Center><Max>255</Max><Min>255</Min></B>
+                <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
                 <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
@@ -66,7 +66,7 @@
             </ColorAll_Easing>
           </Sprite>
         </DrawingValues>
-        <Name>TakeoffRing</Name>
+        <Name>TakeoffCeruleanWave</Name>
         <Children />
       </Node>
       <Node>
@@ -79,7 +79,7 @@
         <LocationValues>
           <Type>0</Type>
           <Fixed>
-            <Location><X>-0.55</X><Y>1.6</Y><Z>-0.25</Z></Location>
+            <Location><X>-0.55</X><Y>1.8</Y><Z>-0.25</Z></Location>
           </Fixed>
         </LocationValues>
         <RotationValues>
@@ -92,13 +92,13 @@
           <Type>2</Type>
           <Easing>
             <Start>
-              <X><Center>0.75</Center><Max>0.75</Max><Min>0.75</Min></X>
-              <Y><Center>1.9</Center><Max>1.9</Max><Min>1.9</Min></Y>
+              <X><Center>0.8</Center><Max>0.8</Max><Min>0.8</Min></X>
+              <Y><Center>2</Center><Max>2</Max><Min>2</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
               <X><Center>0.4</Center><Max>0.4</Max><Min>0.4</Min></X>
-              <Y><Center>2.8</Center><Max>2.8</Max><Min>2.8</Min></Y>
+              <Y><Center>3</Center><Max>3</Max><Min>3</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
@@ -124,8 +124,8 @@
                 <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
+                <R><Center>129</Center><Max>129</Max><Min>129</Min></R>
+                <G><Center>140</Center><Max>140</Max><Min>140</Min></G>
                 <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
@@ -145,7 +145,7 @@
         <LocationValues>
           <Type>0</Type>
           <Fixed>
-            <Location><X>0.55</X><Y>1.6</Y><Z>-0.25</Z></Location>
+            <Location><X>0.55</X><Y>1.8</Y><Z>-0.25</Z></Location>
           </Fixed>
         </LocationValues>
         <RotationValues>
@@ -158,13 +158,13 @@
           <Type>2</Type>
           <Easing>
             <Start>
-              <X><Center>0.75</Center><Max>0.75</Max><Min>0.75</Min></X>
-              <Y><Center>1.9</Center><Max>1.9</Max><Min>1.9</Min></Y>
+              <X><Center>0.8</Center><Max>0.8</Max><Min>0.8</Min></X>
+              <Y><Center>2</Center><Max>2</Max><Min>2</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
               <X><Center>0.4</Center><Max>0.4</Max><Min>0.4</Min></X>
-              <Y><Center>2.8</Center><Max>2.8</Max><Min>2.8</Min></Y>
+              <Y><Center>3</Center><Max>3</Max><Min>3</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
@@ -190,8 +190,8 @@
                 <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
+                <R><Center>129</Center><Max>129</Max><Min>129</Min></R>
+                <G><Center>140</Center><Max>140</Max><Min>140</Min></G>
                 <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
@@ -225,7 +225,7 @@
           <Easing>
             <Start>
               <X><Center>6.2</Center><Max>6.2</Max><Min>6.2</Min></X>
-              <Y><Center>1.8</Center><Max>1.8</Max><Min>1.8</Min></Y>
+              <Y><Center>1.9</Center><Max>1.9</Max><Min>1.9</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
@@ -256,8 +256,8 @@
                 <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
+                <R><Center>129</Center><Max>129</Max><Min>129</Min></R>
+                <G><Center>140</Center><Max>140</Max><Min>140</Min></G>
                 <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
@@ -270,53 +270,44 @@
       <Node>
         <CommonValues>
           <MaxGeneration><Value>1</Value></MaxGeneration>
-          <Life><Center>58</Center><Max>58</Max><Min>58</Min></Life>
+          <Life><Center>54</Center><Max>54</Max><Min>54</Min></Life>
           <GenerationTime><Center>1</Center><Max>1</Max><Min>1</Min></GenerationTime>
           <GenerationTimeOffset><Center>0</Center><Max>0</Max><Min>0</Min></GenerationTimeOffset>
         </CommonValues>
         <LocationValues>
           <Type>0</Type>
           <Fixed>
-            <Location><X>0</X><Y>0.08</Y><Z>5</Z></Location>
+            <Location><X>0</X><Y>2.3</Y><Z>5</Z></Location>
           </Fixed>
         </LocationValues>
         <RotationValues>
-          <Type>1</Type>
-          <PVA>
-            <Rotation>
-              <X><Center>-90</Center><Max>-90</Max><Min>-90</Min></X>
-              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>0</Center><Max>0</Max><Min>0</Min></Z>
-            </Rotation>
-            <Velocity>
-              <X><Center>0</Center><Max>0</Max><Min>0</Min></X>
-              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>7</Center><Max>7</Max><Min>7</Min></Z>
-            </Velocity>
-          </PVA>
+          <Type>0</Type>
+          <Fixed>
+            <Rotation><X>0</X><Y>0</Y><Z>0</Z></Rotation>
+          </Fixed>
         </RotationValues>
         <ScalingValues>
           <Type>2</Type>
           <Easing>
             <Start>
-              <X><Center>1.8</Center><Max>1.8</Max><Min>1.8</Min></X>
-              <Y><Center>1.8</Center><Max>1.8</Max><Min>1.8</Min></Y>
+              <X><Center>1.5</Center><Max>1.5</Max><Min>1.5</Min></X>
+              <Y><Center>1.4</Center><Max>1.4</Max><Min>1.4</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
-              <X><Center>7.2</Center><Max>7.2</Max><Min>7.2</Min></X>
-              <Y><Center>7.2</Center><Max>7.2</Max><Min>7.2</Min></Y>
+              <X><Center>3.8</Center><Max>3.8</Max><Min>3.8</Min></X>
+              <Y><Center>5.4</Center><Max>5.4</Max><Min>5.4</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
         </ScalingValues>
         <RendererCommonValues>
-          <ColorTexture>textures/mecha_hud_reticle.png</ColorTexture>
+          <ColorTexture>textures/snipe_shatter_pillar.png</ColorTexture>
           <AlphaBlend>2</AlphaBlend>
           <ZWrite>False</ZWrite>
           <ZTest>True</ZTest>
           <FadeOutType>1</FadeOutType>
-          <FadeOut><Frame>16</Frame></FadeOut>
+          <FadeOut><Frame>15</Frame></FadeOut>
         </RendererCommonValues>
         <DrawingValues>
           <Type>2</Type>
@@ -325,34 +316,34 @@
             <ColorAll>2</ColorAll>
             <ColorAll_Easing>
               <Start>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
-                <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
+                <R><Center>255</Center><Max>255</Max><Min>255</Min></R>
+                <G><Center>255</Center><Max>255</Max><Min>255</Min></G>
+                <B><Center>255</Center><Max>255</Max><Min>255</Min></B>
                 <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>14</Center><Max>14</Max><Min>14</Min></R>
-                <G><Center>165</Center><Max>165</Max><Min>165</Min></G>
-                <B><Center>233</Center><Max>233</Max><Min>233</Min></B>
+                <R><Center>139</Center><Max>139</Max><Min>139</Min></R>
+                <G><Center>92</Center><Max>92</Max><Min>92</Min></G>
+                <B><Center>246</Center><Max>246</Max><Min>246</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
             </ColorAll_Easing>
           </Sprite>
         </DrawingValues>
-        <Name>ImpactTargetHUD</Name>
+        <Name>SnipeImpactShatter</Name>
         <Children />
       </Node>
       <Node>
         <CommonValues>
           <MaxGeneration><Value>1</Value></MaxGeneration>
-          <Life><Center>34</Center><Max>34</Max><Min>34</Min></Life>
+          <Life><Center>38</Center><Max>38</Max><Min>38</Min></Life>
           <GenerationTime><Center>1</Center><Max>1</Max><Min>1</Min></GenerationTime>
           <GenerationTimeOffset><Center>0</Center><Max>0</Max><Min>0</Min></GenerationTimeOffset>
         </CommonValues>
         <LocationValues>
           <Type>0</Type>
           <Fixed>
-            <Location><X>0</X><Y>0.65</Y><Z>5</Z></Location>
+            <Location><X>0</X><Y>0.7</Y><Z>5</Z></Location>
           </Fixed>
         </LocationValues>
         <RotationValues>
@@ -366,23 +357,23 @@
           <Easing>
             <Start>
               <X><Center>2.2</Center><Max>2.2</Max><Min>2.2</Min></X>
-              <Y><Center>1.8</Center><Max>1.8</Max><Min>1.8</Min></Y>
+              <Y><Center>2.2</Center><Max>2.2</Max><Min>2.2</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
-              <X><Center>5.4</Center><Max>5.4</Max><Min>5.4</Min></X>
-              <Y><Center>3.6</Center><Max>3.6</Max><Min>3.6</Min></Y>
+              <X><Center>5.8</Center><Max>5.8</Max><Min>5.8</Min></X>
+              <Y><Center>5.8</Center><Max>5.8</Max><Min>5.8</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
         </ScalingValues>
         <RendererCommonValues>
-          <ColorTexture>textures/mecha_flare.png</ColorTexture>
+          <ColorTexture>textures/grooving_starburst.png</ColorTexture>
           <AlphaBlend>2</AlphaBlend>
           <ZWrite>False</ZWrite>
           <ZTest>True</ZTest>
           <FadeOutType>1</FadeOutType>
-          <FadeOut><Frame>10</Frame></FadeOut>
+          <FadeOut><Frame>11</Frame></FadeOut>
         </RendererCommonValues>
         <DrawingValues>
           <Type>2</Type>
@@ -397,15 +388,15 @@
                 <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
-                <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
+                <R><Center>139</Center><Max>139</Max><Min>139</Min></R>
+                <G><Center>92</Center><Max>92</Max><Min>92</Min></G>
+                <B><Center>246</Center><Max>246</Max><Min>246</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
             </ColorAll_Easing>
           </Sprite>
         </DrawingValues>
-        <Name>ImpactFlare</Name>
+        <Name>ImpactGroovingNova</Name>
         <Children />
       </Node>
     </Children>
@@ -413,6 +404,6 @@
   <ToolVersion>1.80</ToolVersion>
   <Version>3</Version>
   <StartFrame>0</StartFrame>
-  <EndFrame>68</EndFrame>
+  <EndFrame>70</EndFrame>
   <IsLoop>False</IsLoop>
 </EffekseerProject>
