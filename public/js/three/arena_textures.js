@@ -187,16 +187,20 @@ function plates(ctx, size, rand, palette, finish) {
   grain(ctx, size, rand, light, seam);
 }
 
+const FLOOR_PALETTES = {
+  cinder: ['#806459', '#463334', '#a58a72', '#6b534b'],
+  archstone: ['#746764', '#40393a', '#9b8c81', '#665958'],
+  catwalk: ['#4b697a', '#293f52', '#73919b', '#3d596a'],
+  pier: ['#9e7a56', '#513d31', '#b69166', '#826445'],
+  courier_wing: ['#667670', '#3c5158', '#84918a', '#566765'],
+  forecastle: ['#637982', '#354a57', '#8e9d98', '#536c72'],
+  ruin_walk: ['#9a9273', '#565b47', '#b4ad8c', '#827c63'],
+  packed_snow: ['#b0ccd8', '#7697ad', '#e0edf1', '#9bbacb']
+};
+
 export function makeArenaFloor(theme, finish) {
   const { props } = theme;
-  const palette = finish === 'cinder' ? ['#806459', '#463334', '#a58a72', '#6b534b']
-    : finish === 'archstone' ? ['#746764', '#40393a', '#9b8c81', '#665958']
-    : finish === 'catwalk' ? ['#4b697a', '#293f52', '#73919b', '#3d596a']
-    : finish === 'pier' ? ['#9e7a56', '#513d31', '#b69166', '#826445']
-    : finish === 'courier_wing' ? ['#667670', '#3c5158', '#84918a', '#566765']
-    : finish === 'forecastle' ? ['#637982', '#354a57', '#8e9d98', '#536c72']
-    : finish === 'ruin_walk' ? ['#9a9273', '#565b47', '#b4ad8c', '#827c63']
-    : theme.surface;
+  const palette = FLOOR_PALETTES[finish] ?? theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);
     if (props === 'harbor') {
@@ -204,7 +208,7 @@ export function makeArenaFloor(theme, finish) {
     } else if (finish === 'archstone') {
       paving(ctx, size, rand, palette, 'ashlar');
     } else if (finish === 'ice') {
-      ctx.fillStyle = '#77a7b8';
+      ctx.fillStyle = '#75abc4';
       ctx.fillRect(0, 0, size, size);
       patches(ctx, size, rand, '213,240,238', 38, 93, 0.48, 1.9);
       patches(ctx, size, rand, '58,106,134', 24, 62, 0.3, 1.4);

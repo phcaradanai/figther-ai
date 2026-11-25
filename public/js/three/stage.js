@@ -68,7 +68,7 @@ export const THEMES = {
     props: 'snow', surface: ['#b9d7de', '#7798b4', '#e0eff0', '#a5c5d4'],
     ridges: ['#b5c8d6', '#8da9c3', '#6889ab'],
     cliff: ['#a4bfcc', '#50708a'], under: '#6c879e',
-    fog: '#c1d5e2', fogNear: 45, fogFar: 120, hemiSky: '#e4f1ff', hemiGround: '#7696b6', hemiI: 0.96, sun: '#fff3de', sunI: 1.38,
+    fog: '#c1d5e2', fogNear: 47, fogFar: 137, hemiSky: '#e4f1ff', hemiGround: '#7696b6', hemiI: 0.96, sun: '#fff3de', sunI: 1.38,
     cloud: '#e1ecf3', cloudOpacity: 0.33, cloudY: [-15, -7]
   }
 };
@@ -569,7 +569,10 @@ export class Stage {
       return;
     }
     const islets = [[-24, -3, 6, 3.2], [6, -2.5, -24, 3.6], [-18, 1.5, -22, 2.6], [14, -4, -22, 2.4], [-23, -5, 15, 2.2], [20, -6, -10, 2.8], [-10, -7, -30, 3.4], [-34, 2, -12, 3.0]];
-    if (kind === 'snow') return;
+    if (kind === 'snow') {
+      this.buildSnowRidges();
+      return;
+    }
     if (kind === 'ruins') {
       this.buildRuinsProps();
       return;
@@ -780,6 +783,27 @@ export class Stage {
       [-44, -7, -15, 6], [-46, -12, 4, 5], [-33, -3, -42, 7], [-12, -7, -41, 5],
       [5, -9, -39, 4], [29, -8, -43, 7], [46, -11, -16, 6], [47, -12, 19, 5]
     ]) this.islet(x, y, z, r);
+  }
+
+  buildSnowRidges() {
+    const rock = this.track(new THREE.DodecahedronGeometry(1));
+    const cliff = this.track(lambert('#71869c', { flatShading: true }));
+    const snow = this.track(lambert('#c4d7e1', { flatShading: true }));
+    for (const [x, z, w, h, d] of [
+      [-52, -32, 11, 17, 13], [-52, -6, 11, 13, 14],
+      [-32, -50, 14, 20, 12], [-5, -55, 12, 17, 13], [18, -49, 14, 19, 12],
+      [43, -40, 12, 16, 10], [51, -16, 10, 13, 13]
+    ]) {
+      const ridge = new THREE.Mesh(rock, cliff);
+      ridge.position.set(x, -13, z);
+      ridge.scale.set(w, h, d);
+      ridge.rotateY((x - z) * 0.08);
+      const snowcap = new THREE.Mesh(rock, snow);
+      snowcap.position.set(x, -13 + h * 0.62, z);
+      snowcap.scale.set(w * 0.61, h * 0.48, d * 0.65);
+      snowcap.rotation.copy(ridge.rotation);
+      this.group.add(ridge, snowcap);
+    }
   }
 
   buildHarborBackdrop() {

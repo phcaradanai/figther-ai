@@ -356,7 +356,7 @@ test('the harbor center piers join on foot while the outlying pier has a jump ga
 });
 
 test('releasing movement on the frozen crossing has a longer stopping distance than on the snow bypass', async t => {
-  const [skater, walker] = await arenaClients(t, 'frostline_pass', [{ x: 0, z: -3.7 }, { x: -11, z: -3.7 }]);
+  const [skater, walker] = await arenaClients(t, 'frostline_pass', [{ x: 8, z: -8 }, { x: -24, z: -8 }]);
   await skater.observe((p, m) => p.grounded && walker.player(m)?.grounded);
   for (const c of [skater, walker]) c.send({ type: 'input', mz: 1 });
   const moving = await skater.observe((p, m) => p.vz > 4 && walker.player(m).vz > 4);
@@ -365,6 +365,28 @@ test('releasing movement on the frozen crossing has a longer stopping distance t
   const stopped = await skater.observe((p, m) => Math.abs(p.vz) < 0.4 && Math.abs(walker.player(m).vz) < 0.4);
   const distance = c => c.player(stopped).z - c.player(moving).z;
   assert.ok(distance(skater) > distance(walker) + 1.2, 'Ice must preserve measurable momentum after release');
+});
+
+test('the west snow path bends around the chasm and the east ledges form three landable jumps', { timeout: 20000 }, async t => {
+  const [walker, jumper] = await arenaClients(t, 'frostline_pass', [{ x: -24, z: -15.5 }, { x: 20.3, z: -15.5 }], 'ninja');
+  await Promise.all([walker.observe(p => p.grounded), jumper.observe(p => p.grounded)]);
+  for (const c of [walker, jumper]) c.send({ type: 'input', mz: 1 });
+  await Promise.all([
+    (async () => {
+      await walker.observe(p => p.z > 8.6 && p.z < 10 && p.grounded, 6500);
+      walker.send({ type: 'input', mx: 1 });
+      await walker.observe(p => p.x > -17.8 && p.x < -16.6 && p.grounded);
+      walker.send({ type: 'input', mz: 1 });
+      await walker.observe(p => p.z > 13.5 && p.y === 0 && p.grounded && p.deaths === 0);
+    })(),
+    (async () => {
+      for (const [edge, landing] of [[-12, -8], [-1, 2], [9, 12]]) {
+        await jumper.observe(p => p.z > edge - 0.75 && p.z < edge && p.grounded);
+        jumper.send({ type: 'jump' });
+        await jumper.observe(p => p.z > landing && p.z < landing + 3.5 && p.y === 0 && p.grounded && p.deaths === 0);
+      }
+    })()
+  ]);
 });
 
 test('the lava moat burns and launches once, allowing a recovery or a second-contact ring-out', async t => {

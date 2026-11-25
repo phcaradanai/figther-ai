@@ -1101,23 +1101,25 @@
       id: 'frostline_pass',
       nameTh: 'ช่องเขาเหมันต์ (Frostline Pass)',
       nameEn: 'Frostline Pass',
-      descTh: 'ข้ามลำธารน้ำแข็งกลางช่องเขาได้เร็ว แต่ต้องเผื่อระยะเบรกก่อนถึงขอบเหว ทางหิมะเลียบผาฝั่งตะวันตกเดินอ้อมได้และหยุดเท้าได้มั่นคงกว่า',
+      descTh: 'ทางน้ำแข็งกลางเขาไถลไกล ทางหิมะด้านซ้ายเดินอ้อมเหวและหยุดได้ง่ายกว่า ส่วนฝั่งขวาต้องกระโดดข้ามชานผาทีละช่วง',
       skyTop: '#6e89a4',
       skyBottom: '#d7e3e6',
       voidType: 'snow',
       voidY: -6.5,
       platforms: [
-        { id: 'frostline_passage', x: -3.5, z: -5, w: 7, d: 10, y: 0, h: 2.6, finish: 'ice' },
-        { id: 'frostline_north', x: -16, z: -16, w: 24, d: 11, y: 0, h: 3.2 },
-        { id: 'frostline_south', x: -8.5, z: 5, w: 24.5, d: 11, y: 0, h: 3.2 },
-        { id: 'frostline_shelf', x: -13.5, z: -5, w: 4.5, d: 12, y: 0, h: 3.2 },
-        { id: 'frostline_bend', x: -13.5, z: 7, w: 5, d: 4, y: 0, h: 3.2 }
+        { id: 'frostline_north', x: -32, z: -28, w: 56, d: 16, y: 0, h: 4.1 },
+        { id: 'frostline_south', x: -22, z: 12, w: 54, d: 16, y: 0, h: 4.1 },
+        { id: 'frostline_passage', x: 3, z: -12, w: 10, d: 24, y: 0, h: 2.7, finish: 'ice' },
+        { id: 'frostline_shelf', x: -28, z: -12, w: 8, d: 18, y: 0, h: 3.3, finish: 'packed_snow' },
+        { id: 'frostline_bend', x: -28, z: 6, w: 16, d: 6, y: 0, h: 3.3, finish: 'packed_snow' },
+        { id: 'frostline_north_ledge', x: 16, z: -8, w: 8, d: 7, y: 0, h: 3, finish: 'packed_snow' },
+        { id: 'frostline_south_ledge', x: 19, z: 2, w: 8, d: 7, y: 0, h: 3, finish: 'packed_snow' }
       ],
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -4, z: 8 }, { x: 4, z: -8 }, { x: -10, z: -11.5 }, { x: 10, z: 11.5 },
-        { x: -3, z: 12 }, { x: 3, z: -12 }, { x: -11, z: -8 }, { x: 6, z: 8 }
+        { x: 7, z: -20 }, { x: 8, z: 20 }, { x: -22, z: -21 }, { x: -15, z: 22 },
+        { x: 17, z: -22 }, { x: 23, z: 21 }, { x: -7, z: -17 }, { x: -4, z: 17 }
       ]
     }
   };
