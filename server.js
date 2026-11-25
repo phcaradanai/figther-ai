@@ -1995,8 +1995,17 @@ class GameRoom {
       case 'striker_weapon': { // Asura Hundred Fists
         player.vx = dirX * 8.0;
         player.vz = dirZ * 8.0;
-        this.emitFx('hundred_fists', player.x + dirX * 2.0, player.y + 1.0, player.z + dirZ * 2.0, {
-          facing: player.facing, color: '#eab308'
+        const tx = player.x + dirX * 2.0;
+        const tz = player.z + dirZ * 2.0;
+        this.emitFx('hundred_fists', tx, player.y + 1.0, tz, {
+          facing: player.facing,
+          color: '#eab308',
+          fromSkill: 'striker_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          originX: tx,
+          originY: player.y,
+          originZ: tz
         });
         this.hitAoE(player, player.x + dirX * 2.2, player.y, player.z + dirZ * 2.2, 3.4, {
           damage: 29, knockback: 9.0, launchY: 10.5, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
@@ -2023,7 +2032,17 @@ class GameRoom {
         break;
       }
       case 'striker_trinket': { // Seismic Ground Stomp (Pops enemies high into air)
-        this.emitFx('shockwave', player.x, player.y + 0.2, player.z, { radius: 4.2, color: '#fbbf24' });
+        this.emitFx('shockwave', player.x, player.y + 0.2, player.z, {
+          radius: 4.2,
+          color: '#fbbf24',
+          fromSkill: 'striker_trinket',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 4.0, {
           damage: 18, knockback: 2.5, launchY: 12.5, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
         });
