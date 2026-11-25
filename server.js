@@ -12,6 +12,9 @@ const PORT = process.env.PORT || 3000;
 const TICK_RATE = 30;
 const DT = 1 / TICK_RATE;
 const GRAVITY = 28.0;
+const SPRINT_DRAIN_PER_SEC = 30; // full gauge ≈ 3.3 s of sprint
+const SPRINT_RESUME = 30;        // gauge needed to sprint again after running dry
+const SPRINT_SPEED_SHARE = 0.7;  // sprint gets 70% of the hero's old dash speed bonus
 const PLAYER_RADIUS = 0.35;
 const PLAYER_HEIGHT = 1.7;
 const FLOOR_EPSILON = 0.05;
@@ -312,6 +315,8 @@ class GameRoom {
       jumpCount: 0,
       airDashCount: 0,
       dashUntil: 0,
+      isSprinting: false,
+      sprintLocked: false,
       isFlying: false,
       flyUntil: 0,
       flyExhausted: false,
@@ -740,6 +745,8 @@ class GameRoom {
     player.jumpCount = 0;
     player.airDashCount = 0;
     player.dashUntil = 0;
+    player.isSprinting = false;
+    player.sprintLocked = false;
     player.isFlying = false;
     player.flyUntil = 0;
     player.flyExhausted = false;
@@ -2246,12 +2253,13 @@ class GameRoom {
       }
     }
 
+    // Sprint (same stamina rules as players) while closing a long gap
+    bot.input.sprinting = !!target && minDist > 5.0 && bot.mobilityGauge >= (bot.input.sprinting ? 20 : 45);
+
     if (!target) return;
-    // Jump / Double Jump / Dash if target is higher or chasing
+    // Jump / Double Jump if target is higher or chasing
     if (target.y > bot.y + 0.8 && Math.random() < 0.12) {
       this.performJumpOrFly(bot);
-    } else if (minDist > 5.0 && minDist < 10.0 && bot.mobilityGauge >= 45 && Math.random() < 0.035) {
-      this.performDash(bot, bot.input.mx, bot.input.mz);
     } else if (!bot.grounded && hero.mobility?.canFly && bot.mobilityGauge > 40 && Math.random() < 0.08) {
       this.performJumpOrFly(bot);
     }
@@ -2315,6 +2323,12 @@ class GameRoom {
       const mob = hero.mobility || {};
       const canMove = p.state !== 'hurt' && p.state !== 'knockdown' && p.state !== 'frozen' && now >= p.rootUntil;
       const isBurstDashing = now < p.dashUntil;
+      // Hold-Shift sprint: faster run that drains the mobility gauge (stamina).
+      // Running it dry locks sprint until the gauge refills to SPRINT_RESUME.
+      if (p.sprintLocked && p.mobilityGauge >= SPRINT_RESUME) p.sprintLocked = false;
+      const sprintIntent = canMove && !p.guarding && !p.sprintLocked && !!p.input.sprinting
+        && Math.hypot(p.input.mx || 0, p.input.mz || 0) > 0.15;
+      p.isSprinting = sprintIntent && (p.grounded ? p.mobilityGauge > 0 : p.isSprinting);
       const support = p.grounded ? this.floorPlatformAt(p.x, p.z, p.y) : null;
       const onIce = support?.finish === 'ice';
 
@@ -2323,6 +2337,8 @@ class GameRoom {
         if (now < p.speedBuffUntil) moveSpeed *= 1.38;
         if (isBurstDashing) {
           moveSpeed *= (mob.dashSpeedMult || 1.7);
+        } else if (p.isSprinting) {
+          moveSpeed *= 1 + ((mob.dashSpeedMult || 1.7) - 1) * SPRINT_SPEED_SHARE;
         }
         if (p.guarding) moveSpeed *= 0.35;
 
@@ -2425,7 +2441,13 @@ class GameRoom {
       }
 
       // Mobility Gauge ONLY regenerates when standing on the ground (never in mid-air!)
-      if (p.grounded && !isBurstDashing) {
+      if (p.isSprinting && p.grounded) {
+        p.mobilityGauge = Math.max(0, p.mobilityGauge - SPRINT_DRAIN_PER_SEC * DT);
+        if (p.mobilityGauge <= 0) {
+          p.isSprinting = false;
+          p.sprintLocked = true;
+        }
+      } else if (p.grounded && !isBurstDashing) {
         const regenRate = mob.gaugeRegen || 35;
         p.mobilityGauge = Math.min(p.maxMobilityGauge, p.mobilityGauge + regenRate * DT);
       }
@@ -2618,6 +2640,7 @@ class GameRoom {
         jumpCount: p.jumpCount,
         isFlying: !!p.isFlying,
         isDashing: now < p.dashUntil,
+        isSprinting: !!p.isSprinting,
         kills: p.kills,
         deaths: p.deaths,
         score: p.score,
@@ -2848,15 +2871,11 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'dash': {
-        currentRoom.performDash(
-          currentPlayer,
-          typeof msg.dx === 'number' ? msg.dx : null,
-          typeof msg.dz === 'number' ? msg.dz : null
-        );
+        // Dodge dash was replaced by hold-Shift sprint; old clients' packets are ignored.
         break;
       }
       case 'attack': {
-        currentRoom.performBasicAttack(currentPlayer, !!msg.isDash, !currentPlayer.grounded);
+        currentRoom.performBasicAttack(currentPlayer, !!msg.isDash && currentPlayer.isSprinting, !currentPlayer.grounded);
         break;
       }
       case 'heavy': {

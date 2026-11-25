@@ -1813,7 +1813,7 @@
       const mobRatio = Math.max(0, Math.min(1, (pl.mobilityGauge ?? 100) / (pl.maxMobilityGauge || 100)));
       ctx.fillStyle = '#090d16';
       ctx.fillRect(screenPos.x - barW * 0.5 - 1, mobY - 1, barW + 2, mobH + 2);
-      ctx.fillStyle = pl.isFlying ? '#fde047' : (pl.isDashing ? '#38bdf8' : '#0ea5e9');
+      ctx.fillStyle = pl.isFlying ? '#fde047' : (pl.isDashing || pl.isSprinting ? '#38bdf8' : '#0ea5e9');
       ctx.fillRect(screenPos.x - barW * 0.5, mobY, Math.round(barW * mobRatio), mobH);
       ctx.restore();
     }

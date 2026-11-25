@@ -92,9 +92,6 @@ window.startArenaGame = function (renderer) {
 
   // Input tracking (Facing is controlled strictly by movement keys W/A/S/D or Arrows, never by mouse!)
   const keys = {};
-  let lastTapKey = null;
-  let lastTapTime = 0;
-  let isDashReady = false;
   let localFacing = null;
 
   // DOM Elements
@@ -513,15 +510,16 @@ window.startArenaGame = function (renderer) {
     return { ix, iz, mx: worldMove.mx, mz: worldMove.mz };
   }
 
-  function triggerDash() {
+  // Hold Shift to sprint (drains the mobility/stamina gauge on the server)
+  function isSprintHeld() {
+    return !!(keys['ShiftLeft'] || keys['ShiftRight']);
+  }
+
+  // Attacking while sprinting and moving becomes a dash attack (server re-checks)
+  function sendBasicAttack() {
     if (!ws || ws.readyState !== 1) return;
     const mv = getCurrentWorldMove();
-    isDashReady = true;
-    ws.send(JSON.stringify({
-      type: 'dash',
-      dx: mv.ix !== 0 || mv.iz !== 0 ? mv.mx : null,
-      dz: mv.ix !== 0 || mv.iz !== 0 ? mv.mz : null
-    }));
+    ws.send(JSON.stringify({ type: 'attack', isDash: isSprintHeld() && (mv.ix !== 0 || mv.iz !== 0) }));
   }
 
   window.addEventListener('keydown', (e) => {
@@ -531,27 +529,8 @@ window.startArenaGame = function (renderer) {
     }
 
     const code = e.code;
-    const now = performance.now();
-
-    // Detect double-tap movement key for Lost Saga Ground Dash / Air Dash + Sprint!
-    const isMoveKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code);
     const wasPressed = !!keys[code];
     keys[code] = true;
-
-    if (!wasPressed && isMoveKey) {
-      if (lastTapKey === code && now - lastTapTime < 280) {
-        triggerDash();
-      }
-      lastTapKey = code;
-      lastTapTime = now;
-    }
-
-    // Dedicated Dash / Air Dash hotkey (C or Left Alt)
-    if (!wasPressed && (code === 'KeyC' || code === 'AltLeft')) {
-      e.preventDefault();
-      triggerDash();
-      return;
-    }
 
     // Jump / Double Jump / Triple Jump / Flight Mode (Space)
     if (code === 'Space' && !wasPressed) {
@@ -562,10 +541,7 @@ window.startArenaGame = function (renderer) {
 
     // Basic Attack (J)
     if (code === 'KeyJ') {
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'attack', isDash: isDashReady }));
-        isDashReady = false;
-      }
+      sendBasicAttack();
       return;
     }
 
@@ -617,9 +593,6 @@ window.startArenaGame = function (renderer) {
 
   function releaseInputs() {
     for (const code of Object.keys(keys)) delete keys[code];
-    lastTapKey = null;
-    lastTapTime = 0;
-    isDashReady = false;
 
     // Send immediately: background tabs can throttle the regular input timer.
     if (ws && ws.readyState === 1) {
@@ -645,10 +618,7 @@ window.startArenaGame = function (renderer) {
     sfx.init();
     if (e.button === 0) {
       // Left Click -> Basic Combo Attack
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'attack', isDash: isDashReady }));
-        isDashReady = false;
-      }
+      sendBasicAttack();
     } else if (e.button === 2) {
       // Right Click -> Heavy / Guard Break Attack
       if (ws && ws.readyState === 1) {
@@ -664,13 +634,10 @@ window.startArenaGame = function (renderer) {
     if (!ws || ws.readyState !== 1 || !lobbyModal.classList.contains('hidden')) return;
 
     const mv = getCurrentWorldMove();
-    if (mv.ix === 0 && mv.iz === 0) {
-      isDashReady = false;
-    }
 
-    const guard = !!(keys['ShiftLeft'] || keys['ShiftRight'] || keys['KeyL']);
+    const guard = !!(keys['KeyL'] || keys['KeyC']);
     const jumpHeld = !!keys['Space'];
-    const sprinting = !!(isDashReady || keys['KeyC'] || keys['AltLeft']);
+    const sprinting = isSprintHeld();
 
     let facing = undefined;
     if (mv.ix !== 0 || mv.iz !== 0) {

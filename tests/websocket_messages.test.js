@@ -217,8 +217,9 @@ test('two normal clients can keep playing after malformed messages', { timeout: 
   await second.waitFor(message => message.type === 'state' && message.players.some(player => player.id === joined.clientId && player.cooldowns.weapon > 0));
   first.send({ type: 'swap_hero', heroId: 'ninja' });
   await second.waitFor(message => message.type === 'state' && message.players.some(player => player.id === joined.clientId && player.heroId === 'ninja'));
-  first.send({ type: 'dash', dx: null, dz: null });
-  await second.waitFor(message => message.type === 'state' && message.players.some(player => player.id === joined.clientId && player.isDashing));
+  first.send({ type: 'input', mx: 1, mz: 0, facing: 0, guard: false, jumpHeld: false, sprinting: true });
+  await second.waitFor(message => message.type === 'state' && message.players.some(player => player.id === joined.clientId && player.isSprinting && player.mobilityGauge < 100));
+  first.send({ type: 'input', mx: 0, mz: 0, guard: false, jumpHeld: false, sprinting: false });
   first.send({ type: 'add_bot', heroId: 'knight' });
   await second.waitFor(message => message.type === 'state' && message.players.some(player => player.isBot));
   first.send({ type: 'clear_bots' });

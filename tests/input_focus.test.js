@@ -89,7 +89,7 @@ const neutralInput = {
 
 test('losing focus immediately releases movement, guard, jump and sprint', async () => {
   const client = await createClient();
-  for (const code of ['KeyD', 'ShiftLeft', 'Space', 'KeyC']) client.keyDown(code);
+  for (const code of ['KeyD', 'ShiftLeft', 'Space', 'KeyL']) client.keyDown(code);
   client.tick();
   assert.equal(client.input().mx, 1);
   assert.equal(client.input().guard, true);
@@ -111,7 +111,7 @@ test('hiding the tab releases inputs even without a blur event', async () => {
   assert.deepEqual(client.input(), neutralInput);
 });
 
-test('returning to the game accepts fresh keys without a phantom double-tap dash', async () => {
+test('returning to the game accepts fresh keys without phantom sprint or dash', async () => {
   const client = await createClient();
   client.keyDown('KeyD');
   client.keyDown('Space');
@@ -145,17 +145,25 @@ test('focus loss forgets taps made before switching windows', async () => {
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
 });
 
-test('normal double-tap dash still works after focus returns', async () => {
+test('holding Shift sprints instead of sending a dodge dash', async () => {
   const client = await createClient();
-  client.blur();
-  client.focus();
+  const start = client.packets.length;
   client.keyDown('KeyD');
   client.keyUp('KeyD');
   client.advance(100);
   client.keyDown('KeyD');
-  assert.equal(client.packets.at(-1).type, 'dash');
+  client.keyDown('ShiftLeft');
+  client.tick();
+  assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
+  assert.equal(client.input().sprinting, true);
+  assert.equal(client.input().guard, false);
   client.keyDown('KeyJ');
   assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: true });
+  client.keyUp('ShiftLeft');
+  client.tick();
+  assert.equal(client.input().sprinting, false);
+  client.keyDown('KeyJ');
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: false });
 });
 
 test('losing focus while disconnected clears inputs without sending to a closed socket', async () => {
