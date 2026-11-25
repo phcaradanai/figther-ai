@@ -191,6 +191,7 @@ export function makeArenaFloor(theme, finish) {
   const { props } = theme;
   const palette = finish === 'cinder' ? ['#806459', '#463334', '#a58a72', '#6b534b']
     : finish === 'archstone' ? ['#746764', '#40393a', '#9b8c81', '#665958']
+    : finish === 'catwalk' ? ['#4b697a', '#293f52', '#73919b', '#3d596a']
     : theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);
@@ -343,6 +344,20 @@ export function makeArenaWall(theme) {
         ctx.fillRect(x + 4, 0, 2, size);
         for (let y = 22; y < size; y += 48) ctx.fillRect(x + 9, y, 3, 3);
         ctx.globalAlpha = 1;
+      }
+      if (!airship) {
+        for (let y = 16; y < size; y += 91) {
+          for (let x = 0; x < size; x += step) {
+            ctx.fillStyle = '#27374e';
+            ctx.fillRect(x + 14, y, step - 24, 52);
+            for (let column = x + 17; column < x + step - 13; column += 11) {
+              ctx.fillStyle = rand() > 0.73 ? '#9c9d86' : '#506b86';
+              ctx.fillRect(column, y + 5, 7, 40);
+              ctx.fillStyle = '#34495e';
+              ctx.fillRect(column, y + 24, 7, 3);
+            }
+          }
+        }
       }
     } else if (props === 'lava') {
       const masonry = ['#695b58', '#342d33', '#8e7f74', '#55494a'];

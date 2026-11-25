@@ -432,15 +432,30 @@ test('an enemy contests the healing circle until they leave', { timeout: 12000 }
   assert.ok(healed.hp <= healed.maxHp);
 });
 
-test('a melee bot takes the bridge to an enemy across the rooftop chasm', { timeout: 18000 }, async t => {
+test('a melee bot crosses both offset bridges through the center rooftop', { timeout: 22000 }, async t => {
   const mapId = 'cyber_rooftop';
-  const spawns = [{ x: 14, z: 8.5 }, { x: -11, z: 8.5 }];
+  const spawns = [{ x: 23, z: 7 }, { x: -21, z: 8.5 }];
   const server = await startServer(t, { [mapId]: { ...MAPS[mapId], spawns } });
   const client = await server.connect();
   client.send({ type: 'join_room', roomId: 'CROSSING', mapId });
   await client.waitFor(m => m.type === 'joined');
   client.send({ type: 'add_bot', heroId: 'knight' });
-  await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && Math.abs(p.x) < 1.5 && Math.abs(p.z) < 1.9), 10000);
-  const arrival = await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && p.x > 5 && p.grounded), 4000);
+  await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && Math.abs(p.x) < 3 && p.grounded), 11500);
+  const arrival = await client.waitFor(m => m.type === 'state' && m.players.some(p => p.isBot && p.x > 13 && p.grounded), 6000);
   assert.equal(arrival.players.find(p => p.isBot).deaths, 0);
+});
+
+test('both rooftop staircases can be climbed and the catwalk gap can be jumped', { timeout: 14000 }, async t => {
+  const [west, east] = await arenaClients(t, 'cyber_rooftop', [{ x: -25, z: -14 }, { x: 24, z: -14 }]);
+  await Promise.all([west.observe(p => p.grounded), east.observe(p => p.grounded)]);
+  west.send({ type: 'input', mx: 1 });
+  east.send({ type: 'input', mx: -1 });
+  await east.observe(p => p.x < 15 && p.y === 1.4 && p.grounded, 4000);
+  east.send({ type: 'input', mx: 0 });
+  await west.observe(p => p.x >= -5.5 && p.x < -5 && p.y === 1.4 && p.grounded, 6000);
+  west.send({ type: 'jump' });
+  await west.observe(p => p.x > -2 && p.y === 1.4 && p.grounded && p.deaths === 0);
+  west.send({ type: 'input', mx: 0 });
+  east.send({ type: 'input', mx: 1 });
+  await east.observe(p => p.x > 22.1 && p.y === 0 && p.grounded, 4500);
 });

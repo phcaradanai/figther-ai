@@ -21,6 +21,20 @@ function insideRect(area, x, z) {
   return x >= area.x && x <= area.x + area.w && z >= area.z && z <= area.z + area.d;
 }
 
+function stairDirection(platform) {
+  return platform.stair === true ? '+x' : platform.stair;
+}
+
+function crossesStairFace(platform, from, to, uphill) {
+  const stair = stairDirection(platform);
+  if (!stair) return false;
+  const axis = stair[1];
+  const direction = (stair[0] === '+' ? 1 : -1) * (uphill ? 1 : -1);
+  const length = axis === 'x' ? platform.w : platform.d;
+  const face = platform[axis] + (direction < 0 ? length : 0);
+  return (from[axis] - face) * direction <= 0 && (to[axis] - face) * direction > 0;
+}
+
 function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY, grounded) {
   if (delta === 0) return start;
   const direction = Math.sign(delta);
@@ -41,7 +55,7 @@ function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY, 
     // A side blocks only the part of the player's path alongside the solid platform.
     if (contactY >= platform.y - FLOOR_EPSILON || contactY + PLAYER_HEIGHT <= platform.y - platform.h) continue;
     // Only the shallow uphill face of an authored stair is walkable.
-    if (grounded && platform.stair && axis === 'x' && direction > 0 && platform.y - y <= MAX_STAIR_RISE) continue;
+    if (grounded && stairDirection(platform) === (direction > 0 ? '+' : '-') + axis && platform.y - y <= MAX_STAIR_RISE) continue;
     allowed = toContact;
   }
   return start + direction * allowed;
@@ -2044,11 +2058,12 @@ class GameRoom {
   // ==========================================================================
   // 3D PLATFORM & ARENA PHYSICS + AI BOT LOGIC (Runs at 30 Hz)
   // ==========================================================================
-  floorPlatformAt(x, z, currentY, tolerance = FLOOR_EPSILON, climbing = false) {
+  floorPlatformAt(x, z, currentY, tolerance = FLOOR_EPSILON, approach = null) {
     let best = null;
     for (const plat of this.getMap().platforms) {
-      const reach = climbing && plat.stair ? MAX_STAIR_RISE : tolerance;
-      if (insideRect(plat, x, z) && currentY >= plat.y - reach && (!best || plat.y > best.y)) best = plat;
+      if (!insideRect(plat, x, z) || (best && plat.y <= best.y)) continue;
+      const reach = approach && crossesStairFace(plat, approach, { x, z }, true) ? MAX_STAIR_RISE : tolerance;
+      if (currentY >= plat.y - reach) best = plat;
     }
     return best;
   }
@@ -2338,6 +2353,7 @@ class GameRoom {
       }
 
       const previousY = p.y;
+      const approach = support ? { x: p.x, z: p.z } : null;
       const nextY = p.y + p.vy * DT;
       const belt = map.conveyor;
       const onBelt = belt && support && support.y === belt.y && insideRect(belt, p.x, p.z);
@@ -2352,8 +2368,9 @@ class GameRoom {
       p.y = nextY;
 
       // Platform Floor Collision
-      const floor = this.floorPlatformAt(p.x, p.z, previousY, FLOOR_EPSILON, !!support && travelX > 0);
-      const descendingStair = support?.stair && floor && travelX < 0 && previousY - floor.y <= MAX_STAIR_RISE;
+      const floor = this.floorPlatformAt(p.x, p.z, previousY, FLOOR_EPSILON, approach);
+      const descendingStair = approach && floor && previousY > floor.y && previousY - floor.y <= MAX_STAIR_RISE
+        && (crossesStairFace(support, p, approach, true) || crossesStairFace(floor, approach, p, false));
       if (floor && (p.y <= floor.y || descendingStair)) {
         p.y = floor.y;
         p.vy = 0;

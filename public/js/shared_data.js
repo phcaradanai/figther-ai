@@ -916,6 +916,20 @@
   // --------------------------------------------------------------------------
   // 3D arenas shared by the server simulation and the client.
   // --------------------------------------------------------------------------
+  function stairRun(id, { x, z, w, d }, { steps, rise, up, finish }) {
+    const alongX = up.endsWith('x');
+    const positive = up.startsWith('+');
+    const width = alongX ? w / steps : w;
+    const depth = alongX ? d : d / steps;
+    return Array.from({ length: steps }, (_, i) => {
+      const y = rise * (positive ? i + 1 : steps - i) / steps;
+      return {
+        id: id + '_' + (i + 1), x: x + (alongX ? i * width : 0), z: z + (alongX ? 0 : i * depth),
+        w: width, d: depth, y, h: y, stair: up, finish
+      };
+    });
+  }
+
   const MAPS = {
     sky_temple: {
       id: 'sky_temple',
@@ -973,26 +987,30 @@
       id: 'cyber_rooftop',
       nameTh: 'ดาดฟ้าไซเบอร์ (Cyber Rooftops)',
       nameEn: 'Cyber Rooftops',
-      descTh: 'สะพานกลางแคบจนแรงกระแทกครั้งเดียวอาจผลักตกตึกได้ อีกทางคือกระโดดขึ้นระเบียงซ่อมบำรุงสองฝั่งเพื่อยิงคุมสะพานหรือโดดข้ามรอยขาด',
-      skyTop: '#243a55',
-      skyBottom: '#8298a5',
+      descTh: 'เดินข้ามสะพานเยื้องสองช่วงผ่านตึกกลาง หรือขึ้นบันไดไปทางซ่อมบำรุงแล้วกระโดดข้ามช่อง 3 หน่วย ระวังโดนผลักตรงรอยต่อระหว่างตึก',
+      skyTop: '#20334f',
+      skyBottom: '#829aaa',
       voidType: 'neon_city',
       voidY: -6.5,
       platforms: [
-        { id: 'cyber_west', x: -19, z: -14, w: 14.5, d: 25, y: 0, h: 4.5 },
-        { id: 'cyber_bridge', x: -4.5, z: -2, w: 9, d: 4, y: 0, h: 0.8, finish: 'catwalk' },
-        { id: 'cyber_east', x: 4.5, z: -11, w: 14.5, d: 25, y: 0, h: 4.5 },
-        { id: 'cyber_west_gantry', x: -7.8, z: -8.2, w: 6.6, d: 3.2, y: 1.5, h: 0.42, finish: 'catwalk' },
-        { id: 'cyber_east_gantry', x: 1.2, z: -8.2, w: 6.6, d: 3.2, y: 1.5, h: 0.42, finish: 'catwalk' }
+        { id: 'cyber_west', x: -34, z: -25, w: 21, d: 45, y: 0, h: 16 },
+        { id: 'cyber_east', x: 12, z: -20, w: 22, d: 45, y: 0, h: 16 },
+        { id: 'cyber_center', x: -7, z: -8, w: 14, d: 19, y: 0, h: 13 },
+        { id: 'cyber_west_bridge', x: -13, z: -2, w: 6, d: 6, y: 0, h: 0.72, finish: 'catwalk' },
+        { id: 'cyber_east_bridge', x: 7, z: 4, w: 5, d: 6, y: 0, h: 0.72, finish: 'catwalk' },
+        { id: 'cyber_west_gantry', x: -17, z: -17, w: 12, d: 6, y: 1.4, h: 0.45, finish: 'catwalk' },
+        { id: 'cyber_east_gantry', x: -2, z: -17, w: 18, d: 6, y: 1.4, h: 0.45, finish: 'catwalk' },
+        ...stairRun('cyber_west_tread', { x: -23, z: -16, w: 6, d: 4 }, { steps: 5, rise: 1.4, up: '+x', finish: 'catwalk' }),
+        ...stairRun('cyber_east_tread', { x: 16, z: -16, w: 6, d: 4 }, { steps: 5, rise: 1.4, up: '-x', finish: 'catwalk' })
       ],
       pillars: [
-        { x: -17.8, z: -12.8, r: 0.3, y: 0, h: 2.05 }, { x: 17.8, z: 12.8, r: 0.3, y: 0, h: 2.05 },
-        { x: -17.8, z: 9.8, r: 0.3, y: 0, h: 2.05 }, { x: 17.8, z: -9.8, r: 0.3, y: 0, h: 2.05 }
+        { x: -32, z: -23, r: 0.3, y: 0, h: 2.05 }, { x: 32, z: 23, r: 0.3, y: 0, h: 2.05 },
+        { x: -32, z: 18, r: 0.3, y: 0, h: 2.05 }, { x: 32, z: -18, r: 0.3, y: 0, h: 2.05 }
       ],
       jumpPads: [],
       spawns: [
-        { x: -12.5, z: 6 }, { x: 12.5, z: -6 }, { x: -12.5, z: -8 }, { x: 12.5, z: 8 },
-        { x: -7, z: 1.5 }, { x: 7, z: -1.5 }, { x: -14, z: 0 }, { x: 14, z: 0 }
+        { x: -21, z: 2 }, { x: 21, z: 6 }, { x: -27, z: -12 }, { x: 25, z: -8 },
+        { x: -27, z: 12 }, { x: 27, z: 15 }, { x: -16, z: 6 }, { x: 16, z: 1 }
       ]
     },
 

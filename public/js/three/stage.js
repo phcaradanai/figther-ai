@@ -38,9 +38,9 @@ export const THEMES = {
     cloud: '#978081', cloudOpacity: 0.19, cloudY: [-15, -9], props: 'lava'
   },
   cyber_rooftop: {
-    surface: ['#2d415c', '#172943', '#47677e', '#293b51'], ridges: ['#728799', '#596e81', '#465a70'],
-    cliff: ['#4b5e76', '#212b40'], under: '#25354a', trim: '#82cbdc', trimGlow: 1.32,
-    fog: '#617487', fogNear: 48, fogFar: 115, hemiSky: '#dae4f3', hemiGround: '#536079', hemiI: 1.0, sun: '#e4edf3', sunI: 1.4,
+    surface: ['#3f526a', '#23344c', '#60778b', '#374a5f'], ridges: ['#728799', '#596e81', '#465a70'],
+    cliff: ['#536681', '#242f45'], under: '#25354a', trim: '#98c9d5', trimGlow: 1.23,
+    fog: '#617487', fogNear: 48, fogFar: 134, hemiSky: '#dae4f3', hemiGround: '#536079', hemiI: 1.0, sun: '#e4edf3', sunI: 1.4,
     cloudOpacity: 0, props: 'astral'
   },
   tideglass_harbor: {
@@ -617,20 +617,28 @@ export class Stage {
       }
       const strut = this.track(new THREE.BoxGeometry(0.18, 1, 0.18));
       const up = new THREE.Vector3(0, 1, 0);
-      const bridge = this.map.platforms.find(p => p.finish === 'catwalk' && p.y === 0);
-      for (const p of this.map.platforms.filter(p => p.finish === 'catwalk' && p.y > 0)) {
-        const west = p.x < bridge.x;
-        const rootX = west ? bridge.x : bridge.x + bridge.w;
-        const tipX = west ? p.x + p.w - 0.4 : p.x + 0.4;
-        for (const z of [p.z + 0.3, p.z + p.d - 0.3]) {
-          const root = new THREE.Vector3(rootX, -1.25, z);
-          const end = new THREE.Vector3(tipX, p.y - p.h, z);
-          const delta = end.clone().sub(root);
-          const brace = new THREE.Mesh(strut, steel);
-          brace.position.copy(root).lerp(end, 0.5);
-          brace.scale.y = delta.length();
-          brace.quaternion.setFromUnitVectors(up, delta.normalize());
-          this.group.add(brace);
+      const addBrace = (x0, y0, x1, y1, z) => {
+        const delta = new THREE.Vector3(x1 - x0, y1 - y0, 0);
+        const brace = new THREE.Mesh(strut, steel);
+        brace.position.set((x0 + x1) / 2, (y0 + y1) / 2, z);
+        brace.scale.y = delta.length();
+        brace.quaternion.setFromUnitVectors(up, delta.normalize());
+        this.group.add(brace);
+      };
+      const eastRoof = this.map.platforms.find(p => p.id === 'cyber_east');
+      for (const p of this.map.platforms.filter(p => p.finish === 'catwalk' && !p.stair)) {
+        const underside = p.y - p.h;
+        for (const z of [p.z + 0.42, p.z + p.d - 0.42]) {
+          if (p.y === 0) {
+            const center = p.x + p.w / 2;
+            addBrace(p.x, underside - 2.5, center, underside, z);
+            addBrace(p.x + p.w, underside - 2.5, center, underside, z);
+          } else {
+            const west = p.x < 0 && p.x + p.w < 0;
+            const root = west ? main.x + main.w : eastRoof.x;
+            const tip = west ? p.x + p.w - 0.45 : p.x + 0.45;
+            addBrace(root, underside - 3.5, tip, underside, z);
+          }
         }
       }
       this.buildCityBackdrop();
@@ -790,9 +798,9 @@ export class Stage {
     const walls = this.track(lambert('#46566c'));
     const roofs = this.track(lambert('#657c8f'));
     for (const [x, z, width, height, depth] of [
-      [-27, -13, 7, 24, 10], [-37, 1, 9, 34, 7], [-31, 15, 8, 21, 6],
-      [-14, -27, 8, 24, 7], [1, -30, 9, 28, 9], [17, -27, 7, 22, 8],
-      [29, -14, 9, 29, 7], [30, 12, 10, 22, 8]
+      [-46, -21, 9, 35, 10], [-50, 2, 13, 42, 8], [-45, 20, 10, 29, 9],
+      [-27, -41, 9, 42, 11], [-11, -47, 11, 32, 11], [4, -40, 9, 30, 11], [24, -40, 11, 34, 8],
+      [45, -20, 12, 35, 11], [47, 15, 13, 30, 9], [1, 29, 12, 22, 9], [-10, 20, 7, 24, 8]
     ]) {
       const tower = new THREE.Mesh(box, [walls, walls, roofs, walls, walls, walls]);
       tower.scale.set(width, height, depth);
