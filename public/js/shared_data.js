@@ -1045,26 +1045,25 @@
       id: 'brasswind_courier',
       nameTh: 'เรือเหาะทองเหลือง (Brasswind Courier)',
       nameEn: 'Brasswind Courier',
-      descTh: 'บันไดกลางลำพาขึ้นจุดยิงบนหัวเรือ แท่นส่งตัวด้านข้างใช้บุกขึ้นประชิดได้เร็ว ส่วนทางเดินริมกราบทั้งสองใช้เข้าด้านหลัง',
+      descTh: 'เดินเลียบกราบเข้าท้ายลานหรือใช้บันได 8 ขั้นขึ้นไปยิงจากหัวเรือ แท่นส่งตัวด้านข้างเป็นทางบุกขึ้นประชิด ชานริมกราบสองฝั่งใช้ถอยตั้งหลักได้',
       skyTop: '#728aa9',
       skyBottom: '#ecdbc3',
       voidType: 'clouds',
       voidY: -6.5,
       platforms: [
-        { id: 'courier_deck', x: -19, z: -8, w: 38, d: 16, y: 0, h: 1.8 },
-        ...Array.from({ length: 8 }, (_, i) => ({
-          id: 'courier_tread_' + (i + 1), x: 2 + i, z: -1.8, w: 1, d: 3.6,
-          y: (i + 1) * 0.2, h: (i + 1) * 0.2, stair: true, finish: 'forecastle'
-        })),
-        { id: 'courier_forecastle', x: 10, z: -4, w: 8, d: 8, y: 1.6, h: 1.6, finish: 'forecastle' }
+        { id: 'courier_deck', x: -35, z: -12, w: 70, d: 24, y: 0, h: 1.8 },
+        { id: 'courier_port_bay', x: -22, z: -20, w: 24, d: 8, y: 0, h: 1.3, finish: 'courier_wing' },
+        { id: 'courier_starboard_bay', x: -3, z: 12, w: 22, d: 8, y: 0, h: 1.3, finish: 'courier_wing' },
+        ...stairRun('courier_tread', { x: 8, z: -2.5, w: 10, d: 5 }, { steps: 8, rise: 1.6, up: '+x', finish: 'forecastle' }),
+        { id: 'courier_forecastle', x: 18, z: -7, w: 13, d: 14, y: 1.6, h: 1.6, finish: 'forecastle' }
       ],
       pillars: [],
       jumpPads: [
-        { x: 7.8, z: -3.3, r: 0.9, boostY: 15.5 }
+        { x: 14, z: -6, r: 0.95, boostY: 17.6, directionX: 1 }
       ],
       spawns: [
-        { x: -12.5, z: -1.5 }, { x: 12.5, z: 5.8 }, { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 },
-        { x: 0, z: 5.5 }, { x: 0, z: -5.5 }, { x: -3, z: -4.5 }, { x: 3, z: 4.5 }
+        { x: -22, z: 1 }, { x: 22, z: 9 }, { x: -16, z: -15 }, { x: 11, z: 16 },
+        { x: -13, z: 7 }, { x: 6, z: -8 }, { x: -6, z: -9 }, { x: 3, z: 8 }
       ]
     },
 

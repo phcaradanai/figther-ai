@@ -407,19 +407,19 @@ test('both lava launch pads reach the raised island at regular movement speed', 
 });
 
 test('the airship stairs can be climbed on foot while the side of the forecastle blocks movement', async t => {
-  const [climber, blocker] = await arenaClients(t, 'brasswind_courier', [{ x: 1, z: 0 }, { x: 13, z: 6 }]);
+  const [climber, blocker] = await arenaClients(t, 'brasswind_courier', [{ x: 6.5, z: 0 }, { x: 24, z: 10 }]);
   await climber.observe((p, m) => p.grounded && blocker.player(m)?.grounded);
   climber.send({ type: 'input', mx: 1 });
   blocker.send({ type: 'input', mz: -1 });
-  const top = await climber.observe(p => p.grounded && p.x > 10.5 && p.y === MAPS.brasswind_courier.platforms.at(-1).y);
-  assert.ok(blocker.player(top).z >= 4.3);
+  const top = await climber.observe(p => p.grounded && p.x > 19 && p.y === 1.6, 4500);
+  assert.ok(blocker.player(top).z >= 7.3);
   assert.equal(blocker.player(top).y, 0);
   climber.send({ type: 'input', mx: -1 });
-  await climber.observe(p => p.grounded && p.x < 2 && p.y === 0 && p.vx < 0);
+  await climber.observe(p => p.grounded && p.x < 7 && p.y === 0 && p.vx < 0, 4500);
 });
 
 test('a gunslinger on the forecastle can shoot a fighter on the lower deck', async t => {
-  const [gunner, target] = await arenaClients(t, 'brasswind_courier', [{ x: 13, z: 2.5 }, { x: 13, z: 6 }]);
+  const [gunner, target] = await arenaClients(t, 'brasswind_courier', [{ x: 25, z: 5.7 }, { x: 25, z: 9 }]);
   gunner.send({ type: 'swap_hero', heroId: 'cowboy' });
   const ready = await gunner.observe((p, m) => p.heroId === 'cowboy' && p.y > 1 && p.grounded &&
     target.player(m)?.grounded && !target.player(m).buffs.invuln);
@@ -429,6 +429,19 @@ test('a gunslinger on the forecastle can shoot a fighter on the lower deck', asy
   await gunner.observe(p => Math.abs(p.facing - facing) < 0.01);
   gunner.send({ type: 'attack' });
   await target.observe(p => p.y === 0 && p.hp < p.maxHp);
+});
+
+test('the deck launch pad reaches the forecastle while both flanks stay walkable', { timeout: 12000 }, async t => {
+  const [jumper, north, south] = await arenaClients(t, 'brasswind_courier',
+    [{ x: 10, z: -5.8 }, { x: 8, z: -9.5 }, { x: 8, z: 9.5 }]);
+  const crew = [jumper, north, south];
+  await Promise.all(crew.map(c => c.observe(p => p.grounded)));
+  for (const c of crew) c.send({ type: 'input', mx: 1 });
+  await jumper.observe((p, m) => p.vy >= 15 && m.fx.some(f => f.type === 'jumppad'));
+  await jumper.observe(p => p.x > 18 && p.y === 1.6 && p.grounded && p.deaths === 0, 4000);
+  for (const c of [north, south]) {
+    await c.observe(p => p.x > 27 && p.y === 0 && p.grounded && p.deaths === 0, 5500);
+  }
 });
 
 test('an enemy contests the healing circle until they leave', { timeout: 12000 }, async t => {

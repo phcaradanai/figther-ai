@@ -51,10 +51,10 @@ export const THEMES = {
     cloudOpacity: 0
   },
   brasswind_courier: {
-    props: 'courier', surface: ['#597882', '#2f4555', '#7fa0a1', '#405c6a'],
+    props: 'courier', surface: ['#638087', '#344b56', '#8fa2a0', '#49646b'],
     ridges: [],
     cliff: ['#69584d', '#383738'], under: '#795b4e', trim: '#bc975e',
-    fog: '#bbc0ca', fogNear: 43, fogFar: 130, hemiSky: '#f7f0e5', hemiGround: '#8b93a8', hemiI: 1.04, sun: '#f9ddbb', sunI: 1.45,
+    fog: '#bbc0ca', fogNear: 46, fogFar: 145, hemiSky: '#f7f0e5', hemiGround: '#8b93a8', hemiI: 1.04, sun: '#f9ddbb', sunI: 1.45,
     cloud: '#eff1ed', cloudOpacity: 0.36, cloudY: [-16, -7]
   },
   mossgate_ruins: {
@@ -785,30 +785,51 @@ export class Stage {
 
   buildCourierHull() {
     const deck = this.map.platforms[0];
-    const hull = new THREE.Mesh(this.track(new THREE.SphereGeometry(1, 28, 16)),
-      this.track(toon('#76514a')));
-    hull.position.y = -3.2;
-    hull.scale.set(deck.w / 2, 2.6, deck.d * 0.49);
-    this.group.add(hull);
-
+    const shell = this.track(new THREE.SphereGeometry(1, 36, 18));
+    const body = this.track(toon('#765753'));
     const brass = this.track(toon('#b48b55'));
-    const casing = this.track(new THREE.CylinderGeometry(0.72, 0.86, 3.4, 12));
-    const blade = this.track(new THREE.BoxGeometry(0.12, 3.3, 0.25));
-    for (const side of [-1, 1]) {
+    const hull = new THREE.Mesh(shell, body);
+    hull.name = 'courier_hull';
+    hull.position.set(deck.x + deck.w / 2, -4.1, deck.z + deck.d / 2);
+    hull.scale.set(deck.w * 0.5, 4.1, deck.d * 0.49);
+    this.group.add(hull);
+    const seam = new THREE.Mesh(shell, brass);
+    seam.position.copy(hull.position).y = -3.25;
+    seam.scale.set(deck.w * 0.493, 0.34, deck.d * 0.497);
+    this.group.add(seam);
+
+    const casing = this.track(new THREE.CylinderGeometry(0.85, 1.1, 4.8, 12));
+    const blade = this.track(new THREE.BoxGeometry(0.14, 4.5, 0.35));
+    const hubGeo = this.track(new THREE.CylinderGeometry(0.32, 0.36, 0.56, 12));
+    const braceGeo = this.track(new THREE.BoxGeometry(0.8, 0.44, 1));
+    for (const bay of this.map.platforms.filter(p => p.finish === 'courier_wing')) {
+      const side = Math.sign(bay.z);
+      const bayZ = bay.z + bay.d / 2;
+      const pod = new THREE.Mesh(shell, body);
+      pod.scale.set(bay.w * 0.49, 1.9, bay.d * 0.46);
+      pod.position.set(bay.x + bay.w / 2, -3.5, bayZ);
+      this.group.add(pod);
+      for (const s of [0.18, 0.8]) {
+        const support = new THREE.Mesh(braceGeo, brass);
+        support.scale.z = bay.d + 1.7;
+        support.position.set(bay.x + bay.w * s, -1.8, bayZ - side * 0.55);
+        this.group.add(support);
+      }
+      const propeller = new THREE.Group();
       const engine = new THREE.Mesh(casing, brass);
       engine.rotation.z = Math.PI / 2;
-      const engineX = deck.x + deck.w * 0.25;
-      const engineZ = side * (deck.d / 2 + 0.15);
-      engine.position.set(engineX, -2.5, engineZ);
-      this.group.add(engine);
-      const propeller = new THREE.Group();
-      propeller.position.set(engineX - 1.8, -2.5, engineZ);
-      const a = new THREE.Mesh(blade, brass);
-      const b = new THREE.Mesh(blade, brass);
-      b.rotation.x = Math.PI / 2;
-      propeller.add(a, b);
-      this.group.add(propeller);
-      this.animated.push(t => { propeller.rotation.x = side * t * 9; });
+      engine.position.set(bay.x + bay.w * 0.31, -3.8, bayZ + side * 1.95);
+      propeller.position.copy(engine.position).x -= 2.5;
+      const hub = new THREE.Mesh(hubGeo, body);
+      hub.rotation.z = Math.PI / 2;
+      propeller.add(hub);
+      for (let i = 0; i < 3; i++) {
+        const vane = new THREE.Mesh(blade, brass);
+        vane.rotation.x = i * Math.PI / 3;
+        propeller.add(vane);
+      }
+      this.group.add(engine, propeller);
+      this.animated.push(t => { propeller.rotation.x = side * t * 7; });
     }
   }
 

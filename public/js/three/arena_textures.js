@@ -147,7 +147,7 @@ function plates(ctx, size, rand, palette, finish) {
   const [base, seam, light, shade] = palette;
   const catwalk = finish === 'catwalk';
   const forecastle = finish === 'forecastle';
-  const airship = finish === 'courier';
+  const airship = finish === 'courier' || finish === 'courier_wing';
   const width = size / (catwalk ? 8 : airship ? 2 : 4);
   const height = size / (catwalk ? 2 : airship ? 8 : 4);
   ctx.fillStyle = seam;
@@ -193,6 +193,8 @@ export function makeArenaFloor(theme, finish) {
     : finish === 'archstone' ? ['#746764', '#40393a', '#9b8c81', '#665958']
     : finish === 'catwalk' ? ['#4b697a', '#293f52', '#73919b', '#3d596a']
     : finish === 'pier' ? ['#9e7a56', '#513d31', '#b69166', '#826445']
+    : finish === 'courier_wing' ? ['#667670', '#3c5158', '#84918a', '#566765']
+    : finish === 'forecastle' ? ['#637982', '#354a57', '#8e9d98', '#536c72']
     : theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);
