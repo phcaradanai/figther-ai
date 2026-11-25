@@ -195,6 +195,7 @@ export function makeArenaFloor(theme, finish) {
     : finish === 'pier' ? ['#9e7a56', '#513d31', '#b69166', '#826445']
     : finish === 'courier_wing' ? ['#667670', '#3c5158', '#84918a', '#566765']
     : finish === 'forecastle' ? ['#637982', '#354a57', '#8e9d98', '#536c72']
+    : finish === 'ruin_walk' ? ['#9a9273', '#565b47', '#b4ad8c', '#827c63']
     : theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);

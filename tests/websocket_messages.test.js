@@ -452,13 +452,30 @@ test('an enemy contests the healing circle until they leave', { timeout: 12000 }
   await challenger.observe(p => Math.abs(p.facing - facing) < 0.01);
   challenger.send({ type: 'attack' });
   const hit = holder.player(await holder.observe(p => p.hp < p.maxHp));
+  challenger.send({ type: 'input', mx: 1 });
+  await challenger.observe(p => p.x > 3.25 && p.x < 3.6);
+  challenger.send({ type: 'input', mx: 0 });
   await new Promise(resolve => setTimeout(resolve, 1300));
   const contested = holder.messages.findLast(m => m.type === 'state');
+  const edge = challenger.player(contested);
+  assert.ok(Math.hypot(edge.x, edge.z) > 3 && Math.hypot(edge.x, edge.z) < 4);
   assert.equal(contested.shrineState, 'contested');
   assert.equal(holder.player(contested).hp, hit.hp);
   challenger.socket.close();
   const healed = holder.player(await holder.observe((p, m) => m.shrineState === 'held' && p.hp > hit.hp));
   assert.ok(healed.hp <= healed.maxHp);
+});
+
+test('the ruins bypass can be climbed from both courts and walked down toward the east court', { timeout: 14000 }, async t => {
+  const [west, east] = await arenaClients(t, 'mossgate_ruins', [{ x: -22, z: -21.3 }, { x: 16.4, z: -6 }]);
+  await Promise.all([west.observe(p => p.grounded), east.observe(p => p.grounded)]);
+  west.send({ type: 'input', mx: 1 });
+  east.send({ type: 'input', mz: -1 });
+  await east.observe(p => p.z < -17 && p.y === 1.35 && p.grounded, 4250);
+  east.send({ type: 'input', mz: 1 });
+  await east.observe(p => p.z > -7 && p.y === 0 && p.grounded && p.vz > 0, 5500);
+  east.send({ type: 'input', mz: 0 });
+  await west.observe(p => p.x > 10 && p.y === 1.35 && p.grounded && p.deaths === 0, 7500);
 });
 
 test('a melee bot crosses both offset bridges through the center rooftop', { timeout: 22000 }, async t => {

@@ -58,10 +58,10 @@ export const THEMES = {
     cloud: '#eff1ed', cloudOpacity: 0.36, cloudY: [-16, -7]
   },
   mossgate_ruins: {
-    props: 'ruins', surface: ['#77745c', '#374133', '#9d9877', '#696953'],
+    props: 'ruins', surface: ['#85816b', '#465043', '#a8a386', '#747363'],
     ridges: ['#a6af8d', '#778f76', '#4d7466'],
     cliff: ['#788469', '#424932'], under: '#414d3c', trim: '#b7ae7a',
-    fog: '#9dac85', fogNear: 38, fogFar: 105, hemiSky: '#edf2cb', hemiGround: '#5c7761', hemiI: 1.12, sun: '#fff3c7', sunI: 1.4,
+    fog: '#a6b493', fogNear: 45, fogFar: 128, hemiSky: '#edf2d5', hemiGround: '#617761', hemiI: 1.12, sun: '#ffefcc', sunI: 1.4,
     cloud: '#d0d8b9', cloudOpacity: 0.27, cloudY: [-14, -6]
   },
   frostline_pass: {
@@ -571,7 +571,7 @@ export class Stage {
     const islets = [[-24, -3, 6, 3.2], [6, -2.5, -24, 3.6], [-18, 1.5, -22, 2.6], [14, -4, -22, 2.4], [-23, -5, 15, 2.2], [20, -6, -10, 2.8], [-10, -7, -30, 3.4], [-34, 2, -12, 3.0]];
     if (kind === 'snow') return;
     if (kind === 'ruins') {
-      for (const [x, y, z, r] of islets) this.islet(x * 1.25, y - 2, z * 1.25, r);
+      this.buildRuinsProps();
       return;
     }
     if (kind !== 'astral') {
@@ -754,6 +754,32 @@ export class Stage {
     const transform = new THREE.Matrix4();
     supports.forEach(([x, z], i) => posts.setMatrixAt(i, transform.makeTranslation(x, -3.25, z)));
     this.group.add(posts);
+  }
+
+  buildRuinsProps() {
+    const stone = this.track(lambert('#6b7463'));
+    const cap = this.track(lambert('#8b907b'));
+    const pier = this.track(new THREE.BoxGeometry(1, 1, 1));
+    const baseY = this.map.voidY - 8;
+    for (const p of this.map.platforms.filter(p => p.finish === 'ruin_walk' && !p.stair)) {
+      if (p.id === 'mossgate_terrace_corner') continue;
+      const count = Math.max(1, Math.round(p.w / 7));
+      for (let i = 0; i < count; i++) {
+        const x = p.x + p.w * (i + 0.5) / count;
+        const height = p.y - p.h - baseY;
+        const shaft = new THREE.Mesh(pier, stone);
+        shaft.scale.set(1.45, height, p.d * 0.34);
+        shaft.position.set(x, baseY + height / 2, p.z + p.d / 2);
+        const bearing = new THREE.Mesh(pier, cap);
+        bearing.scale.set(Math.min(2.3, p.w), 0.45, p.d * 0.56);
+        bearing.position.set(x, p.y - p.h - 0.23, shaft.position.z);
+        this.group.add(shaft, bearing);
+      }
+    }
+    for (const [x, y, z, r] of [
+      [-44, -7, -15, 6], [-46, -12, 4, 5], [-33, -3, -42, 7], [-12, -7, -41, 5],
+      [5, -9, -39, 4], [29, -8, -43, 7], [46, -11, -16, 6], [47, -12, 19, 5]
+    ]) this.islet(x, y, z, r);
   }
 
   buildHarborBackdrop() {

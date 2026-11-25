@@ -1071,24 +1071,29 @@
       id: 'mossgate_ruins',
       nameTh: 'ซากวิหารมอสส์ (Mossgate Ruins)',
       nameEn: 'Mossgate Ruins',
-      descTh: 'สะพานหินนำจากลานสองฝั่งเข้าสู่วงฟื้นพลัง ยืนในวงเพื่อฟื้นเลือดทีละ 6 HP ทุกวินาที เมื่อศัตรูเข้าวง การฟื้นพลังจะหยุดจนกว่าจะชิงพื้นที่คืนได้',
+      descTh: 'สองสะพานเยื้องพาเข้าวงฟื้นพลัง 6 HP ต่อวินาทีเมื่อคุมพื้นที่ได้ ระเบียงหินด้านเหนือมีบันไดขึ้นลงสองปลายสำหรับอ้อมเข้าลานอีกฝั่ง',
       skyTop: '#587768',
       skyBottom: '#ced1ad',
       voidType: 'forest',
       voidY: -6.5,
       platforms: [
-        { id: 'mossgate_court', x: -5.5, z: -5.5, w: 11, d: 11, y: 0, h: 3.7 },
-        { id: 'mossgate_west', x: -21, z: -10, w: 13, d: 17, y: 0, h: 3.4 },
-        { id: 'mossgate_east', x: 8, z: -7, w: 13, d: 17, y: 0, h: 3.4 },
-        { id: 'mossgate_west_arch', x: -8, z: -2.8, w: 2.5, d: 3.8, y: 0, h: 1.2 },
-        { id: 'mossgate_east_arch', x: 5.5, z: -1, w: 2.5, d: 3.8, y: 0, h: 1.2 }
+        { id: 'mossgate_court', x: -11, z: -12, w: 21, d: 24, y: 0, h: 4.1 },
+        { id: 'mossgate_west', x: -34, z: -28, w: 19, d: 42, y: 0, h: 4 },
+        { id: 'mossgate_east', x: 14, z: -13, w: 20, d: 41, y: 0, h: 4 },
+        { id: 'mossgate_west_arch', x: -15, z: -4, w: 4, d: 8, y: 0, h: 1.15, finish: 'ruin_walk' },
+        { id: 'mossgate_east_arch', x: 10, z: 4, w: 4, d: 7, y: 0, h: 1.15, finish: 'ruin_walk' },
+        { id: 'mossgate_terrace', x: -15, z: -25, w: 29, d: 7, y: 1.35, h: 1.1, finish: 'ruin_walk' },
+        { id: 'mossgate_terrace_corner', x: 14, z: -20, w: 5, d: 2, y: 1.35, h: 1.1, finish: 'ruin_walk' },
+        { id: 'mossgate_terrace_end', x: 11, z: -18, w: 8, d: 5, y: 1.35, h: 1.1, finish: 'ruin_walk' },
+        ...stairRun('mossgate_west_tread', { x: -20, z: -24, w: 5, d: 5 }, { steps: 5, rise: 1.35, up: '+x', finish: 'ruin_walk' }),
+        ...stairRun('mossgate_east_tread', { x: 14, z: -13, w: 5, d: 5 }, { steps: 5, rise: 1.35, up: '-z', finish: 'ruin_walk' })
       ],
-      shrine: { x: 0, z: 0, y: 0, r: 3, heal: 6, periodMs: 1000 },
+      shrine: { x: 0, z: 0, y: 0, r: 4, heal: 6, periodMs: 1000 },
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -12, z: -3 }, { x: 12, z: 3 }, { x: -16, z: 3 }, { x: 16, z: -3 },
-        { x: -12, z: 4 }, { x: 12, z: -4 }, { x: -16, z: -6 }, { x: 16, z: 6 }
+        { x: -22, z: -4 }, { x: 23, z: 9 }, { x: -26, z: 8 }, { x: 28, z: -4 },
+        { x: -26, z: -18 }, { x: 22, z: 20 }, { x: -19, z: 5 }, { x: 18, z: 15 }
       ]
     },
 
