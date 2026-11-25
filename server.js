@@ -1796,11 +1796,19 @@ class GameRoom {
       }
 
       // ----------------------------------------------------------------------
-      // 7. CYBER TROOPER SKILLS
+      // 7. CYBORG SKILLS
       // ----------------------------------------------------------------------
-      case 'cyborg_weapon': { // Orbital Ion Beam
+      case 'cyborg_weapon': { // Buster Beam
         this.emitFx('orbital_beam', player.x + dirX * 4.5, player.y, player.z + dirZ * 4.5, {
-          facing: player.facing, color: '#10b981', radius: 3.8
+          facing: player.facing,
+          color: '#38bdf8',
+          radius: 3.8,
+          fromSkill: 'cyborg_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
         });
         this.hitLine(player, 9.5, 2.6, {
           damage: 30, knockback: 9.0, launchY: 10.5, stunMs: 1100, guardBreak: true,
@@ -1809,7 +1817,17 @@ class GameRoom {
         break;
       }
       case 'cyborg_armor': { // EMP Gravity Field (Pulls enemies inward + stuns)
-        this.emitFx('emp_dome', player.x, player.y + 0.8, player.z, { radius: 4.8, color: '#34d399' });
+        this.emitFx('emp_dome', player.x, player.y + 0.8, player.z, {
+          radius: 4.8,
+          color: '#38bdf8',
+          fromSkill: 'cyborg_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         for (const t of this.players.values()) {
           if (this.areEnemies(player, t) && t.state !== 'dead' && distXZ(player, t) <= 4.8) {
             this.applyDamage(player, t, {
@@ -1823,7 +1841,7 @@ class GameRoom {
         }
         break;
       }
-      case 'cyborg_helmet': { // Valkyrie Homing Missiles
+      case 'cyborg_helmet': { // Cyborg Homing Missiles
         for (let i = -1; i <= 1; i++) {
           const ang = player.facing + i * 0.35;
           this.spawnProjectile(player, {
@@ -1839,14 +1857,14 @@ class GameRoom {
             damage: 14,
             knockback: 6.0,
             launchY: 6.0,
-            color: '#34d399',
+            color: '#38bdf8',
             ttl: 1800,
             skillNameTh: skill.nameTh
           });
         }
         break;
       }
-      case 'cyborg_trinket': { // Giga Suit Flight Thruster + Diagonal Aerial Laser Beam!
+      case 'cyborg_trinket': { // Cyborg Flight Thruster + Diagonal Aerial Laser Beam!
         player.vy = 11.5;
         player.grounded = false;
         player.hoverUntil = now + 2600;
@@ -1866,7 +1884,17 @@ class GameRoom {
         const tz = bestT ? bestT.z : (player.z + dirZ * 5.0);
         const ty = bestT ? bestT.y : 0;
         this.emitFx('aerial_laser', player.x, player.y + 3.2, player.z, {
-          tx, ty: ty + 0.5, tz, color: '#38bdf8'
+          tx,
+          ty: ty + 0.5,
+          tz,
+          color: '#38bdf8',
+          fromSkill: 'cyborg_trinket',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
         });
         this.hitAoE(player, tx, ty, tz, 3.6, {
           damage: 22, knockback: 7.5, launchY: 7.5, guardBreak: true, skillNameTh: skill.nameTh

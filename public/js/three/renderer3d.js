@@ -17,6 +17,7 @@ import { MageThreeVFX } from './mage_effekseer_3d.js';
 import { CowboyThreeVFX } from './cowboy_effekseer_3d.js';
 import { SamuraiThreeVFX } from './samurai_effekseer_3d.js';
 import { WitchThreeVFX } from './witch_effekseer_3d.js';
+import { CyborgThreeVFX } from './cyborg_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -114,6 +115,12 @@ export class ThreeRenderer {
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
     this.witchVfx = new WitchThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.cyborgVfx = new CyborgThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -227,7 +234,8 @@ export class ThreeRenderer {
         !!(this.mageVfx && this.mageVfx.handleServerFx(fx)) ||
         !!(this.cowboyVfx && this.cowboyVfx.handleServerFx(fx)) ||
         !!(this.samuraiVfx && this.samuraiVfx.handleServerFx(fx)) ||
-        !!(this.witchVfx && this.witchVfx.handleServerFx(fx));
+        !!(this.witchVfx && this.witchVfx.handleServerFx(fx)) ||
+        !!(this.cyborgVfx && this.cyborgVfx.handleServerFx(fx));
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -488,6 +496,34 @@ export class ThreeRenderer {
         tip.rotation.z = -Math.PI / 2;
         break;
       }
+      case 'plasma': {
+        // Futuristic spinning violet-cyan plasma energy orb + perpendicular energy ring (gun energy pulse!)
+        add(new THREE.OctahedronGeometry(0.24, 0), glow('#ffffff', 3.0), [1.35, 0.72, 0.72]);
+        const ring = add(new THREE.TorusGeometry(0.30, 0.055, 8, 20), glow('#818cf8', 2.7), [1, 1, 1]);
+        ring.rotation.y = Math.PI / 2;
+        g.userData.spin = ring;
+        g.userData.spinAxis = 'x';
+        break;
+      }
+      case 'railgun': {
+        // High-energy sci-fi plasma cannon beam pulse (elongated glowing plasma core + twin accelerator rings — 0% sword slash!)
+        const core = add(new THREE.CapsuleGeometry(0.18, 1.35, 6, 12), glow('#ffffff', 3.2), [1, 1, 1]);
+        core.rotation.z = Math.PI / 2;
+        const sheath = add(new THREE.CapsuleGeometry(0.30, 1.50, 6, 12), new THREE.MeshBasicMaterial({ color: hdr('#38bdf8', 2.4), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }), [1, 1, 1]);
+        sheath.rotation.z = Math.PI / 2;
+        const rings = new THREE.Group();
+        const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.055, 8, 20), glow('#f97316', 2.8));
+        r1.rotation.y = Math.PI / 2;
+        r1.position.x = 0.25;
+        const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 8, 20), glow('#a78bfa', 2.8));
+        r2.rotation.y = Math.PI / 2;
+        r2.position.x = -0.35;
+        rings.add(r1, r2);
+        g.add(rings);
+        g.userData.spin = rings;
+        g.userData.spinAxis = 'x';
+        break;
+      }
       default:
         add(new THREE.IcosahedronGeometry(1, 2), glow(color, 2.6), [r * 0.8, r * 0.8, r * 0.8]);
     }
@@ -522,6 +558,7 @@ export class ThreeRenderer {
       const spin = e.obj.userData.spin;
       if (spin) {
         if (e.obj.userData.spinAxis === 'y') spin.rotation.y += dt * 22;
+        else if (e.obj.userData.spinAxis === 'x') spin.rotation.x += dt * 22;
         else spin.rotation.z += dt * 24;
       }
       e.trailT -= dt;
@@ -529,7 +566,7 @@ export class ThreeRenderer {
         e.trailT = 0.016;
         const c = e.obj.userData.trail || e.obj.userData.color;
         const p = e.obj.position;
-        if (pr.type !== 'bullet' && pr.type !== 'magnum') {
+        if (pr.type !== 'bullet' && pr.type !== 'magnum' && pr.type !== 'plasma' && pr.type !== 'railgun') {
           this.fx.add.spawn({ x: p.x, y: p.y, z: p.z, color: c, intensity: 2, size: Math.max(0.35, (pr.radius || 0.3) * 1.4), sizeEnd: 0.05, life: 0.28, tile: 'dot' });
         }
         if (pr.type === 'fireball' || pr.type === 'homing_missile') {
@@ -799,6 +836,7 @@ export class ThreeRenderer {
     if (this.cowboyVfx) this.cowboyVfx.update(dt);
     if (this.samuraiVfx) this.samuraiVfx.update(dt, state);
     if (this.witchVfx) this.witchVfx.update(dt, state);
+    if (this.cyborgVfx) this.cyborgVfx.update(dt, state);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
