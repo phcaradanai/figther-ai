@@ -16,6 +16,7 @@ import { NinjaThreeVFX } from './ninja_effekseer_3d.js';
 import { MageThreeVFX } from './mage_effekseer_3d.js';
 import { CowboyThreeVFX } from './cowboy_effekseer_3d.js';
 import { SamuraiThreeVFX } from './samurai_effekseer_3d.js';
+import { WitchThreeVFX } from './witch_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -107,6 +108,12 @@ export class ThreeRenderer {
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
     this.samuraiVfx = new SamuraiThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.witchVfx = new WitchThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -219,7 +226,8 @@ export class ThreeRenderer {
         !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx)) ||
         !!(this.mageVfx && this.mageVfx.handleServerFx(fx)) ||
         !!(this.cowboyVfx && this.cowboyVfx.handleServerFx(fx)) ||
-        !!(this.samuraiVfx && this.samuraiVfx.handleServerFx(fx));
+        !!(this.samuraiVfx && this.samuraiVfx.handleServerFx(fx)) ||
+        !!(this.witchVfx && this.witchVfx.handleServerFx(fx));
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -790,6 +798,7 @@ export class ThreeRenderer {
     if (this.mageVfx) this.mageVfx.update(dt, state);
     if (this.cowboyVfx) this.cowboyVfx.update(dt);
     if (this.samuraiVfx) this.samuraiVfx.update(dt, state);
+    if (this.witchVfx) this.witchVfx.update(dt, state);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);

@@ -1718,7 +1718,17 @@ class GameRoom {
       case 'witch_weapon': { // Eternal Blizzard
         const tx = player.x + dirX * 4.2;
         const tz = player.z + dirZ * 4.2;
-        this.emitFx('blizzard', tx, player.y + 1.0, tz, { radius: 4.5, color: '#22d3ee' });
+        this.emitFx('blizzard', tx, player.y + 1.0, tz, {
+          radius: 4.5,
+          color: '#22d3ee',
+          fromSkill: 'witch_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz
+        });
         this.hitAoE(player, tx, player.y, tz, 4.5, {
           damage: 24, knockback: 4.0, freeze: true, stunMs: 2200, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1740,7 +1750,17 @@ class GameRoom {
       case 'witch_armor': { // Crystal Ice Tomb
         player.invulnUntil = now + 1500;
         player.hp = Math.min(player.maxHp, player.hp + 25);
-        this.emitFx('ice_tomb', player.x, player.y + 1.0, player.z, { radius: 4.0, color: '#67e8f9' });
+        this.emitFx('ice_tomb', player.x, player.y + 1.0, player.z, {
+          radius: 4.0,
+          color: '#67e8f9',
+          fromSkill: 'witch_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 4.0, {
           damage: 16, knockback: 6.0, freeze: true, stunMs: 1800, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1748,7 +1768,16 @@ class GameRoom {
       }
       case 'witch_helmet': { // Glacial Spike Eruption
         this.emitFx('ice_spikes', player.x, player.y, player.z, {
-          tx: player.x + dirX * 7.5, tz: player.z + dirZ * 7.5, color: '#38bdf8'
+          tx: player.x + dirX * 7.5,
+          tz: player.z + dirZ * 7.5,
+          color: '#38bdf8',
+          fromSkill: 'witch_helmet',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
         });
         this.hitLine(player, 7.5, 2.4, {
           damage: 23, knockback: 6.5, launchY: 11.0, freeze: true, stunMs: 1500, guardBreak: true,
