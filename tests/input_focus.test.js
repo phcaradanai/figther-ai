@@ -40,10 +40,7 @@ async function createClient() {
     querySelectorAll: () => []
   });
   const window = Object.assign(new EventTarget(), {
-    GAME_DATA,
-    PixelRenderer25D: class {
-      transformInputByCamera(mx, mz) { return { mx, mz }; }
-    }
+    GAME_DATA
   });
   class WebSocket extends EventTarget {
     constructor() {
@@ -54,13 +51,16 @@ async function createClient() {
     send(raw) { packets.push(JSON.parse(raw)); }
   }
 
-  await vm.runInNewContext(clientSource, {
-    window, document, WebSocket, URLSearchParams,
+  vm.runInNewContext(clientSource, {
+    window, document, WebSocket,
     location: { protocol: 'http:', host: 'localhost', search: '' },
     performance: { now: () => now },
     setInterval: callback => timers.push(callback),
     requestAnimationFrame() {}
   }, { filename: 'game_client.js' });
+  window.startArenaGame({
+    transformInputByCamera(mx, mz) { return { mx, mz }; }
+  });
 
   function dispatch(target, type, properties = {}) {
     target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), properties));

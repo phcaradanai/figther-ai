@@ -111,6 +111,28 @@ body, html {
   background: #334155;
   border-color: #94a3b8;
 }
+.hud-select {
+  max-width: 220px;
+}
+
+.arena-map-description, .renderer-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.arena-map-description {
+  color: #cbd5e1;
+}
+
+.renderer-error {
+  color: #fca5a5;
+}
+
+.btn-primary-join:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 .hud-btn.accent {
   background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #0f172a;

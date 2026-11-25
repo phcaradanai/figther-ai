@@ -1,11 +1,6 @@
 // ============================================================================
-// THREE.JS RENDERER (prototype) - drop-in replacement for PixelRenderer25D
-// Same interface used by game_client.js:
-//   render(state, localClientId), processServerFx(fxList), transformInputByCamera(ix, iz)
-// Fixed high-angle perspective camera looking from +X+Z (so WASD mapping is
-// identical to the 2D renderer), toon-shaded chibi characters, painterly
-// textures, soft shadows, bloom + warm grade + vignette, 2D overlay for
-// nameplates and damage numbers.
+// Three.js arena renderer with a fixed high-angle camera, toon characters,
+// painterly platforms, and a canvas overlay for nameplates and damage numbers.
 // ============================================================================
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -27,9 +22,9 @@ const FOV = 30;
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
-    uVignette: { value: 0.36 },
-    uWarm: { value: 0.025 },
-    uSat: { value: 1.1 }
+    uVignette: { value: 0.26 },
+    uWarm: { value: 0.014 },
+    uSat: { value: 1.03 }
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `uniform sampler2D tDiffuse; uniform float uVignette; uniform float uWarm; uniform float uSat; varying vec2 vUv;
@@ -162,7 +157,7 @@ export class ThreeRenderer {
     this.shake = Math.min(1.4, Math.max(this.shake, amount * 0.07));
   }
 
-  // Same screen-aligned WASD mapping as the 2D renderer
+  // Keep WASD aligned with the screen regardless of the camera's world angle.
   transformInputByCamera(ix, iz) {
     if (ix === 0 && iz === 0) return { mx: 0, mz: 0 };
     return { mx: (iz + ix) * COS45, mz: (iz - ix) * COS45 };
@@ -170,10 +165,16 @@ export class ThreeRenderer {
 
   setStage(mapId) {
     const map = this.GAME_DATA.MAPS[mapId] || this.GAME_DATA.MAPS.sky_temple;
-    if (this.stage) this.stage.dispose();
+    if (this.stage?.map.id === map.id) return;
+    if (this.stage) {
+      this.stage.dispose();
+      this.fx.clear();
+      window.KnightEffekseerVFX?.stopAll();
+    }
     this.stage = new Stage(map);
     this.scene.add(this.stage.group);
     this.stage.applyEnvironment(this.scene, this.hemi, this.sun);
+    this.centerCameraOnNextFrame = true;
   }
 
   // ------------------------------------------------------------------ fx
@@ -624,7 +625,12 @@ export class ThreeRenderer {
   updateCamera(dt, me) {
     const target = this._v.set(0, 0, 0);
     if (me) target.set(me.x, Math.max(-3, Math.min(6, me.y)) * 0.6, me.z);
-    this.camTarget.lerp(target, 1 - Math.exp(-dt * 4.5));
+    if (me && this.centerCameraOnNextFrame) {
+      this.camTarget.copy(target);
+      this.centerCameraOnNextFrame = false;
+    } else {
+      this.camTarget.lerp(target, 1 - Math.exp(-dt * 4.5));
+    }
     const horiz = this.camDist * Math.cos(CAM_PITCH);
     const vert = this.camDist * Math.sin(CAM_PITCH);
     const t = this.camTarget;

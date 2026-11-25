@@ -3,10 +3,13 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 const test = require('node:test');
 const WebSocket = require('ws');
+const { MAPS } = require('../public/js/shared_data.js');
 
-async function startServer(t) {
+async function startServer(t, testMaps = {}) {
   const serverPath = path.join(__dirname, '../server.js');
+  const sharedDataPath = path.join(__dirname, '../public/js/shared_data.js');
   const child = spawn(process.execPath, ['-e', `
+    Object.assign(require(${JSON.stringify(sharedDataPath)}).MAPS, ${JSON.stringify(testMaps)});
     const http = require('node:http');
     const createServer = http.createServer;
     http.createServer = function (...args) {
@@ -223,5 +226,89 @@ test('two normal clients can keep playing after malformed messages', { timeout: 
   await second.waitFor(message => message.type === 'state' && message.players.length === 2);
   first.send({ type: 'change_map', mapId: 'cyber_rooftop' });
   await second.waitFor(message => message.type === 'state' && message.mapId === 'cyber_rooftop');
+  server.assertRunning();
+});
+
+test('every arena can be created and switched live with both LAN players landing safely', { timeout: 20000 }, async t => {
+  const maps = Object.values(MAPS);
+  assert.ok(maps.length >= 7, 'The lobby needs at least seven playable arenas');
+  for (const map of maps) {
+    const width = Math.max(...map.platforms.map(p => p.x + p.w)) - Math.min(...map.platforms.map(p => p.x));
+    const depth = Math.max(...map.platforms.map(p => p.z + p.d)) - Math.min(...map.platforms.map(p => p.z));
+    assert.ok(Math.max(width, depth) >= 32, `${map.id} needs a full-size arena footprint`);
+  }
+  const server = await startServer(t);
+  const first = await server.connect();
+  const second = await server.connect();
+  const one = await join(first);
+  const two = await join(second, 'Player B');
+  const ids = [one.clientId, two.clientId];
+
+  for (const [index, map] of maps.entries()) {
+    const roomId = `ARENA-${index}`;
+    first.messages.length = 0;
+    first.send({ type: 'join_room', roomId, playerName: 'Player A', mapId: map.id });
+    const created = await first.waitFor(message => message.type === 'joined' && message.roomId === roomId);
+    assert.equal(created.mapId, map.id);
+    first.send({ type: 'join_room', roomId: one.roomId, playerName: 'Player A' });
+    await first.waitFor(message => message.type === 'joined' && message.roomId === one.roomId);
+
+    second.messages.length = 0;
+    if (index % 2 === 0) {
+      first.send({ type: 'join_room', roomId: one.roomId, playerName: 'Player A', mapId: map.id, changeMap: true });
+    } else {
+      first.send({ type: 'change_map', mapId: map.id });
+    }
+    if (index > 0) {
+      await second.waitFor(message => message.type === 'state' && message.mapId === map.id
+        && message.players.some(player => player.id === two.clientId && player.y > 2.5));
+    }
+    const landed = await second.waitFor(message => message.type === 'state' && message.mapId === map.id
+      && ids.every(id => message.players.some(player => player.id === id && player.grounded)));
+    assert.ok(landed.players.every(player => map.platforms.some(platform =>
+      player.y === platform.y && player.x >= platform.x && player.x <= platform.x + platform.w
+      && player.z >= platform.z && player.z <= platform.z + platform.d
+    )), `Players must land on the active arena's platforms in ${map.id}`);
+  }
+  server.assertRunning();
+});
+
+test('raised walls block walking, allow sliding and jumping, and leave level paths open', { timeout: 12000 }, async t => {
+  const server = await startServer(t, {
+    ledge: {
+      id: 'ledge',
+      voidY: -6.5,
+      pillars: [],
+      jumpPads: [],
+      platforms: [
+        { x: -6, z: -5, w: 11, d: 10, y: 0, h: 3 },
+        { x: 5, z: -5, w: 4, d: 10, y: 0, h: 3 },
+        { x: 0, z: -3, w: 3, d: 6, y: 1.3, h: 1.3 }
+      ],
+      spawns: [{ x: -2, z: 0 }]
+    }
+  });
+  const client = await server.connect();
+  client.send({ type: 'join_room', roomId: 'LEDGE', heroId: 'knight', mapId: 'ledge' });
+  const { clientId } = await client.waitFor(message => message.type === 'joined');
+  const player = message => message.players.find(p => p.id === clientId);
+  const observe = predicate => client.waitFor(message => message.type === 'state' && predicate(player(message)));
+
+  await observe(p => p.grounded);
+  client.send({ type: 'input', mx: 1, mz: 0 });
+  await observe(p => p.x >= -0.6);
+  await new Promise(resolve => setTimeout(resolve, 230));
+  const blocked = player(client.messages.findLast(message => message.type === 'state'));
+  assert.ok(blocked.x < 0 && blocked.x >= -0.6, `Player walked through the wall to x=${blocked.x}`);
+  assert.equal(blocked.y, 0);
+
+  client.send({ type: 'input', mx: 1, mz: 0.65 });
+  const slid = await observe(p => p.z > blocked.z + 0.45);
+  assert.ok(player(slid).x < 0, 'Sliding along the wall must not cross it');
+  client.send({ type: 'input', mx: 1, mz: 0 });
+  client.send({ type: 'jump' });
+  await observe(p => p.grounded && p.y === 1.3 && p.x > 0);
+  await observe(p => p.grounded && p.y === 0 && p.x > 3);
+  await observe(p => p.grounded && p.y === 0 && p.x > 5.5);
   server.assertRunning();
 });

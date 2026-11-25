@@ -1,34 +1,9 @@
 // ============================================================================
-// LOST SAGA 2.5D PIXEL ARENA - CLIENT CONTROLLER, HUD, AUDIO & LAN WEBSOCKET
+// 3D arena client controller, HUD, audio and LAN WebSocket.
 // ============================================================================
-(async function () {
+window.startArenaGame = function (renderer) {
   const GAME_DATA = window.GAME_DATA;
   const canvas = document.getElementById('gameCanvas');
-
-  // Renderer: 2D canvas (default) or the Three.js prototype with ?renderer=3d
-  const pageParams = new URLSearchParams(location.search);
-  const use3D = pageParams.get('renderer') === '3d';
-  let renderer = null;
-  if (use3D) {
-    try {
-      const mod = await import('/js/three/renderer3d.js');
-      renderer = new mod.ThreeRenderer(canvas);
-    } catch (err) {
-      console.error('Three.js renderer failed to start, falling back to 2D:', err);
-    }
-  }
-  if (!renderer) renderer = new window.PixelRenderer25D(canvas);
-
-  const btnToggleRenderer = document.getElementById('btnToggleRenderer');
-  if (btnToggleRenderer) {
-    btnToggleRenderer.textContent = use3D ? '🎨 กลับไป 2D' : '🧊 3D (ทดลอง)';
-    btnToggleRenderer.addEventListener('click', () => {
-      if (use3D) pageParams.delete('renderer');
-      else pageParams.set('renderer', '3d');
-      const qs = pageParams.toString();
-      location.search = qs ? `?${qs}` : '';
-    });
-  }
 
   // --------------------------------------------------------------------------
   // RETRO ARCADE WEBAUDIO SOUND SYNTHESIZER (Zero external audio assets needed)
@@ -134,6 +109,24 @@
   const scoreboardList = document.getElementById('scoreboardList');
   const killFeedList = document.getElementById('killFeedList');
   const selectMapInGame = document.getElementById('selectMapInGame');
+  const selectArenaMap = document.getElementById('selectArenaMap');
+  const arenaMapDescription = document.getElementById('arenaMapDescription');
+
+  for (const select of [selectArenaMap, selectMapInGame]) {
+    for (const map of Object.values(GAME_DATA.MAPS)) {
+      const option = document.createElement('option');
+      option.value = map.id;
+      option.textContent = map.nameTh;
+      select.appendChild(option);
+    }
+    select.value = GAME_DATA.MAPS.sky_temple.id;
+  }
+
+  function updateArenaMapDescription() {
+    arenaMapDescription.textContent = GAME_DATA.MAPS[selectArenaMap.value]?.descTh || '';
+  }
+  selectArenaMap.addEventListener('change', updateArenaMapDescription);
+  updateArenaMapDescription();
 
   // --------------------------------------------------------------------------
   // BUILD 10 HEROES UI IN LOBBY & IN-GAME HOT-SWAP DOCK
@@ -226,7 +219,7 @@
     ws = new WebSocket(`${proto}//${location.host}`);
 
     ws.addEventListener('open', () => {
-      // Auto-join default room right away so the 2.5D background battle is live immediately!
+      // Start the background battle while the lobby is open.
       joinSelectedRoom(false);
     });
 
@@ -281,7 +274,8 @@
       `;
       div.addEventListener('click', () => {
         document.getElementById('inputRoomId').value = r.id;
-        document.getElementById('selectArenaMap').value = r.mapId;
+        selectArenaMap.value = r.mapId;
+        updateArenaMapDescription();
         document.getElementById('selectGameMode').value = r.mode;
       });
       lobbyRoomList.appendChild(div);
@@ -292,7 +286,7 @@
     if (!ws || ws.readyState !== 1) return;
     const playerName = document.getElementById('inputPlayerName').value.trim() || 'นักสู้ LAN';
     const roomId = document.getElementById('inputRoomId').value.trim() || 'LAN-1';
-    const mapId = document.getElementById('selectArenaMap').value;
+    const mapId = selectArenaMap.value;
     const mode = document.getElementById('selectGameMode').value;
 
     ws.send(JSON.stringify({
@@ -311,8 +305,14 @@
     }
   }
 
-  document.getElementById('btnJoinBattle').addEventListener('click', () => joinSelectedRoom(true));
+  const btnJoinBattle = document.getElementById('btnJoinBattle');
+  btnJoinBattle.disabled = false;
+  btnJoinBattle.addEventListener('click', () => joinSelectedRoom(true));
   document.getElementById('btnOpenLobby').addEventListener('click', () => {
+    if (currentGameState) {
+      selectArenaMap.value = currentGameState.mapId;
+      updateArenaMapDescription();
+    }
     fetch('/api/lan-info')
       .then(r => r.json())
       .then(info => {
@@ -346,6 +346,11 @@
   // HANDLE SERVER SNAPSHOTS & UPDATE HUD
   // --------------------------------------------------------------------------
   function handleServerState(state) {
+    if (state.mapId !== currentGameState?.mapId) {
+      selectMapInGame.value = state.mapId;
+      interpPlayers.clear();
+      renderer.setStage(state.mapId);
+    }
     currentGameState = state;
 
     // Trigger client visual & sound FX
@@ -716,4 +721,4 @@
 
   connectWebSocket();
   requestAnimationFrame(animate);
-})();
+};

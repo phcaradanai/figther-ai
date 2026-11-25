@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LOST SAGA 2.5D PIXEL ARENA - LAN Multiplayer</title>
+  <title>LOST SAGA 3D ARENA - LAN Multiplayer</title>
   <link rel="stylesheet" href="/css/style.css" />
   <script type="importmap">
     {
@@ -15,7 +15,7 @@
   </script>
 </head>
 <body>
-  <!-- 2.5D PSEUDO-3D PIXEL ART GAME CANVAS + 3D EFFEKSEER WEBGL OVERLAY -->
+  <!-- 3D game canvas and Effekseer overlay -->
   <canvas id="gameCanvas"></canvas>
   <canvas id="effekseerCanvas"></canvas>
 
@@ -24,7 +24,7 @@
   <!-- ==================================================================== -->
   <header id="topHud" class="hud-panel">
     <div class="hud-left">
-      <div class="brand-badge">⚔️ LOST SAGA 2.5D</div>
+      <div class="brand-badge">⚔️ LOST SAGA 3D</div>
       <div class="room-pill" id="hudRoomInfo">ห้อง: LAN-1</div>
       <div class="lan-pill" id="hudLanUrl" title="คลิกเพื่อคัดลอกลิงก์ LAN ให้เพื่อนเข้าเล่น">
         📡 LAN: กำลังตรวจสอบ...
@@ -34,15 +34,10 @@
     <div class="hud-center">
       <button class="hud-btn" id="btnAddBot" title="เพิ่มบอท AI เข้าสนาม">+ เพิ่ม AI Bot</button>
       <button class="hud-btn" id="btnClearBots" title="ลบบอททั้งหมด">ล้าง Bot</button>
-      <select id="selectMapInGame" class="hud-select" title="เปลี่ยนด่าน 3D">
-        <option value="sky_temple">🏛️ วิหารลอยฟ้า (Sky Sanctuary - Tree of Savior)</option>
-        <option value="lava_citadel">🌋 ป้อมปราการอัคคี (Demon Flame Citadel)</option>
-        <option value="cyber_rooftop">✨ หอคอยดาราจักร (Astral Starlight Spire)</option>
-      </select>
+      <select id="selectMapInGame" class="hud-select" aria-label="เปลี่ยนสนามประลอง"></select>
     </div>
 
     <div class="hud-right">
-      <button class="hud-btn" id="btnToggleRenderer" title="สลับโหมดภาพ 2D / 3D (Three.js ทดลอง)">🧊 3D (ทดลอง)</button>
       <button class="hud-btn accent" id="btnOpenLobby">ตั้งค่าห้อง / ดูสกิลฮีโร่</button>
     </div>
   </header>
@@ -133,8 +128,8 @@
     <div class="lobby-container">
       <div class="lobby-header">
         <div>
-          <h1>⚔️ LOST SAGA 2.5D : PIXEL ARENA LAN</h1>
-          <p class="subtitle">เกมแอ็กชันตะลุมบอน 2.5D Pixel Art เสมือน 3D เล่นผ่าน LAN • 10 ฮีโร่ 40 สกิล • ระบบตีเกราะหลุด & ขโมยสกิล!</p>
+          <h1>⚔️ LOST SAGA 3D ARENA LAN</h1>
+          <p class="subtitle">เกมแอ็กชันตะลุมบอน 3D ผ่าน LAN • 10 ฮีโร่ 40 สกิล • ตีเกราะหลุดและขโมยสกิล</p>
         </div>
         <div class="lan-box" id="lobbyLanBox">
           <div class="lan-box-title">📡 ลิงก์เชื่อมต่อ LAN (ให้เพื่อนในวง Wi-Fi/LAN เปิดในเบราว์เซอร์):</div>
@@ -160,14 +155,12 @@
             </select>
           </div>
 
-          <label class="field-label">เลือกสนามประลอง 3D (ระวังตกเหว Ring-Out!)</label>
-          <select id="selectArenaMap" class="text-input">
-            <option value="sky_temple">🏛️ วิหารลอยฟ้า (Sky Sanctuary - Tree of Savior)</option>
-            <option value="lava_citadel">🌋 ป้อมปราการอัคคี (Demon Flame Citadel)</option>
-            <option value="cyber_rooftop">✨ หอคอยดาราจักร (Astral Starlight Spire)</option>
-          </select>
+          <label class="field-label" for="selectArenaMap">เลือกสนามประลอง (ระวังตกขอบสนาม)</label>
+          <select id="selectArenaMap" class="text-input" aria-describedby="arenaMapDescription"></select>
+          <p id="arenaMapDescription" class="arena-map-description"></p>
 
-          <button id="btnJoinBattle" class="btn-primary-join">🚀 เข้าสู่สนามประลองทันที!</button>
+          <p id="rendererError" class="renderer-error" role="alert" hidden>เปิดสนาม 3D ไม่สำเร็จ โปรดเปิด WebGL 2 ในเบราว์เซอร์แล้วโหลดหน้าใหม่</p>
+          <button id="btnJoinBattle" class="btn-primary-join" disabled>🚀 เข้าสู่สนามประลองทันที!</button>
         </div>
 
         <!-- Right Column: 10 Heroes & 40 Skills Showcase -->
@@ -182,13 +175,18 @@
     </div>
   </div>
 
-  <script type="module" src="/js/pixelfx_bridge.js"></script>
   <script src="/vendor/effekseer/effekseer.min.js" onerror="window.__effekseerOptionalMissing = true"></script>
   <script src="/js/effekseer_knight_bridge.js"></script>
   <script src="/js/shared_data.js"></script>
-  <script src="/js/tos_vfx.js"></script>
-  <script src="/js/tos_sprite_rig.js"></script>
-  <script src="/js/pixel_renderer_25d.js"></script>
   <script src="/js/game_client.js"></script>
+  <script type="module">
+    try {
+      const { ThreeRenderer } = await import('/js/three/renderer3d.js');
+      window.startArenaGame(new ThreeRenderer(document.getElementById('gameCanvas')));
+    } catch (error) {
+      console.error('Could not start the 3D arena:', error);
+      document.getElementById('rendererError').hidden = false;
+    }
+  </script>
 </body>
 </html>

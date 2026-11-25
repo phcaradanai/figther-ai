@@ -1,5 +1,5 @@
 // ============================================================================
-// LOST SAGA 2.5D PIXEL ARENA - AUTHORITATIVE LAN MULTIPLAYER SERVER
+// LOST SAGA 3D ARENA - AUTHORITATIVE LAN MULTIPLAYER SERVER
 // ============================================================================
 const http = require('http');
 const fs = require('fs');
@@ -12,6 +12,33 @@ const PORT = process.env.PORT || 3000;
 const TICK_RATE = 30;
 const DT = 1 / TICK_RATE;
 const GRAVITY = 28.0;
+const PLAYER_RADIUS = 0.35;
+const PLAYER_HEIGHT = 1.7;
+const FLOOR_EPSILON = 0.05;
+
+function moveAlongPlatformAxis(platforms, axis, start, across, delta, y, nextY) {
+  if (delta === 0) return start;
+  const direction = Math.sign(delta);
+  const travel = Math.abs(delta);
+  const crossAxis = axis === 'x' ? 'z' : 'x';
+  const width = axis === 'x' ? 'w' : 'd';
+  const depth = axis === 'x' ? 'd' : 'w';
+  let allowed = travel;
+  for (const platform of platforms) {
+    const crossMin = platform[crossAxis];
+    if (across <= crossMin - PLAYER_RADIUS || across >= crossMin + platform[depth] + PLAYER_RADIUS) continue;
+    const face = platform[axis] + (direction < 0 ? platform[width] : 0);
+    const distance = (face - start) * direction;
+    if (distance < 0 || distance > allowed + PLAYER_RADIUS) continue;
+
+    const toContact = Math.max(0, distance - PLAYER_RADIUS);
+    const contactY = y + (nextY - y) * (toContact / travel);
+    // A side blocks only the part of the player's path alongside the solid platform.
+    if (contactY >= platform.y - FLOOR_EPSILON || contactY + PLAYER_HEIGHT <= platform.y - platform.h) continue;
+    allowed = toContact;
+  }
+  return start + direction * allowed;
+}
 
 // Helper to get all LAN IPv4 addresses
 function getLanAddresses() {
@@ -149,6 +176,18 @@ class GameRoom {
 
   getMap() {
     return GAME_DATA.MAPS[this.mapId] || GAME_DATA.MAPS.sky_temple;
+  }
+
+  changeMap(mapId) {
+    if (this.mapId === mapId) return;
+    this.mapId = mapId;
+    this.projectiles.length = 0;
+    this.droppedGears.length = 0;
+    this.hazards.length = 0;
+    this.fxEvents.length = 0;
+    for (const player of this.players.values()) {
+      this.respawnPlayer(player);
+    }
   }
 
   getSummary() {
@@ -635,6 +674,7 @@ class GameRoom {
     player.vx = 0;
     player.vy = 0;
     player.vz = 0;
+    player.grounded = false;
     player.hp = hero.maxHp;
     player.maxHp = hero.maxHp;
     player.mobilityGauge = 100;
@@ -1884,12 +1924,12 @@ class GameRoom {
   // ==========================================================================
   // 3D PLATFORM & ARENA PHYSICS + AI BOT LOGIC (Runs at 30 Hz)
   // ==========================================================================
-  getFloorHeightAt(x, z, currentY) {
+  getFloorHeightAt(x, z, currentY, tolerance = 0.45) {
     const map = this.getMap();
     let bestY = null;
     for (const plat of map.platforms) {
       if (x >= plat.x && x <= plat.x + plat.w && z >= plat.z && z <= plat.z + plat.d) {
-        if (currentY >= plat.y - 0.45) {
+        if (currentY >= plat.y - tolerance) {
           if (bestY === null || plat.y > bestY) {
             bestY = plat.y;
           }
@@ -2125,12 +2165,18 @@ class GameRoom {
         p.vy -= GRAVITY * DT;
       }
 
-      p.x += p.vx * DT;
-      p.y += p.vy * DT;
-      p.z += p.vz * DT;
+      const previousY = p.y;
+      const nextY = p.y + p.vy * DT;
+      const nextX = p.x + p.vx * DT;
+      const nextZ = p.z + p.vz * DT;
+      p.x = moveAlongPlatformAxis(map.platforms, 'x', p.x, p.z, p.vx * DT, previousY, nextY);
+      p.z = moveAlongPlatformAxis(map.platforms, 'z', p.z, p.x, p.vz * DT, previousY, nextY);
+      if (p.x !== nextX) p.vx = 0;
+      if (p.z !== nextZ) p.vz = 0;
+      p.y = nextY;
 
       // Platform Floor Collision
-      const floorY = this.getFloorHeightAt(p.x, p.z, p.y - p.vy * DT);
+      const floorY = this.getFloorHeightAt(p.x, p.z, previousY, FLOOR_EPSILON);
       if (floorY !== null && p.y <= floorY) {
         p.y = floorY;
         p.vy = 0;
@@ -2519,7 +2565,7 @@ wss.on('connection', (ws) => {
         );
         rooms.set(roomId, room);
       } else if (msg.mapId && GAME_DATA.MAPS[msg.mapId] && msg.changeMap) {
-        room.mapId = msg.mapId;
+        room.changeMap(msg.mapId);
       }
 
       currentRoom = room;
@@ -2605,12 +2651,7 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'change_map': {
-        if (GAME_DATA.MAPS[msg.mapId]) {
-          currentRoom.mapId = msg.mapId;
-          for (const p of currentRoom.players.values()) {
-            currentRoom.respawnPlayer(p);
-          }
-        }
+        currentRoom.changeMap(msg.mapId);
         break;
       }
     }
@@ -2633,7 +2674,7 @@ setInterval(() => {
 server.listen(PORT, '0.0.0.0', () => {
   const addrs = getLanAddresses();
   console.log('==============================================================');
-  console.log('  LOST SAGA 2.5D PIXEL ARENA - LAN SERVER RUNNING!');
+  console.log('  LOST SAGA 3D ARENA - LAN SERVER RUNNING!');
   console.log('==============================================================');
   addrs.forEach(a => {
     console.log(`  [LAN URL]  ${a.url}  (${a.interface})`);

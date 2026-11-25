@@ -1,5 +1,5 @@
 // ============================================================================
-// LOST SAGA 2.5D PIXEL ARENA - SHARED GAME DATA (Heroes, 40 Gear Skills, Maps)
+// LOST SAGA 3D ARENA - SHARED GAME DATA (Heroes, 40 Gear Skills, Maps)
 // ============================================================================
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -914,130 +914,175 @@
   });
 
   // --------------------------------------------------------------------------
-  // LOST SAGA ORIGIN 45-DEGREE DIAMOND 3D CUBE ARENA MAPS (+100% EXPANDED AREA)
-  // Matches the exact 3D Cube Matrix Stage from the Lost Saga Origin video!
+  // 3D arenas shared by the server simulation and the client.
   // --------------------------------------------------------------------------
   const MAPS = {
     sky_temple: {
       id: 'sky_temple',
       nameTh: 'วิหารลอยฟ้า (Sky Sanctuary)',
       nameEn: 'Sky Sanctuary Courtyard',
-      descTh: 'ลานศิลาวิหารลอยฟ้าสไตล์สีน้ำ Tree of Savior ท่ามกลางหมู่เมฆสีทองและปราสาทกลางเวหา',
+      descTh: 'ลานประลองกว้าง มีระเบียงศิลายกสูงตลอดแนวด้านหลังและชานหน้าให้ถอยตั้งหลัก',
       skyTop: '#052e16',
       skyBottom: '#14532d',
       voidType: 'green_matrix',
       voidY: -6.5,
-      isCubeStage: true,
       platforms: [
-        // Giant 9x9 Rubik's Cube Main Arena (23.4m x 23.4m = 547.5 sq.m unobstructed 3D cube floor!)
-        {
-          id: 'cube_main',
-          x: -11.7,
-          z: -11.7,
-          w: 23.4,
-          d: 23.4,
-          y: 0,
-          h: 4.2,
-          gridN: 9,
-          style: 'rubik_cube',
-          colorTop: '#2563eb',
-          colorSide: '#1e3a8a',
-          trimColor: '#0f172a'
-        }
+        { id: 'sanctuary_court', x: -16, z: -13, w: 32, d: 25, y: 0, h: 3.4 },
+        { id: 'sanctuary_gallery', x: -13.5, z: -11.5, w: 27, d: 6, y: 1.25, h: 1.25 },
+        { id: 'sanctuary_apron', x: -6, z: 12, w: 12, d: 6, y: 0, h: 1.6 }
       ],
       pillars: [],
       jumpPads: [],
       spawns: [
-        { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 }, { x: -4.5, z: -4.5 }, { x: 4.5, z: 4.5 },
-        { x: 0, z: 5.5 }, { x: 0, z: -5.5 }, { x: -6.5, z: 0 }, { x: 6.5, z: 0 }
+        { x: -9, z: 6.5 }, { x: 9, z: -8.5 }, { x: -9, z: -8.5 }, { x: 9, z: 6.5 },
+        { x: 0, z: 14.5 }, { x: 0, z: -8.5 }, { x: -10, z: 0 }, { x: 10, z: 0 }
       ]
     },
 
     lava_citadel: {
       id: 'lava_citadel',
-      nameTh: 'ป้อมปราการลาวา (Lava Cube Arena)',
-      nameEn: 'Lava Citadel Cube',
-      descTh: 'สนามบล็อกหินภูเขาไฟ 9x9 บล็อกขนาดใหญ่ พร้อมแท่นบูชาแมกม่าตรงกลางและเหวลาวารอบด้าน',
-      skyTop: '#1c0908',
-      skyBottom: '#450a0a',
+      nameTh: 'ป้อมปราการลาวา (Lava Citadel)',
+      nameEn: 'Lava Citadel',
+      descTh: 'ทางเดินหินภูเขาไฟล้อมบ่อลาวา ใช้แท่นกระโดดข้ามไปยังเกาะยกสูงตรงกลาง',
+      skyTop: '#362c37',
+      skyBottom: '#967169',
       voidType: 'lava',
       voidY: -6.5,
-      isCubeStage: true,
       platforms: [
-        {
-          id: 'lava_main',
-          x: -11.7,
-          z: -11.7,
-          w: 23.4,
-          d: 23.4,
-          y: 0,
-          h: 4.2,
-          gridN: 9,
-          style: 'lava_cube',
-          colorTop: '#57534e',
-          colorSide: '#292524',
-          trimColor: '#f97316'
-        },
-        {
-          id: 'lava_center',
-          x: -3.9,
-          z: -3.9,
-          w: 7.8,
-          d: 7.8,
-          y: 1.3,
-          h: 1.3,
-          gridN: 3,
-          style: 'lava_altar',
-          colorTop: '#dc2626',
-          colorSide: '#7f1d1d',
-          trimColor: '#fde047'
-        }
+        { id: 'lava_north', x: -17.5, z: -17.5, w: 35, d: 11, y: 0, h: 3.2 },
+        { id: 'lava_west', x: -17.5, z: -6.5, w: 11, d: 13, y: 0, h: 3.2 },
+        { id: 'lava_east', x: 6.5, z: -6.5, w: 11, d: 13, y: 0, h: 3.2 },
+        { id: 'lava_south', x: -17.5, z: 6.5, w: 35, d: 11, y: 0, h: 3.2 },
+        { id: 'lava_altar', x: -4.7, z: -4.7, w: 9.4, d: 9.4, y: 1.5, h: 3.2 }
       ],
       pillars: [],
       jumpPads: [
-        { x: -7.8, z: 5.2, r: 1.2, boostY: 16.0 },
-        { x:  5.2, z: -7.8, r: 1.2, boostY: 16.0 }
+        { x: -8.2, z: 0, r: 1.15, boostY: 15.5 },
+        { x: 8.2, z: 0, r: 1.15, boostY: 15.5 }
       ],
       spawns: [
-        { x: -5.5, z: 5.5 }, { x: 5.5, z: -5.5 }, { x: -6.5, z: -6.5 }, { x: 6.5, z: 6.5 },
-        { x: 0, z: 7.0 }, { x: 0, z: -7.0 }, { x: -7.0, z: 0 }, { x: 7.0, z: 0 }
+        { x: -11, z: 11 }, { x: 11, z: -11 }, { x: -11, z: -11 }, { x: 11, z: 11 },
+        { x: 0, z: 11 }, { x: 0, z: -11 }, { x: -12.5, z: 0 }, { x: 12.5, z: 0 }
       ]
     },
 
     cyber_rooftop: {
       id: 'cyber_rooftop',
-      nameTh: 'ดาดฟ้าไซเบอร์ (Cyber Matrix Arena)',
-      nameEn: 'Cyber Matrix Rooftop',
-      descTh: 'ดาดฟ้าบล็อกไซเบอร์นีออน 9x9 บล็อกขนาดใหญ่ พร้อมจัมพ์แพดแม่เหล็กไฟฟ้าและเหวตึกระฟ้า',
-      skyTop: '#020617',
-      skyBottom: '#0f172a',
+      nameTh: 'ดาดฟ้าไซเบอร์ (Cyber Rooftops)',
+      nameEn: 'Cyber Rooftops',
+      descTh: 'ดาดฟ้าสองฝั่งคั่นด้วยช่องเหว มีสะพานกลางและแท่นสูงคนละมุม',
+      skyTop: '#243a55',
+      skyBottom: '#8298a5',
       voidType: 'neon_city',
       voidY: -6.5,
-      isCubeStage: true,
       platforms: [
-        {
-          id: 'cyber_main',
-          x: -11.7,
-          z: -11.7,
-          w: 23.4,
-          d: 23.4,
-          y: 0,
-          h: 4.2,
-          gridN: 9,
-          style: 'cyber_cube',
-          colorTop: '#1e293b',
-          colorSide: '#0f172a',
-          trimColor: '#38bdf8'
-        }
+        { id: 'cyber_west', x: -19, z: -14, w: 14.5, d: 25, y: 0, h: 4.5 },
+        { id: 'cyber_bridge', x: -4.5, z: -3.6, w: 9, d: 7.2, y: 0, h: 1.2 },
+        { id: 'cyber_east', x: 4.5, z: -11, w: 14.5, d: 25, y: 0, h: 4.5 },
+        { id: 'cyber_terminal_west', x: -17.5, z: 3, w: 8, d: 6.5, y: 1.45, h: 1.45 },
+        { id: 'cyber_terminal_east', x: 9.5, z: -9.5, w: 8, d: 6.5, y: 1.45, h: 1.45 }
       ],
       pillars: [],
       jumpPads: [
-        { x: -6.5, z: 6.5, r: 1.2, boostY: 16.5 },
-        { x:  6.5, z: -6.5, r: 1.2, boostY: 16.5 }
+        { x: -8.5, z: -4.5, r: 1.1, boostY: 15 },
+        { x: 8.5, z: 4.5, r: 1.1, boostY: 15 }
       ],
       spawns: [
-        { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 }, { x: -4.5, z: -4.5 }, { x: 4.5, z: 4.5 },
-        { x: 0, z: 6.0 }, { x: 0, z: -6.0 }, { x: -6.0, z: 0 }, { x: 6.0, z: 0 }
+        { x: -12.5, z: 6 }, { x: 12.5, z: -6 }, { x: -12.5, z: -8 }, { x: 12.5, z: 8 },
+        { x: -7, z: 1.5 }, { x: 7, z: -1.5 }, { x: -14, z: 0 }, { x: 14, z: 0 }
+      ]
+    },
+
+    tideglass_harbor: {
+      id: 'tideglass_harbor',
+      nameTh: 'ท่าเรือคลื่นคราม (Tideglass Harbor)',
+      nameEn: 'Tideglass Harbor',
+      descTh: 'ท่าไม้ทอดขนานชายฝั่ง มีชานเรือต่อคนละด้านและทะเลล้อมรอบ',
+      skyTop: '#668b9b',
+      skyBottom: '#d9d5bb',
+      voidType: 'sea',
+      voidY: -5,
+      platforms: [
+        { id: 'harbor_boardwalk', x: -17, z: -6, w: 34, d: 12, y: 0, h: 1.2 },
+        { id: 'harbor_north_pier', x: -15, z: -16, w: 12, d: 10, y: 0, h: 1 },
+        { id: 'harbor_south_pier', x: 3, z: 6, w: 12, d: 10, y: 0, h: 1 },
+        { id: 'harbor_lookout', x: -14.5, z: -15.3, w: 6, d: 5, y: 1.1, h: 1.1 }
+      ],
+      pillars: [],
+      jumpPads: [],
+      spawns: [
+        { x: -9, z: -8.5 }, { x: 9, z: 8.5 }, { x: -12, z: 1.5 }, { x: 12, z: -1.5 },
+        { x: -5.5, z: -12 }, { x: 9, z: 12 }, { x: -6, z: 2.5 }, { x: 6, z: -2.5 }
+      ]
+    },
+
+    brasswind_courier: {
+      id: 'brasswind_courier',
+      nameTh: 'เรือเหาะทองเหลือง (Brasswind Courier)',
+      nameEn: 'Brasswind Courier',
+      descTh: 'ดาดฟ้าเรือเหาะทรงยาว มีแท่นกระโดดส่งขึ้นหอบังคับการที่หัวและท้ายเรือ',
+      skyTop: '#728aa9',
+      skyBottom: '#ecdbc3',
+      voidType: 'clouds',
+      voidY: -6.5,
+      platforms: [
+        { id: 'courier_deck', x: -19, z: -8, w: 38, d: 16, y: 0, h: 1.8 },
+        { id: 'courier_stern', x: -17.5, z: -6.6, w: 7.5, d: 10.8, y: 1.55, h: 1.55 },
+        { id: 'courier_bow', x: 10, z: -4.2, w: 7.5, d: 10.8, y: 1.55, h: 1.55 }
+      ],
+      pillars: [],
+      jumpPads: [
+        { x: -7.7, z: -2, r: 1.05, boostY: 15 },
+        { x: 7.7, z: 2, r: 1.05, boostY: 15 }
+      ],
+      spawns: [
+        { x: -12.5, z: -1.5 }, { x: 12.5, z: 1.5 }, { x: -4.5, z: 4.5 }, { x: 4.5, z: -4.5 },
+        { x: 0, z: 5.5 }, { x: 0, z: -5.5 }, { x: -3, z: -4.5 }, { x: 3, z: 4.5 }
+      ]
+    },
+
+    mossgate_ruins: {
+      id: 'mossgate_ruins',
+      nameTh: 'ซากวิหารมอสส์ (Mossgate Ruins)',
+      nameEn: 'Mossgate Ruins',
+      descTh: 'ลานวิหารกลางป่าเขียวชื้น มีแท่นบูชาและชานหินแยกที่ต้องกระโดดข้าม',
+      skyTop: '#587768',
+      skyBottom: '#ced1ad',
+      voidType: 'forest',
+      voidY: -6.5,
+      platforms: [
+        { id: 'mossgate_court', x: -12, z: -12, w: 24, d: 24, y: 0, h: 3.7 },
+        { id: 'mossgate_west', x: -21, z: -10, w: 7, d: 12, y: 0, h: 2.6 },
+        { id: 'mossgate_east', x: 14, z: -2, w: 7, d: 12, y: 0.65, h: 3.25 },
+        { id: 'mossgate_altar', x: -5.5, z: -8.5, w: 11, d: 7.5, y: 1.35, h: 1.35 }
+      ],
+      pillars: [],
+      jumpPads: [],
+      spawns: [
+        { x: -8, z: 7 }, { x: 8, z: -7 }, { x: -8, z: -4.5 }, { x: 8, z: 7 },
+        { x: 0, z: 7 }, { x: 0, z: -5.5 }, { x: -17, z: -4.5 }, { x: 17, z: 4.5 }
+      ]
+    },
+
+    frostline_pass: {
+      id: 'frostline_pass',
+      nameTh: 'ช่องเขาเหมันต์ (Frostline Pass)',
+      nameEn: 'Frostline Pass',
+      descTh: 'ชั้นหิมะสามระดับตามแนวหน้าผา แต่ละชั้นเยื้องด้านข้างให้มีทางขึ้นลงต่างกัน',
+      skyTop: '#6e89a4',
+      skyBottom: '#d7e3e6',
+      voidType: 'snow',
+      voidY: -6.5,
+      platforms: [
+        { id: 'frostline_middle', x: -14, z: -7.5, w: 28, d: 15, y: 0, h: 3.2 },
+        { id: 'frostline_upper', x: -16, z: -16, w: 24, d: 8.5, y: 1.25, h: 4.45 },
+        { id: 'frostline_lower', x: -8, z: 7.5, w: 24, d: 8.5, y: -0.65, h: 2.55 }
+      ],
+      pillars: [],
+      jumpPads: [],
+      spawns: [
+        { x: -9, z: 3 }, { x: 9, z: -3 }, { x: -10, z: -11.5 }, { x: 10, z: 11.5 },
+        { x: -3, z: 12 }, { x: 3, z: -12 }, { x: -6, z: 0 }, { x: 6, z: 0 }
       ]
     }
   };
