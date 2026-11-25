@@ -374,8 +374,8 @@
     samurai: {
       id: 'samurai',
       index: 5,
-      nameTh: 'ซามูไร อีโว (Samurai EVO)',
-      nameEn: 'Samurai EVO',
+      nameTh: 'ซามูไร',
+      nameEn: 'Samurai',
       roleTh: 'ประชิด / ดาบอิไอความเร็วสูง & คอมโบกลางอากาศ',
       roleEn: 'Melee / High-Speed Iaido',
       color: '#1e293b',
@@ -397,7 +397,7 @@
         airJumpCost: 22,
         gaugeRegen: 36
       },
-      descTh: 'ซามูไรร่างพัฒนา (EVO) กระโดด 2 ชั้น พุ่งก้าวพริบตากลางอากาศ ฟันอิไอความเร็วแสง งัดลอยต่อคอมโบ และตั้งท่าสวนกลับ',
+      descTh: 'ซามูไร กระโดด 2 ชั้น พุ่งก้าวพริบตากลางอากาศ ฟันอิไอความเร็วแสง งัดลอยต่อคอมโบ และตั้งท่าสวนกลับ',
       basicAttack: {
         damage: 11,
         range: 2.6,
@@ -419,7 +419,7 @@
           id: 'samurai_weapon',
           heroId: 'samurai',
           slot: 'weapon',
-          nameTh: 'ระบำซากุระพันกลีบ (EVO)',
+          nameTh: 'ระบำซากุระพันกลีบ',
           nameEn: 'Senbonzakura Storm',
           descTh: 'ปลดปล่อยพายุคมดาบสีชาดด้านหน้า ฟันรัว 8 ฮิตและงัดศัตรูลอยขึ้นฟ้า',
           cooldownMs: 7000,

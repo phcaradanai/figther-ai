@@ -1,5 +1,5 @@
 # ============================================================================
-# LOST SAGA 3D - SAMURAI EVO (BLOSSOM BLADER) VFX TEXTURE GENERATOR (512x512)
+# LOST SAGA 3D - SAMURAI (BLOSSOM BLADER) VFX TEXTURE GENERATOR (512x512)
 # ============================================================================
 # Generates 10 crisp, Tree of Savior Blossom Blader-inspired sakura & katana
 # 512x512 RGBA PNG textures into: public/assets/vfx/samurai/textures/

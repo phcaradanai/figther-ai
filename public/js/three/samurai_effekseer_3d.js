@@ -1,7 +1,7 @@
 // ============================================================================
-// LOST SAGA 3D - SAMURAI EVO (BLOSSOM BLADER) 3D EFFEKSEER + THREE.JS VFX
+// LOST SAGA 3D - SAMURAI (BLOSSOM BLADER) 3D EFFEKSEER + THREE.JS VFX
 // ============================================================================
-// Dedicated 7-move Samurai EVO (ซามูไร อีโว) 3D VFX suite inspired by
+// Dedicated 7-move Samurai (ซามูไร) 3D VFX suite inspired by
 // Tree of Savior's Blossom Blader (Blossom Slash, Flash, Control Blade: Hiten
 // Blade, Flowering, StartUp, Falling Blossom):
 //   1. PRIMARY: Compiled EffekseerForWebGL (.efkefc) runtime synced to camera
@@ -101,7 +101,7 @@ export class SamuraiThreeVFX {
   }
 
   /**
-   * Handle server FX events for Samurai EVO (including stolen Samurai gear skills!).
+   * Handle server FX events for Samurai (including stolen Samurai gear skills!).
    * Returns true if handled/suppressed by the Samurai 3D VFX suite.
    */
   handleServerFx(fx) {

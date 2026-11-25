@@ -1,5 +1,5 @@
 # ============================================================================
-# LOST SAGA 3D - SAMURAI EVO (BLOSSOM BLADER) EFFEKSEER (.efkproj) GENERATOR
+# LOST SAGA 3D - SAMURAI (BLOSSOM BLADER) EFFEKSEER (.efkproj) GENERATOR
 # ============================================================================
 # Generates 7 multi-layered 3D Effekseer project files compatible with
 # Effekseer 1.80.8 (GUI & CUI compiler) and EffekseerForWebGL 1.80.8:

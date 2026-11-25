@@ -421,7 +421,7 @@
     },
 
     // ========================================================================
-    // 5. SAMURAI EVO (ซามูไร อีโว — BLOSSOM BLADER 3D-ONLY EFFEKSEER SUITE)
+    // 5. SAMURAI (ซามูไร — BLOSSOM BLADER 3D-ONLY EFFEKSEER SUITE)
     // ========================================================================
     samurai_basic_slash: {
       id: 'samurai_basic_slash',
@@ -1086,7 +1086,7 @@
         };
       }
 
-      // --- SAMURAI EVO (3D + EFFEKSEER) ---
+      // --- SAMURAI (3D + EFFEKSEER) ---
       if (fx.type === 'sakura_storm' && fx.fromSkill === 'samurai_weapon') {
         return {
           effectId: 'samurai_weapon',
