@@ -418,6 +418,108 @@
       attachToCaster: false,
       color: '#fbbf24',
       desc: 'ตราดาวนายอำเภอสีทอง + ฝุ่นแคนยอนและประกายเดือยรองเท้า'
+    },
+
+    // ========================================================================
+    // 5. SAMURAI EVO (ซามูไร อีโว — BLOSSOM BLADER 3D-ONLY EFFEKSEER SUITE)
+    // ========================================================================
+    samurai_basic_slash: {
+      id: 'samurai_basic_slash',
+      hero: 'samurai',
+      nameTh: 'ฟันคาตานะซากุระ (Blossom Slash)',
+      file: '/assets/vfx/samurai/samurai_basic_slash.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_basic_slash.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_basic_slash.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.40,
+      attachToCaster: false,
+      color: '#f472b6',
+      desc: 'คลื่นดาบซากุระ 4 จังหวะ + กลีบดอกซากุระปลิวและดอกซากุระบานปิดคอมโบ'
+    },
+    samurai_heavy_iaido: {
+      id: 'samurai_heavy_iaido',
+      hero: 'samurai',
+      nameTh: 'เพลงดาบอิไอผ่าพริบตา (Iaido Flash)',
+      file: '/assets/vfx/samurai/samurai_heavy_iaido.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_heavy_iaido.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_heavy_iaido.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.72,
+      attachToCaster: false,
+      color: '#f472b6',
+      desc: 'ลำแสงฟันอิไอผ่าพริบตา 4.8 เมตร + วงแหวนลมซากุระและดอกซากุระเบ่งบานปลายทาง'
+    },
+    samurai_weapon: {
+      id: 'samurai_weapon',
+      hero: 'samurai',
+      nameTh: '[Q/SD] ระบำซากุระพันกลีบ (Senbonzakura & Control Blade)',
+      file: '/assets/vfx/samurai/samurai_skill_weapon_senbon.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_skill_weapon_senbon.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_skill_weapon_senbon.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.25,
+      attachToCaster: false,
+      color: '#f472b6',
+      desc: 'ตราซากุระ 7.6 เมตร + พายุกลีบดอกไม้ + คาตานะวิญญาณ 8 เล่ม (Hiten Blade) ฟันรอบทิศ'
+    },
+    samurai_armor: {
+      id: 'samurai_armor',
+      hero: 'samurai',
+      nameTh: '[E/ASD] เนตรแห่งใจสวนกลับ (Minds Eye Counter)',
+      file: '/assets/vfx/samurai/samurai_skill_armor_counter.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_skill_armor_counter.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_skill_armor_counter.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 1.02,
+      attachToCaster: false,
+      color: '#f43f5e',
+      desc: 'แสงแฟลชสวนกลับ + คลื่นดาบซากุระ 360 องศา 9 เมตรและพายุกลีบดอกไม้'
+    },
+    samurai_helmet: {
+      id: 'samurai_helmet',
+      hero: 'samurai',
+      nameTh: '[R/AD] จิตอสูรดาบโลหิต (Asura Blood Aura)',
+      file: '/assets/vfx/samurai/samurai_skill_helmet_asura.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_skill_helmet_asura.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_skill_helmet_asura.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 6.0,
+      attachToCaster: true,
+      color: '#dc2626',
+      desc: 'ออร่าเปลวซากุระแนวตั้ง + ดาบคาตานะวิญญาณ 4 เล่มลอยหมุนรอบตัวนาน 6 วินาที'
+    },
+    samurai_trinket: {
+      id: 'samurai_trinket',
+      hero: 'samurai',
+      nameTh: '[F/AS] นางแอ่นหวนกลับ (Tsubame Gaeshi)',
+      file: '/assets/vfx/samurai/samurai_skill_trinket_tsubame.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_skill_trinket_tsubame.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_skill_trinket_tsubame.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.78,
+      attachToCaster: false,
+      color: '#fb7185',
+      desc: 'คมดาบเสยคู่ทะยานฟ้า + วงแหวนลมซากุระและกลีบดอกไม้พวยพุ่ง'
+    },
+    samurai_mobility_flashstep: {
+      id: 'samurai_mobility_flashstep',
+      hero: 'samurai',
+      nameTh: 'ก้าวพริบตาอิไอ / โดด 2 ชั้น (Falling Blossom Step)',
+      file: '/assets/vfx/samurai/samurai_mobility_flashstep.efkefc',
+      fallbackFile: '/assets/vfx/samurai/samurai_mobility_flashstep.efk',
+      sourceFile: '/assets/vfx/samurai/samurai_mobility_flashstep.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.48,
+      attachToCaster: false,
+      color: '#f472b6',
+      desc: 'ดอกซากุระเบ่งบาน + วงแหวนลมและกลีบดอกไม้ปลิวตามหลัง'
     }
   };
 
@@ -984,16 +1086,84 @@
         };
       }
 
+      // --- SAMURAI EVO (3D + EFFEKSEER) ---
+      if (fx.type === 'sakura_storm' && fx.fromSkill === 'samurai_weapon') {
+        return {
+          effectId: 'samurai_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && ['samurai_armor', 'samurai_helmet', 'samurai_trinket'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'slash' && (fx.heroId === 'samurai' || fx.weaponType === 'katana')) {
+        return {
+          effectId: 'samurai_basic_slash',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.25 : 1.0
+        };
+      }
+
+      if (fx.type === 'iaido_line' && fx.heroId === 'samurai') {
+        return {
+          effectId: 'samurai_heavy_iaido',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'samurai') {
+        return {
+          effectId: 'samurai_mobility_flashstep',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
     /**
-     * Returns true if this event is exclusively handled by the dedicated
-     * Knight, Ninja, Fire Archmage, or Desperado Cowboy VFX suite so legacy PixelFX doesn't double-render.
+     * Returns true if this event is exclusively handled by a dedicated
+     * 3D/Effekseer hero VFX suite so legacy PixelFX doesn't double-render.
      */
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
-      if (this.resolveServerFxMapping(fx)) return true;
+      const mapped = this.resolveServerFxMapping(fx);
+      // Samurai & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
+      if (mapped) {
+        const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
+        return !(meta && meta.hero === 'samurai');
+      }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
         return true;
