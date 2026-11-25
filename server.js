@@ -931,6 +931,13 @@ class GameRoom {
 
       this.emitFx('muzzle', player.x + dirX * 0.9, player.y + 1.0, player.z + dirZ * 0.9, {
         facing: player.facing,
+        heroId: player.heroId,
+        playerId: player.id,
+        originX: player.x,
+        originY: player.y,
+        originZ: player.z,
+        comboStep: player.comboStep,
+        isFinisher,
         color: hero.accentColor
       });
 
@@ -1337,7 +1344,17 @@ class GameRoom {
       case 'mage_weapon': { // Meteor Apocalypse
         const tx = player.x + dirX * 5.0;
         const tz = player.z + dirZ * 5.0;
-        this.emitFx('meteor_strike', tx, player.y, tz, { radius: 4.5, color: '#ef4444' });
+        this.emitFx('meteor_strike', tx, player.y, tz, {
+          radius: 4.5,
+          color: '#ef4444',
+          fromSkill: 'mage_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz
+        });
         this.hitAoE(player, tx, player.y, tz, 4.5, {
           damage: 30, knockback: 9.0, launchY: 11.0, stunMs: 1200, burn: true, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1356,7 +1373,17 @@ class GameRoom {
         break;
       }
       case 'mage_armor': { // Supernova Ring
-        this.emitFx('shockwave', player.x, player.y + 0.8, player.z, { radius: 4.5, color: '#f97316' });
+        this.emitFx('shockwave', player.x, player.y + 0.8, player.z, {
+          radius: 4.5,
+          color: '#f97316',
+          fromSkill: 'mage_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 4.4, {
           damage: 19, knockback: 8.5, launchY: 7.5, burn: true, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1367,13 +1394,36 @@ class GameRoom {
         break;
       }
       case 'mage_trinket': { // Flame Blink Warp
-        this.emitFx('shockwave', player.x, player.y + 0.5, player.z, { radius: 2.8, color: '#facc15' });
+        const startX = player.x, startZ = player.z;
+        this.emitFx('shockwave', startX, player.y + 0.5, startZ, {
+          radius: 2.8,
+          color: '#facc15',
+          fromSkill: 'mage_trinket',
+          isArrival: false,
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: startX,
+          originY: player.y,
+          originZ: startZ
+        });
         this.hitAoE(player, player.x, player.y, player.z, 2.8, {
           damage: 12, knockback: 5.0, burn: true, skillNameTh: skill.nameTh
         });
         player.x += dirX * 6.0;
         player.z += dirZ * 6.0;
-        this.emitFx('shockwave', player.x, player.y + 0.5, player.z, { radius: 2.8, color: '#ef4444' });
+        this.emitFx('shockwave', player.x, player.y + 0.5, player.z, {
+          radius: 2.8,
+          color: '#ef4444',
+          fromSkill: 'mage_trinket',
+          isArrival: true,
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 2.8, {
           damage: 14, knockback: 6.0, burn: true, skillNameTh: skill.nameTh
         });
@@ -1411,7 +1461,19 @@ class GameRoom {
       case 'cowboy_armor': { // TNT Dynamite Toss
         const tx = player.x + dirX * 4.5;
         const tz = player.z + dirZ * 4.5;
-        this.emitFx('explosion', tx, player.y + 0.5, tz, { radius: 4.0, color: '#ef4444' });
+        this.emitFx('explosion', tx, player.y + 0.5, tz, {
+          radius: 4.0,
+          color: '#ef4444',
+          fromSkill: 'cowboy_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz,
+          startX: player.x,
+          startZ: player.z
+        });
         this.hitAoE(player, tx, player.y, tz, 4.0, {
           damage: 25, knockback: 8.5, launchY: 10.5, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1451,7 +1513,16 @@ class GameRoom {
           skillNameTh: skill.nameTh
         });
         this.emitFx('lasso', player.x, player.y + 1.0, player.z, {
-          tx: player.x + dirX * 8.0, tz: player.z + dirZ * 8.0, color: '#d97706'
+          tx: player.x + dirX * 8.0,
+          tz: player.z + dirZ * 8.0,
+          color: '#d97706',
+          fromSkill: 'cowboy_trinket',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
         });
         break;
       }

@@ -607,8 +607,7 @@ export class FxSystem {
         size: rand(0.12, 0.3), sizeEnd: 0.02, life: rand(0.07, 0.16), drag: 7, tile: 'dot'
       });
     }
-    const len = big ? 6 : 3.2;
-    this.beam(x, y, z, x + dx * len, y + dy * len, z + dz * len, big ? 0.16 : 0.08, '#ffd27a', big ? 0.14 : 0.08, { k: big ? 1.8 : 2.2 });
+    // Keep only the real 3D bullet projectile (no duplicate tracer beam line)
     this.norm.spawn({ x: x + dx * 0.25, y: y + dy * 0.25, z: z + dz * 0.25, vx: dx * 1.4, vy: 0.5, vz: dz * 1.4, color: '#d6cec4', size: big ? 0.6 : 0.3, sizeEnd: big ? 1.8 : 1.0, life: 0.55, alpha: 0.45, drag: 3, tile: 'dust' });
     const sl = Math.hypot(dx, dz) || 1;
     const sx = -dz / sl, sz = dx / sl;

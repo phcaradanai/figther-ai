@@ -18,6 +18,8 @@ import { ChibiView, buildGearItem } from './chibi.js';
 import { FxSystem } from './fx.js';
 import { KnightThreeVFX } from './knight_effekseer_3d.js';
 import { NinjaThreeVFX } from './ninja_effekseer_3d.js';
+import { MageThreeVFX } from './mage_effekseer_3d.js';
+import { CowboyThreeVFX } from './cowboy_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
@@ -83,7 +85,7 @@ export class ThreeRenderer {
       floorY: (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     };
 
-    // Dedicated Iron Knight & Shadow Ninja 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
+    // Dedicated Iron Knight, Shadow Ninja & Fire Archmage 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
     this.knightVfx = new KnightThreeVFX(
       this.scene,
       this.camera,
@@ -91,6 +93,18 @@ export class ThreeRenderer {
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
     this.ninjaVfx = new NinjaThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.mageVfx = new MageThreeVFX(
+      this.scene,
+      this.camera,
+      (a) => this.addShake(a),
+      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
+    );
+    this.cowboyVfx = new CowboyThreeVFX(
       this.scene,
       this.camera,
       (a) => this.addShake(a),
@@ -180,6 +194,7 @@ export class ThreeRenderer {
   processServerFx(list) {
     for (const fx of list) {
       let shooter = null;
+      let skipLegacyTwinGunMuzzle = false;
       if (fx.type === 'muzzle') {
         // Tag the shot with the shooter's style/clip so the FX can differ per hero
         const f = fx.facing || 0;
@@ -187,13 +202,15 @@ export class ThreeRenderer {
         if (shooter) {
           fx._style = shooter.view.style;
           fx._clip = shooter.view.currentName;
-          // The twin gunner's flashes come from its real barrels (ChibiView SHOTS)
-          if (shooter.view.style === 'twingun') continue;
+          // Legacy barrel flash comes from ChibiView SHOTS, but still let CowboyThreeVFX run!
+          if (shooter.view.style === 'twingun') skipLegacyTwinGunMuzzle = true;
         }
       }
       const handledByHeroVfx =
         !!(this.knightVfx && this.knightVfx.handleServerFx(fx)) ||
-        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx));
+        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx)) ||
+        !!(this.mageVfx && this.mageVfx.handleServerFx(fx)) ||
+        !!(this.cowboyVfx && this.cowboyVfx.handleServerFx(fx));
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -201,7 +218,7 @@ export class ThreeRenderer {
         } else if ((fx.type === 'parry' || fx.type === 'block') && fx.text) {
           this.fx.text(fx.x, fx.y + 0.6, fx.z, fx.text, fx.color || '#7dd3fc', fx.type === 'parry' ? 'big' : 'info');
         }
-      } else {
+      } else if (!skipLegacyTwinGunMuzzle) {
         this.fx.handle(fx);
       }
       if (shooter && shooter.view.style === 'gun') {
@@ -446,7 +463,12 @@ export class ThreeRenderer {
       }
       case 'bullet':
       case 'magnum': {
-        add(new THREE.CapsuleGeometry(0.5, 1.2, 3, 8), glow(color, 2.6), [r * 0.45, r * 0.45, r * 0.45]).rotation.z = Math.PI / 2;
+        const isMag = pr.type === 'magnum';
+        const s = isMag ? 1.25 : 0.9;
+        const body = add(new THREE.CylinderGeometry(0.11 * s, 0.11 * s, 0.55 * s, 8), glow(color, 2.5), [1, 1, 1], [-0.08 * s, 0, 0]);
+        body.rotation.z = Math.PI / 2;
+        const tip = add(new THREE.ConeGeometry(0.11 * s, 0.28 * s, 8), glow('#fff7cc', 2.8), [1, 1, 1], [0.33 * s, 0, 0]);
+        tip.rotation.z = -Math.PI / 2;
         break;
       }
       default:
@@ -490,7 +512,9 @@ export class ThreeRenderer {
         e.trailT = 0.016;
         const c = e.obj.userData.trail || e.obj.userData.color;
         const p = e.obj.position;
-        this.fx.add.spawn({ x: p.x, y: p.y, z: p.z, color: c, intensity: 2, size: Math.max(0.35, (pr.radius || 0.3) * 1.4), sizeEnd: 0.05, life: 0.28, tile: 'dot' });
+        if (pr.type !== 'bullet' && pr.type !== 'magnum') {
+          this.fx.add.spawn({ x: p.x, y: p.y, z: p.z, color: c, intensity: 2, size: Math.max(0.35, (pr.radius || 0.3) * 1.4), sizeEnd: 0.05, life: 0.28, tile: 'dot' });
+        }
         if (pr.type === 'fireball' || pr.type === 'homing_missile') {
           this.fx.norm.spawn({ x: p.x, y: p.y, z: p.z, vy: 0.6, color: '#57534e', size: 0.4, sizeEnd: 0.9, life: 0.5, alpha: 0.4, tile: 'dust' });
         }
@@ -749,6 +773,8 @@ export class ThreeRenderer {
     this.fx.update(dt);
     if (this.knightVfx) this.knightVfx.update(dt, state);
     if (this.ninjaVfx) this.ninjaVfx.update(dt);
+    if (this.mageVfx) this.mageVfx.update(dt, state);
+    if (this.cowboyVfx) this.cowboyVfx.update(dt);
     this.composer.render(dt);
     if (window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
