@@ -724,6 +724,108 @@
       attachToCaster: false,
       color: '#67e8f9',
       desc: 'เปลวไอพ่นปีกคู่ + วงคลื่นแรงขับเต็มวงและระเบิด Grooving Starburst'
+    },
+
+    // ========================================================================
+    // 8. VIKING BERSERKER (ไวกิ้งคลั่ง — NORSE RAGNAROK 3D-ONLY SUITE)
+    // ========================================================================
+    viking_basic_axe: {
+      id: 'viking_basic_axe',
+      hero: 'viking',
+      nameTh: 'คอมโบสับขวานคู่ (Twin Battleaxe Cleave)',
+      file: '/assets/vfx/viking/viking_basic_axe.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_basic_axe.efk',
+      sourceFile: '/assets/vfx/viking/viking_basic_axe.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.40,
+      attachToCaster: false,
+      color: '#f97316',
+      desc: 'คลื่นสับขวานหนักสีทองแดง-เพลิง + ท่าสับคู่ไขว้ทุบพื้นแตกปิดคอมโบ'
+    },
+    viking_heavy_whirlwind: {
+      id: 'viking_heavy_whirlwind',
+      hero: 'viking',
+      nameTh: 'พายุขวานหมุน (Whirlwind Axe)',
+      file: '/assets/vfx/viking/viking_heavy_whirlwind.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_heavy_whirlwind.efk',
+      sourceFile: '/assets/vfx/viking/viking_heavy_whirlwind.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.82,
+      attachToCaster: false,
+      color: '#ea580c',
+      desc: 'พายุขวานคู่ 360 องศาซ้อน 3 ชั้น + วงเวทรูนนอร์สและเศษหินปลิวทะลวงการ์ด'
+    },
+    viking_weapon: {
+      id: 'viking_weapon',
+      hero: 'viking',
+      nameTh: '[Q/SD] ขวานแร็กนาร็อกผ่าปฐพี (Ragnarok Earthshatter)',
+      file: '/assets/vfx/viking/viking_skill_weapon_ragnarok.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_skill_weapon_ragnarok.efk',
+      sourceFile: '/assets/vfx/viking/viking_skill_weapon_ragnarok.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.55,
+      attachToCaster: false,
+      color: '#ea580c',
+      desc: 'หลุมแผ่นดินแยก 9.4 ม. + วงเวทรูนนอร์ส + เสาหินภูเขาไฟ 9 ต้นปะทุรอบหลุมและก้อนหินกระเด็น'
+    },
+    viking_armor: {
+      id: 'viking_armor',
+      hero: 'viking',
+      nameTh: '[E/ASD] โหมดคลั่งวัลฮัลลา (Valhalla Berserk)',
+      file: '/assets/vfx/viking/viking_skill_armor_valhalla.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_skill_armor_valhalla.efk',
+      sourceFile: '/assets/vfx/viking/viking_skill_armor_valhalla.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 6.0,
+      attachToCaster: true,
+      color: '#ef4444',
+      desc: 'วงรูนวัลฮัลลาใต้เท้า + เปลวเพลิงคลั่งสีแดงเพลิงห่อหุ้มตัวนาน 6 วินาทีพร้อมคลื่นคำราม'
+    },
+    viking_helmet: {
+      id: 'viking_helmet',
+      hero: 'viking',
+      nameTh: '[R/AD] จับทุ่มยักษ์ไวกิ้ง (Colossus Hurl Throw)',
+      file: '/assets/vfx/viking/viking_skill_helmet_colossus.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_skill_helmet_colossus.efk',
+      sourceFile: '/assets/vfx/viking/viking_skill_helmet_colossus.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.78,
+      attachToCaster: false,
+      color: '#fb923c',
+      desc: 'แรงกระแทกคว้ายักษ์ + วงคลื่นเหวี่ยง 3 ชั้นและพื้นแยกใต้เท้ายันตัว'
+    },
+    viking_trinket: {
+      id: 'viking_trinket',
+      hero: 'viking',
+      nameTh: '[F/AS] ขวานบินบูมเมอแรง (Boomerang Tomahawk)',
+      file: '/assets/vfx/viking/viking_skill_trinket_tomahawk.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_skill_trinket_tomahawk.efk',
+      sourceFile: '/assets/vfx/viking/viking_skill_trinket_tomahawk.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.62,
+      attachToCaster: false,
+      color: '#fdba74',
+      desc: 'วงหมุนแรงเหวี่ยงขวานบูมเมอแรง + วงรูนนอร์สใต้เท้าและประกายไฟเตาหลอม'
+    },
+    viking_mobility_rush: {
+      id: 'viking_mobility_rush',
+      hero: 'viking',
+      nameTh: 'วิ่งคลั่งชนแหลก / โดดยักษ์ (Berserk Bull Rush)',
+      file: '/assets/vfx/viking/viking_mobility_rush.efkefc',
+      fallbackFile: '/assets/vfx/viking/viking_mobility_rush.efk',
+      sourceFile: '/assets/vfx/viking/viking_mobility_rush.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.48,
+      attachToCaster: false,
+      color: '#fb923c',
+      desc: 'คลื่นกระทืบพื้นสั่นสะเทือน + เศษหินและประกายไฟปลิวกระจาย'
     }
   };
 
@@ -1518,6 +1620,69 @@
         };
       }
 
+      // --- VIKING BERSERKER (3D + EFFEKSEER) ---
+      if (fx.type === 'earthshatter' && fx.fromSkill === 'viking_weapon') {
+        return {
+          effectId: 'viking_weapon',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'skill_cast' && ['viking_armor', 'viking_helmet', 'viking_trinket'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'slash' && (fx.heroId === 'viking' || fx.weaponType === 'twin_axes')) {
+        return {
+          effectId: 'viking_basic_axe',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.24 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_impact' && fx.heroId === 'viking') {
+        return {
+          effectId: 'viking_heavy_whirlwind',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.9),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'viking') {
+        return {
+          effectId: 'viking_mobility_rush',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
@@ -1528,10 +1693,10 @@
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
       const mapped = this.resolveServerFxMapping(fx);
-      // Samurai, Witch, Cyborg & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
+      // Samurai, Witch, Cyborg, Viking & later heroes are 3D-only (do not suppress 2D legacy renderer for them)
       if (mapped) {
         const meta = KNIGHT_VFX_CATALOG[mapped.effectId];
-        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg'));
+        return !(meta && (meta.hero === 'samurai' || meta.hero === 'witch' || meta.hero === 'cyborg' || meta.hero === 'viking'));
       }
       if (fx.type === 'heavy_cast' && (fx.heroId === 'knight' || fx.heroId === 'ninja' || fx.heroId === 'mage')) return true;
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {

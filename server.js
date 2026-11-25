@@ -1908,7 +1908,17 @@ class GameRoom {
       case 'viking_weapon': { // Ragnarok Earthshatter (Extreme Ring-Out Knockback!)
         const tx = player.x + dirX * 2.5;
         const tz = player.z + dirZ * 2.5;
-        this.emitFx('earthshatter', tx, player.y, tz, { radius: 4.6, color: '#ea580c' });
+        this.emitFx('earthshatter', tx, player.y, tz, {
+          radius: 4.6,
+          color: '#ea580c',
+          fromSkill: 'viking_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz
+        });
         this.hitAoE(player, tx, player.y, tz, 4.6, {
           damage: 28, knockback: 12.5, launchY: 10.0, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1918,7 +1928,17 @@ class GameRoom {
         player.berserkUntil = now + 6000;
         player.superArmorUntil = now + 6000;
         player.speedBuffUntil = now + 6000;
-        this.emitFx('shockwave', player.x, player.y + 0.8, player.z, { radius: 3.8, color: '#f97316' });
+        this.emitFx('shockwave', player.x, player.y + 0.8, player.z, {
+          radius: 3.8,
+          color: '#f97316',
+          fromSkill: 'viking_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 3.5, {
           damage: 14, knockback: 6.5, skillNameTh: skill.nameTh
         });
