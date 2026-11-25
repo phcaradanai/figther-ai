@@ -111,7 +111,7 @@ test('hiding the tab releases inputs even without a blur event', async () => {
   assert.deepEqual(client.input(), neutralInput);
 });
 
-test('returning to the game accepts fresh keys without phantom sprint or dash', async () => {
+test('returning to the game accepts fresh keys without a phantom double-tap dash', async () => {
   const client = await createClient();
   client.keyDown('KeyD');
   client.keyDown('Space');
@@ -145,12 +145,22 @@ test('focus loss forgets taps made before switching windows', async () => {
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
 });
 
-test('holding Shift sprints instead of sending a dodge dash', async () => {
+test('normal double-tap dash still works after focus returns', async () => {
   const client = await createClient();
-  const start = client.packets.length;
+  client.blur();
+  client.focus();
   client.keyDown('KeyD');
   client.keyUp('KeyD');
   client.advance(100);
+  client.keyDown('KeyD');
+  assert.equal(client.packets.at(-1).type, 'dash');
+  client.keyDown('KeyJ');
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', isDash: true });
+});
+
+test('holding Shift sprints without sending a dash', async () => {
+  const client = await createClient();
+  const start = client.packets.length;
   client.keyDown('KeyD');
   client.keyDown('ShiftLeft');
   client.tick();

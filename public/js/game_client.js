@@ -92,6 +92,9 @@ window.startArenaGame = function (renderer) {
 
   // Input tracking (Facing is controlled strictly by movement keys W/A/S/D or Arrows, never by mouse!)
   const keys = {};
+  let lastTapKey = null;
+  let lastTapTime = 0;
+  let isDashReady = false;
   let localFacing = null;
 
   // DOM Elements
@@ -515,11 +518,23 @@ window.startArenaGame = function (renderer) {
     return !!(keys['ShiftLeft'] || keys['ShiftRight']);
   }
 
-  // Attacking while sprinting and moving becomes a dash attack (server re-checks)
+  // Attacking right after a dodge dash, or while sprinting and moving, is a dash attack (server re-checks)
   function sendBasicAttack() {
     if (!ws || ws.readyState !== 1) return;
     const mv = getCurrentWorldMove();
-    ws.send(JSON.stringify({ type: 'attack', isDash: isSprintHeld() && (mv.ix !== 0 || mv.iz !== 0) }));
+    ws.send(JSON.stringify({ type: 'attack', isDash: isDashReady || (isSprintHeld() && (mv.ix !== 0 || mv.iz !== 0)) }));
+    isDashReady = false;
+  }
+
+  function triggerDash() {
+    if (!ws || ws.readyState !== 1) return;
+    const mv = getCurrentWorldMove();
+    isDashReady = true;
+    ws.send(JSON.stringify({
+      type: 'dash',
+      dx: mv.ix !== 0 || mv.iz !== 0 ? mv.mx : null,
+      dz: mv.ix !== 0 || mv.iz !== 0 ? mv.mz : null
+    }));
   }
 
   window.addEventListener('keydown', (e) => {
@@ -529,8 +544,27 @@ window.startArenaGame = function (renderer) {
     }
 
     const code = e.code;
+    const now = performance.now();
+
+    // Double-tap a movement key for the dodge Dash / Air Dash
+    const isMoveKey = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code);
     const wasPressed = !!keys[code];
     keys[code] = true;
+
+    if (!wasPressed && isMoveKey) {
+      if (lastTapKey === code && now - lastTapTime < 280) {
+        triggerDash();
+      }
+      lastTapKey = code;
+      lastTapTime = now;
+    }
+
+    // Dedicated Dash / Air Dash hotkey (C or Left Alt)
+    if (!wasPressed && (code === 'KeyC' || code === 'AltLeft')) {
+      e.preventDefault();
+      triggerDash();
+      return;
+    }
 
     // Jump / Double Jump / Triple Jump / Flight Mode (Space)
     if (code === 'Space' && !wasPressed) {
@@ -593,6 +627,9 @@ window.startArenaGame = function (renderer) {
 
   function releaseInputs() {
     for (const code of Object.keys(keys)) delete keys[code];
+    lastTapKey = null;
+    lastTapTime = 0;
+    isDashReady = false;
 
     // Send immediately: background tabs can throttle the regular input timer.
     if (ws && ws.readyState === 1) {
@@ -634,8 +671,11 @@ window.startArenaGame = function (renderer) {
     if (!ws || ws.readyState !== 1 || !lobbyModal.classList.contains('hidden')) return;
 
     const mv = getCurrentWorldMove();
+    if (mv.ix === 0 && mv.iz === 0) {
+      isDashReady = false;
+    }
 
-    const guard = !!(keys['KeyL'] || keys['KeyC']);
+    const guard = !!keys['KeyL'];
     const jumpHeld = !!keys['Space'];
     const sprinting = isSprintHeld();
 

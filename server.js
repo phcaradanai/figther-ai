@@ -2314,9 +2314,11 @@ class GameRoom {
     bot.input.sprinting = !!target && minDist > 5.0 && bot.mobilityGauge >= (bot.input.sprinting ? 20 : 45);
 
     if (!target) return;
-    // Jump / Double Jump if target is higher or chasing
+    // Jump / Double Jump / Dash if target is higher or chasing
     if (target.y > bot.y + 0.8 && Math.random() < 0.12) {
       this.performJumpOrFly(bot);
+    } else if (minDist > 5.0 && minDist < 10.0 && bot.mobilityGauge >= 45 && Math.random() < 0.035) {
+      this.performDash(bot, bot.input.mx, bot.input.mz);
     } else if (!bot.grounded && hero.mobility?.canFly && bot.mobilityGauge > 40 && Math.random() < 0.08) {
       this.performJumpOrFly(bot);
     }
@@ -2928,11 +2930,15 @@ wss.on('connection', (ws) => {
         break;
       }
       case 'dash': {
-        // Dodge dash was replaced by hold-Shift sprint; old clients' packets are ignored.
+        currentRoom.performDash(
+          currentPlayer,
+          typeof msg.dx === 'number' ? msg.dx : null,
+          typeof msg.dz === 'number' ? msg.dz : null
+        );
         break;
       }
       case 'attack': {
-        currentRoom.performBasicAttack(currentPlayer, !!msg.isDash && currentPlayer.isSprinting, !currentPlayer.grounded);
+        currentRoom.performBasicAttack(currentPlayer, !!msg.isDash && (currentPlayer.isSprinting || Date.now() < currentPlayer.dashUntil + 400), !currentPlayer.grounded);
         break;
       }
       case 'heavy': {
