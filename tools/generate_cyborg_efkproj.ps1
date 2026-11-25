@@ -194,21 +194,21 @@ $childrenXml
 
 Write-Host "Generating 7 Cyborg (Musketeer x Cyber-Plasma) Effekseer 1.80.8 .efkproj files in $OutDir ..."
 
-# 1. Basic Attack: Grooving Muzzle Electric Starburst & Sweeping Plasma Ribbon
+# 1. Basic Attack: Grooving Muzzle Electric Starburst & Conical Plasma Blast (0% slash!)
 Write-EfkProj "cyborg_basic_plasma.efkproj" 24 @(
     (Make-SpriteNode -Name "GroovingStarburst" -Texture "grooving_starburst.png" -Life 18 -Pos @(0, 1.02, 0.98) -RotVel @(0, 0, 10.0) -ScaleStart @(0.9, 0.9, 1) -ScaleEnd @(2.3, 2.3, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0),
     (Make-SpriteNode -Name "CasterFloorWave" -Texture "cerulean_wave_ring.png" -Life 22 -Pos @(0, 0.06, 0) -Rot @(-90, 0, 0) -ScaleStart @(0.9, 0.9, 1) -ScaleEnd @(2.2, 2.2, 1) -ColorStart @(56, 189, 248, 220) -ColorEnd @(249, 115, 22, 0) -Billboard 2),
-    (Make-SpriteNode -Name "BirdfallRibbon" -Texture "birdfall_ribbon.png" -Life 20 -Pos @(0, 1.02, 1.05) -Rot @(-82, 0, -90) -RotVel @(0, 0, 14.0) -ScaleStart @(1.1, 1.1, 1) -ScaleEnd @(2.4, 2.4, 1) -ColorStart @(103, 232, 249, 240) -ColorEnd @(129, 140, 248, 0) -Billboard 2),
+    (Make-SpriteNode -Name "MuzzlePlasmaCone" -Texture "penetration_cone.png" -Life 16 -Pos @(0, 1.02, 1.65) -Rot @(-90, 0, -90) -ScaleStart @(1.0, 0.7, 1) -ScaleEnd @(1.9, 1.3, 1) -ColorStart @(103, 232, 249, 245) -ColorEnd @(129, 140, 248, 0) -Billboard 2),
     (Make-SpriteNode -Name "OverdriveSparks" -Texture "overdrive_spark.png" -Count 10 -Life 18 -Pos @(0, 1.02, 1.05) -Vel @(0, 0.04, 0.14) -VelMax @(0.08, 0.06, 0.08) -ScaleStart @(0.22, 0.48, 1) -ScaleEnd @(0.05, 0.12, 1) -ColorStart @(251, 191, 36, 255) -ColorEnd @(249, 115, 22, 0) -Billboard 0)
 )
 
-# 2. Heavy Attack: Penetration Shot Roaring Conical Plasma Blast
+# 2. Heavy Attack: Penetration Shot Roaring Conical Plasma Blast (0% slash!)
 Write-EfkProj "cyborg_heavy_laser.efkproj" 42 @(
     (Make-SpriteNode -Name "PenetrationConeH" -Texture "penetration_cone.png" -Life 30 -Pos @(0, 1.04, 2.9) -Rot @(-90, 0, -90) -ScaleStart @(1.8, 1.2, 1) -ScaleEnd @(4.6, 2.9, 1) -ColorStart @(255, 237, 213, 255) -ColorEnd @(234, 88, 12, 0) -Billboard 2),
     (Make-SpriteNode -Name "PenetrationConeV" -Texture "penetration_cone.png" -Life 30 -Pos @(0, 1.04, 2.9) -Rot @(0, 90, 0) -ScaleStart @(1.8, 1.2, 1) -ScaleEnd @(4.6, 2.5, 1) -ColorStart @(224, 248, 255, 255) -ColorEnd @(56, 189, 248, 0) -Billboard 2),
     (Make-SpriteNode -Name "GroovingMuzzleNova" -Texture "grooving_starburst.png" -Life 24 -Pos @(0, 1.04, 1.15) -RotVel @(0, 0, -9.0) -ScaleStart @(1.4, 1.4, 1) -ScaleEnd @(3.6, 3.6, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0),
     (Make-SpriteNode -Name "CasterCeruleanRing" -Texture "cerulean_wave_ring.png" -Life 36 -Pos @(0, 0.06, 0) -Rot @(-90, 0, 0) -ScaleStart @(1.2, 1.2, 1) -ScaleEnd @(4.4, 4.4, 1) -ColorStart @(56, 189, 248, 250) -ColorEnd @(249, 115, 22, 0) -Billboard 2),
-    (Make-SpriteNode -Name "PrimeRecoilRibbon" -Texture "birdfall_ribbon.png" -Life 32 -Pos @(0, 1.0, 0) -Rot @(-85, 0, 0) -RotVel @(0, 0, 14.0) -ScaleStart @(1.5, 1.5, 1) -ScaleEnd @(3.4, 3.4, 1) -ColorStart @(129, 140, 248, 245) -ColorEnd @(56, 189, 248, 0) -Billboard 2)
+    (Make-SpriteNode -Name "RecoilLightning" -Texture "plasma_arc_bolt.png" -Count 3 -Life 24 -Pos @(0, 1.06, 2.0) -PosRand 0.6 -ScaleStart @(0.8, 1.8, 1) -ScaleEnd @(0.4, 2.4, 1) -ColorStart @(224, 248, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0)
 )
 
 # 3. [Q/SD] Weapon Skill: Buster Beam (9.5m Plasma Cannon + Cone Blast + Snipe Shatter)
@@ -221,21 +221,21 @@ Write-EfkProj "cyborg_skill_weapon_buster.efkproj" 76 @(
     (Make-SpriteNode -Name "TerminalGroovingNova" -Texture "grooving_starburst.png" -Life 46 -Delay 4 -Pos @(0, 1.4, 9.5) -ScaleStart @(2.2, 2.2, 1) -ScaleEnd @(6.4, 6.4, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0)
 )
 
-# 4. [E/ASD] Armor Skill: EMP Gravity Field (Dual-Tone Cerulean-Orange Wave + Hex Dome + Ribbons)
+# 4. [E/ASD] Armor Skill: EMP Gravity Field (Dual-Tone Cerulean-Orange Wave + Hex Dome + Pull Waves)
 Write-EfkProj "cyborg_skill_armor_emp.efkproj" 82 @(
     (Make-SpriteNode -Name "DualToneEMPWave" -Texture "cerulean_wave_ring.png" -Life 74 -Pos @(0, 0.06, 0) -Rot @(-90, 0, 0) -RotVel @(0, 0, -5.0) -ScaleStart @(2.4, 2.4, 1) -ScaleEnd @(9.8, 9.8, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(56, 189, 248, 0) -Billboard 2),
     (Make-SpriteNode -Name "HexDomeGrid" -Texture "hex_emp_grid.png" -Life 72 -Pos @(0, 2.2, 0) -ScaleStart @(3.6, 2.6, 1) -ScaleEnd @(9.2, 4.6, 1) -ColorStart @(129, 140, 248, 225) -ColorEnd @(56, 189, 248, 0) -Billboard 0),
-    (Make-SpriteNode -Name "PrimeSwirlRibbons" -Texture "birdfall_ribbon.png" -Count 3 -Life 62 -Pos @(0, 1.1, 0) -Rot @(-84, 0, 0) -RotVel @(0, 0, 16.0) -ScaleStart @(8.4, 8.4, 1) -ScaleEnd @(1.6, 1.6, 1) -ColorStart @(103, 232, 249, 245) -ColorEnd @(139, 92, 246, 0) -Billboard 2),
+    (Make-SpriteNode -Name "ImplosionPullWave" -Texture "cerulean_wave_ring.png" -Life 52 -Pos @(0, 0.14, 0) -Rot @(-90, 0, 0) -RotVel @(0, 0, 6.0) -ScaleStart @(9.6, 9.6, 1) -ScaleEnd @(1.4, 1.4, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 2),
     (Make-SpriteNode -Name "EMPDischargeArcs" -Texture "plasma_arc_bolt.png" -Count 8 -Life 54 -Pos @(0, 1.5, 0) -PosRand 2.2 -ScaleStart @(1.1, 2.8, 1) -ScaleEnd @(0.6, 3.4, 1) -ColorStart @(224, 248, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0),
     (Make-SpriteNode -Name "CenterGroovingBurst" -Texture "grooving_starburst.png" -Life 42 -Pos @(0, 1.15, 0) -ScaleStart @(1.8, 1.8, 1) -ScaleEnd @(5.2, 5.2, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(129, 140, 248, 0) -Billboard 0)
 )
 
-# 5. [R/AD] Helmet Skill: Covering Fire Missile Salvo (3 Fiery Energy Cones + Sweeping Arc!)
+# 5. [R/AD] Helmet Skill: Covering Fire Missile Salvo (3 Fiery Energy Cones, 0% slash!)
 Write-EfkProj "cyborg_skill_helmet_missiles.efkproj" 56 @(
     (Make-SpriteNode -Name "CoveringConeL" -Texture "penetration_cone.png" -Life 34 -Pos @(-0.8, 1.4, 1.3) -Rot @(-90, 20, -90) -ScaleStart @(1.2, 0.9, 1) -ScaleEnd @(2.8, 1.8, 1) -ColorStart @(251, 191, 36, 255) -ColorEnd @(234, 88, 12, 0) -Billboard 2),
     (Make-SpriteNode -Name "CoveringConeC" -Texture "penetration_cone.png" -Life 34 -Delay 2 -Pos @(0, 1.5, 1.5) -Rot @(-90, 0, -90) -ScaleStart @(1.3, 1.0, 1) -ScaleEnd @(3.1, 2.0, 1) -ColorStart @(255, 247, 204, 255) -ColorEnd @(249, 115, 22, 0) -Billboard 2),
     (Make-SpriteNode -Name "CoveringConeR" -Texture "penetration_cone.png" -Life 34 -Delay 4 -Pos @(0.8, 1.4, 1.3) -Rot @(-90, -20, -90) -ScaleStart @(1.2, 0.9, 1) -ScaleEnd @(2.8, 1.8, 1) -ColorStart @(251, 191, 36, 255) -ColorEnd @(234, 88, 12, 0) -Billboard 2),
-    (Make-SpriteNode -Name "BirdfallSweepArc" -Texture "birdfall_ribbon.png" -Life 40 -Pos @(0, 1.35, 0.9) -Rot @(-84, 0, -90) -RotVel @(0, 0, 10.0) -ScaleStart @(1.6, 1.6, 1) -ScaleEnd @(4.6, 4.6, 1) -ColorStart @(56, 189, 248, 250) -ColorEnd @(249, 115, 22, 0) -Billboard 2),
+    (Make-SpriteNode -Name "LaunchFloorWave" -Texture "cerulean_wave_ring.png" -Life 38 -Pos @(0, 0.06, 0.15) -Rot @(-90, 0, 0) -ScaleStart @(1.1, 1.1, 1) -ScaleEnd @(3.4, 3.4, 1) -ColorStart @(255, 255, 255, 240) -ColorEnd @(249, 115, 22, 0) -Billboard 2),
     (Make-SpriteNode -Name "SalvoStarburst" -Texture "grooving_starburst.png" -Life 28 -Pos @(0, 1.45, 1.0) -ScaleStart @(1.2, 1.2, 1) -ScaleEnd @(3.4, 3.4, 1) -ColorStart @(255, 247, 204, 255) -ColorEnd @(249, 115, 22, 0) -Billboard 0)
 )
 
@@ -249,9 +249,9 @@ Write-EfkProj "cyborg_skill_trinket_flight.efkproj" 70 @(
     (Make-SpriteNode -Name "ImpactGroovingNova" -Texture "grooving_starburst.png" -Life 38 -Pos @(0, 0.7, 5.0) -ScaleStart @(2.2, 2.2, 1) -ScaleEnd @(5.8, 5.8, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 0)
 )
 
-# 7. Mobility: Recoil Jetpack & Prime-and-Load Ribbon Boost
+# 7. Mobility: Recoil Wing Jetpack Boost (0% slash!)
 Write-EfkProj "cyborg_mobility_jetpack.efkproj" 30 @(
-    (Make-SpriteNode -Name "PrimeBoostRibbon" -Texture "birdfall_ribbon.png" -Life 26 -Pos @(0, 0.45, 0) -Rot @(-84, 0, 0) -RotVel @(0, 0, 15.0) -ScaleStart @(1.1, 1.1, 1) -ScaleEnd @(2.8, 2.8, 1) -ColorStart @(103, 232, 249, 255) -ColorEnd @(139, 92, 246, 0) -Billboard 2),
+    (Make-SpriteNode -Name "JetBoostWave" -Texture "cerulean_wave_ring.png" -Life 26 -Pos @(0, 0.08, 0) -Rot @(-90, 0, 0) -ScaleStart @(0.9, 0.9, 1) -ScaleEnd @(2.4, 2.4, 1) -ColorStart @(255, 255, 255, 255) -ColorEnd @(56, 189, 248, 0) -Billboard 2),
     (Make-SpriteNode -Name "JetPlume" -Texture "jet_thruster_plume.png" -Life 24 -Pos @(0, 0.95, -0.25) -ScaleStart @(0.65, 1.4, 1) -ScaleEnd @(0.3, 2.2, 1) -ColorStart @(251, 146, 60, 255) -ColorEnd @(56, 189, 248, 0) -Billboard 2),
     (Make-SpriteNode -Name "BoostSparks" -Texture "overdrive_spark.png" -Count 10 -Life 24 -Pos @(0, 0.7, 0) -PosRand 0.4 -Vel @(0, -0.06, -0.06) -VelMax @(0.08, 0.06, 0.08) -ScaleStart @(0.24, 0.5, 1) -ScaleEnd @(0.05, 0.12, 1) -ColorStart @(251, 191, 36, 255) -ColorEnd @(129, 140, 248, 0) -Billboard 0)
 )

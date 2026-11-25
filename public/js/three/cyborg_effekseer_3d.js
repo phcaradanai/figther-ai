@@ -16,7 +16,6 @@ import * as THREE from 'three';
 const CYBORG_TEX_NAMES = [
   'grooving_starburst',
   'penetration_cone',
-  'birdfall_ribbon',
   'buster_beam_core',
   'hex_emp_grid',
   'cerulean_wave_ring',
@@ -356,8 +355,8 @@ export class CyborgThreeVFX {
     };
 
     // ------------------------------------------------------------------------
-    // 1. BASIC ATTACK: GROOVING MUZZLE ELECTRIC STARBURST + SWIRLING ENERGY RIBBON
-    //    (ToS Musketeer 3:25 — 0% Cowboy smoke/star/crosshair!)
+    // 1. BASIC ATTACK: GROOVING MUZZLE ELECTRIC STARBURST + CONICAL PLASMA BLAST
+    //    (100% Energy Gunfire — ZERO sword-like slash crescents!)
     // ------------------------------------------------------------------------
     if (effectId === 'cyborg_basic_plasma') {
       duration = opts.isFinisher ? 0.50 : 0.34;
@@ -403,31 +402,17 @@ export class CyborgThreeVFX {
         mat.opacity = clamp01(1 - t * 1.35);
       });
 
-      // Sweeping Translucent Cerulean-Violet Birdfall Energy Ribbon arcing around barrel!
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
-        m.position.set(0, 1.04, 1.02);
-      }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.44, spinDir * 0.28, spinDir * (-1.1 + ease * 2.6) - Math.PI * 0.5);
-        const s = (opts.isFinisher ? 2.5 : 1.75) + ease * 1.1;
-        m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.1) * 0.86;
-      }, false);
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
-        m.position.set(0, 1.07, 1.05);
-      }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.44, spinDir * 0.28, spinDir * (-1.0 + ease * 2.6) - Math.PI * 0.5);
-        const s = (opts.isFinisher ? 2.35 : 1.65) + ease * 1.05;
-        m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.15);
+      // Directional Conical Plasma Muzzle Blast (compact cyan-violet on hits 1-2, roaring amber-violet on finisher!)
+      addBlastCone({
+        ox: 0, oy: 1.04, oz: 0.92,
+        length: opts.isFinisher ? 3.0 : 1.45,
+        width: opts.isFinisher ? 1.95 : 1.05,
+        life: opts.isFinisher ? 0.72 : 0.62,
+        hexA: opts.isFinisher ? '#fb923c' : '#38bdf8',
+        hexB: '#a78bfa',
+        darkHex: '#1e1b4b',
+        intensity: opts.isFinisher ? 2.8 : 2.5
       });
-
-      // Finisher (3rd shot): Roaring Amber-Cyan Penetration Energy Cone erupts forward!
-      if (opts.isFinisher) {
-        addBlastCone({
-          ox: 0, oy: 1.04, oz: 0.95, length: 2.9, width: 1.85,
-          life: 0.72, hexA: '#fb923c', hexB: '#a78bfa', darkHex: '#1e1b4b', intensity: 2.7
-        });
-      }
 
       // Warm Amber-Gold & Electric-Violet Grooving Muzzle Radial Spark Streaks (3:25!)
       addSparks(opts.isFinisher ? 12 : 7, {
@@ -441,8 +426,8 @@ export class CyborgThreeVFX {
     }
 
     // ------------------------------------------------------------------------
-    // 2. HEAVY ATTACK: PENETRATION SHOT CONICAL ENERGY BLAST + PRIME RECOIL RIBBONS!
-    //    (ToS Musketeer 1:21–1:25 — Wide Roaring Plasma Cone, ZERO Cowboy rings/crosshair!)
+    // 2. HEAVY ATTACK: PENETRATION SHOT CONICAL ENERGY BLAST + LIGHTNING RECOIL!
+    //    (ToS Musketeer 1:21–1:25 — Wide Roaring Plasma Cone, ZERO slashes!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_heavy_laser') {
       duration = 0.72;
@@ -492,19 +477,6 @@ export class CyborgThreeVFX {
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t * 1.45);
       });
-
-      // Twin Swirling Prime & Load Cerulean-Violet Energy Ribbons whipping around Cyborg!
-      for (let i = 0; i < 2; i++) {
-        const dir = i === 0 ? 1 : -1;
-        addMesh(this.geo.plane, 'birdfall_ribbon', i === 0 ? '#38bdf8' : '#a78bfa', 2.6, (m) => {
-          m.position.set(0, 0.95 + i * 0.45, 0.2);
-        }, (m, mat, t, ease) => {
-          m.rotation.set(-Math.PI * 0.46, dir * 0.22, dir * t * 9.0 + i * Math.PI);
-          const s = 1.6 + ease * 2.4;
-          m.scale.set(s, s, 1);
-          mat.opacity = clamp01(1 - t * 1.15);
-        });
-      }
 
       // Crackling High-Voltage Violet-Cyan Recoil Lightning Bolts
       for (let i = 0; i < 2; i++) {
@@ -556,17 +528,16 @@ export class CyborgThreeVFX {
         mat.opacity = clamp01(1 - t);
       });
 
-      // Swirling Prime & Load Cerulean-Violet Charge Ribbons coiling around Cyborg!
-      for (let i = 0; i < 3; i++) {
-        addMesh(this.geo.plane, 'birdfall_ribbon', i % 2 === 0 ? '#38bdf8' : '#a78bfa', 2.6, (m) => {
-          m.position.set(0, 0.7 + i * 0.55, 0);
-        }, (m, mat, t, ease) => {
-          m.rotation.set(-Math.PI * 0.48, 0, (i % 2 === 0 ? 1 : -1) * t * 11.0 + i * 2.1);
-          const s = 1.8 + ease * 2.6;
-          m.scale.set(s, s, 1);
-          mat.opacity = clamp01(1 - t * 1.15);
-        });
-      }
+      // Blinding Grooving Muzzle Discharge Starburst right at Buster Cannon Mouth!
+      addMesh(this.geo.plane, 'grooving_starburst', '#ffffff', 3.0, (m) => {
+        m.position.set(0, 1.08, 0.96);
+      }, (m, mat, t, ease) => {
+        m.quaternion.copy(this.camera.quaternion).premultiply(root.quaternion.clone().invert());
+        m.rotateZ(t * 6.0);
+        const s = 1.8 + ease * 2.8;
+        m.scale.set(s, s, 1);
+        mat.opacity = clamp01(1 - t * 1.35);
+      });
 
       // Roaring Amber-Gold Penetration Shot Muzzle Blast Cone at Cannon Mouth (Warm-vs-Cool Contrast!)
       addBlastCone({
@@ -734,17 +705,17 @@ export class CyborgThreeVFX {
         mat.opacity = (0.76 + 0.18 * Math.sin(t * 42)) * clamp01(fade);
       });
 
-      // 4 Reverse-Imploding Swirling Prime & Load Energy Arc Ribbons pulling inward (9.2m -> 1.6m!)
-      for (let i = 0; i < 4; i++) {
-        const delay = i * 0.11;
-        const dir = i % 2 === 0 ? 1 : -1;
-        addMesh(this.geo.plane, 'birdfall_ribbon', i % 2 === 0 ? '#67e8f9' : '#f97316', 2.65, (m) => {
-          m.position.set(0, 0.55 + i * 0.42, 0);
+      // 2 Reverse-Imploding Full-Circle Gravity Pull Waves contracting 9.6m -> 1.4m (0% slash arc!)
+      for (let i = 0; i < 2; i++) {
+        const delay = i * 0.24;
+        addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.55, (m) => {
+          m.rotation.x = -Math.PI * 0.5;
+          m.position.set(0, gyOffset + 0.10 + i * 0.22, 0);
         }, (m, mat, t) => {
-          const lt = (t - delay) / 0.74;
+          const lt = (t - delay) / 0.66;
           if (lt <= 0 || lt >= 1) { mat.opacity = 0; return; }
-          const s = 9.2 - easeOutCubic(lt) * 7.6; // Visibly pulls enemies inward!
-          m.rotation.set(-Math.PI * 0.46, dir * 0.18, dir * lt * 12.0 + i * 1.57);
+          const s = 9.6 - easeOutCubic(lt) * 8.2; // Visibly pulls enemies inward!
+          m.rotation.z = (i % 2 === 0 ? 1 : -1) * lt * 5.0;
           m.scale.set(s, s, 1);
           mat.opacity = clamp01(Math.sin(lt * Math.PI));
         });
@@ -808,24 +779,6 @@ export class CyborgThreeVFX {
         });
       }
 
-      // Wide Sweeping Birdfall Cerulean-Orange Energy Crescent Arc across launch front (3:33!)
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
-        m.position.set(0, 1.38, 0.95);
-      }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.46, 0, -1.25 + ease * 2.5 - Math.PI * 0.5);
-        const s = 1.9 + ease * 3.1;
-        m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.15) * 0.90;
-      }, false);
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#38bdf8', 2.7, (m) => {
-        m.position.set(0, 1.42, 0.98);
-      }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.46, 0, -1.15 + ease * 2.5 - Math.PI * 0.5);
-        const s = 1.8 + ease * 3.0;
-        m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.2);
-      });
-
       // Grooving Muzzle Warm-Gold & White Salvo Ignition Starburst
       addMesh(this.geo.plane, 'grooving_starburst', '#fde047', 2.9, (m) => {
         m.position.set(0, 1.45, 0.95);
@@ -872,7 +825,7 @@ export class CyborgThreeVFX {
       const localImpactFloor = new THREE.Vector3(worldTx - x, targetGroundY - y + 0.05, worldTz - z).applyQuaternion(invQ);
       const startPt = new THREE.Vector3(0, 3.2, 0);
 
-      // 1) Takeoff Dual-Tone Cerulean-Orange Wave + Twin Wing Afterburners + Swirling Lift Ribbon!
+      // 1) Takeoff Dual-Tone Cerulean-Orange Wave + Twin Wing Afterburners!
       addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
         m.rotation.x = -Math.PI * 0.5;
         m.position.set(0, gyOffset + 0.04, 0);
@@ -888,15 +841,6 @@ export class CyborgThreeVFX {
         const s = 1.1 + ease * 4.2;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t * 1.25);
-      });
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
-        m.position.set(0, 1.8, 0);
-      }, (m, mat, t, ease) => {
-        m.position.y = 0.6 + ease * 2.8;
-        m.rotation.set(-Math.PI * 0.48, 0, t * 14.0);
-        const s = 1.5 + ease * 2.2;
-        m.scale.set(s, s, 1);
-        mat.opacity = clamp01(1 - t * 1.2);
       });
 
       addThrusterPlume(-0.55, 2.75, -0.22, 3.1, 1.05, 0.08,  0.14, 0.0, 0.78);
@@ -1016,25 +960,24 @@ export class CyborgThreeVFX {
     }
 
     // ------------------------------------------------------------------------
-    // 7. MOBILITY: RECOIL THRUSTER & PRIME-AND-LOAD RIBBON BOOST (Air Jump / Dash!)
-    //    (Musketeer 1:00 Recoil Hop + 4:08 Swirling Blue-Violet Energy Ribbon!)
+    // 7. MOBILITY: RECOIL WING JETPACK BOOST (Air Jump / Dash — 0% slash!)
     // ------------------------------------------------------------------------
     else if (effectId === 'cyborg_mobility_jetpack') {
       duration = 0.48;
 
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#1e1b4b', 1.0, (m) => {
-        m.position.set(0, 0.35, 0);
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#1e1b4b', 1.0, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, 0.06, 0);
       }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.48, 0, t * 12.0);
-        const s = 1.1 + ease * 2.1;
+        const s = 0.9 + ease * 2.0;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t) * 0.88;
       }, false);
-      addMesh(this.geo.plane, 'birdfall_ribbon', '#67e8f9', 2.6, (m) => {
-        m.position.set(0, 0.40, 0);
+      addMesh(this.geo.plane, 'cerulean_wave_ring', '#ffffff', 2.4, (m) => {
+        m.rotation.x = -Math.PI * 0.5;
+        m.position.set(0, 0.10, 0);
       }, (m, mat, t, ease) => {
-        m.rotation.set(-Math.PI * 0.48, 0, t * 12.0);
-        const s = 1.05 + ease * 2.0;
+        const s = 0.85 + ease * 1.9;
         m.scale.set(s, s, 1);
         mat.opacity = clamp01(1 - t);
       });

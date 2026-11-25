@@ -170,30 +170,7 @@ public static class CyborgMusketeerTexGen
             return new[] { 1.0, Clamp01(0.72 + hot * 0.28), Clamp01(0.38 + hot * 0.62), a };
         });
 
-        // 3. birdfall_ribbon.png - ToS Musketeer "Birdfall" & "Prime and Load" Curved Swirling Energy Ribbon Arc!
-        SavePixelFunc(System.IO.Path.Combine(outDir, "birdfall_ribbon.png"), (nx, ny) =>
-        {
-            double r = Math.Sqrt(nx * nx + ny * ny);
-            double ang = Math.Atan2(ny, nx); // -PI..PI, arc sweeps ~230 degrees centered at +X
-            double normA = ang / Math.PI;    // -1..1
-            double arcSpan = SmoothStep(0.76, 0.48, Math.Abs(normA)) * SmoothStep(-0.76, -0.48, normA);
-
-            // Tapered razor ribbon thickness: widest at leading edge, tapering cleanly to tail
-            double taper = 0.05 + 0.17 * SmoothStep(0.72, -0.35, Math.Abs(normA - 0.18));
-            double radTarget = 0.72 - 0.05 * Math.Abs(normA);
-            double dist = Math.Abs(r - radTarget);
-            double noise = (Fbm(ang * 3.5 + 4.1, r * 12.0, 3) - 0.5) * 0.04;
-
-            double blade = SmoothStep(taper, 0.008, Math.Max(0.0, dist + noise)) * arcSpan;
-            double leadingRim = SmoothStep(0.038, 0.0, Math.Abs(r - (radTarget + taper * 0.42))) * arcSpan;
-            double innerTrail = SmoothStep(0.07, 0.0, Math.Abs(r - (radTarget - taper * 0.65))) * arcSpan * 0.55;
-
-            double a = Clamp01(blade * 0.88 + leadingRim + innerTrail);
-            double hot = Clamp01(leadingRim + blade * 0.45);
-            return new[] { Clamp01(0.45 + hot * 0.55), Clamp01(0.84 + hot * 0.16), 1.0, a };
-        });
-
-        // 4. buster_beam_core.png - Colossal Horizontal Plasma Buster Wave Stream
+        // 3. buster_beam_core.png - Colossal Horizontal Plasma Buster Wave Stream
         SavePixelFunc(System.IO.Path.Combine(outDir, "buster_beam_core.png"), (nx, ny) =>
         {
             double u = (nx + 1.0) * 0.5;

@@ -497,22 +497,31 @@ export class ThreeRenderer {
         break;
       }
       case 'plasma': {
-        // Futuristic spinning violet-cyan plasma energy disc + white diamond core (0% Cowboy bullet!)
-        const orb = add(new THREE.OctahedronGeometry(0.24, 0), glow('#ffffff', 3.0), [1.35, 0.72, 0.72]);
-        const ring = add(new THREE.TorusGeometry(0.32, 0.06, 8, 20), glow('#818cf8', 2.7), [1, 1, 1]);
-        ring.rotation.x = Math.PI / 2;
+        // Futuristic spinning violet-cyan plasma energy orb + perpendicular energy ring (gun energy pulse!)
+        add(new THREE.OctahedronGeometry(0.24, 0), glow('#ffffff', 3.0), [1.35, 0.72, 0.72]);
+        const ring = add(new THREE.TorusGeometry(0.30, 0.055, 8, 20), glow('#818cf8', 2.7), [1, 1, 1]);
+        ring.rotation.y = Math.PI / 2;
         g.userData.spin = ring;
-        g.userData.spinAxis = 'y';
+        g.userData.spinAxis = 'x';
         break;
       }
       case 'railgun': {
-        // Musketeer Penetration / Birdfall horizontal piercing plasma crescent wave (0% Cowboy magnum!)
-        const waveGeo = new THREE.RingGeometry(0.38, 1.05, 28, 1, -1.25, 2.5);
-        const outer = add(waveGeo, new THREE.MeshBasicMaterial({ color: hdr('#f97316', 2.7), transparent: true, opacity: 0.92, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), [1.45, 1.45, 1.45]);
-        outer.rotation.x = -Math.PI / 2;
-        const inner = add(new THREE.RingGeometry(0.48, 0.92, 28, 1, -1.1, 2.2), new THREE.MeshBasicMaterial({ color: hdr('#e0f7ff', 3.2), transparent: true, opacity: 0.98, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), [1.32, 1.32, 1.32], [0, 0.04, 0]);
-        inner.rotation.x = -Math.PI / 2;
-        const core = add(new THREE.OctahedronGeometry(0.28, 0), glow('#a78bfa', 3.0), [2.2, 0.45, 0.65], [0.25, 0.02, 0]);
+        // High-energy sci-fi plasma cannon beam pulse (elongated glowing plasma core + twin accelerator rings — 0% sword slash!)
+        const core = add(new THREE.CapsuleGeometry(0.18, 1.35, 6, 12), glow('#ffffff', 3.2), [1, 1, 1]);
+        core.rotation.z = Math.PI / 2;
+        const sheath = add(new THREE.CapsuleGeometry(0.30, 1.50, 6, 12), new THREE.MeshBasicMaterial({ color: hdr('#38bdf8', 2.4), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }), [1, 1, 1]);
+        sheath.rotation.z = Math.PI / 2;
+        const rings = new THREE.Group();
+        const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.055, 8, 20), glow('#f97316', 2.8));
+        r1.rotation.y = Math.PI / 2;
+        r1.position.x = 0.25;
+        const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 8, 20), glow('#a78bfa', 2.8));
+        r2.rotation.y = Math.PI / 2;
+        r2.position.x = -0.35;
+        rings.add(r1, r2);
+        g.add(rings);
+        g.userData.spin = rings;
+        g.userData.spinAxis = 'x';
         break;
       }
       default:
@@ -549,6 +558,7 @@ export class ThreeRenderer {
       const spin = e.obj.userData.spin;
       if (spin) {
         if (e.obj.userData.spinAxis === 'y') spin.rotation.y += dt * 22;
+        else if (e.obj.userData.spinAxis === 'x') spin.rotation.x += dt * 22;
         else spin.rotation.z += dt * 24;
       }
       e.trailT -= dt;

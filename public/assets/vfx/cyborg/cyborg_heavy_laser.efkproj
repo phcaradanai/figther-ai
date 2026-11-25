@@ -278,77 +278,82 @@
       </Node>
       <Node>
         <CommonValues>
-          <MaxGeneration><Value>1</Value></MaxGeneration>
-          <Life><Center>32</Center><Max>32</Max><Min>32</Min></Life>
+          <MaxGeneration><Value>3</Value></MaxGeneration>
+          <Life><Center>24</Center><Max>24</Max><Min>24</Min></Life>
           <GenerationTime><Center>1</Center><Max>1</Max><Min>1</Min></GenerationTime>
           <GenerationTimeOffset><Center>0</Center><Max>0</Max><Min>0</Min></GenerationTimeOffset>
         </CommonValues>
         <LocationValues>
-          <Type>0</Type>
-          <Fixed>
-            <Location><X>0</X><Y>1</Y><Z>0</Z></Location>
-          </Fixed>
-        </LocationValues>
-        <RotationValues>
           <Type>1</Type>
           <PVA>
-            <Rotation>
-              <X><Center>-85</Center><Max>-85</Max><Min>-85</Min></X>
-              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>0</Center><Max>0</Max><Min>0</Min></Z>
-            </Rotation>
+            <Location>
+              <X><Center>0</Center><Max>0.6</Max><Min>-0.6</Min></X>
+              <Y><Center>1.06</Center><Max>1.36</Max><Min>0.76</Min></Y>
+              <Z><Center>2</Center><Max>2.6</Max><Min>1.4</Min></Z>
+            </Location>
             <Velocity>
               <X><Center>0</Center><Max>0</Max><Min>0</Min></X>
               <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>14</Center><Max>14</Max><Min>14</Min></Z>
+              <Z><Center>0</Center><Max>0</Max><Min>0</Min></Z>
             </Velocity>
+            <Acceleration>
+              <X><Center>0</Center><Max>0</Max><Min>0</Min></X>
+              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
+              <Z><Center>0</Center><Max>0</Max><Min>0</Min></Z>
+            </Acceleration>
           </PVA>
+        </LocationValues>
+        <RotationValues>
+          <Type>0</Type>
+          <Fixed>
+            <Rotation><X>0</X><Y>0</Y><Z>0</Z></Rotation>
+          </Fixed>
         </RotationValues>
         <ScalingValues>
           <Type>2</Type>
           <Easing>
             <Start>
-              <X><Center>1.5</Center><Max>1.5</Max><Min>1.5</Min></X>
-              <Y><Center>1.5</Center><Max>1.5</Max><Min>1.5</Min></Y>
+              <X><Center>0.8</Center><Max>0.8</Max><Min>0.8</Min></X>
+              <Y><Center>1.8</Center><Max>1.8</Max><Min>1.8</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
-              <X><Center>3.4</Center><Max>3.4</Max><Min>3.4</Min></X>
-              <Y><Center>3.4</Center><Max>3.4</Max><Min>3.4</Min></Y>
+              <X><Center>0.4</Center><Max>0.4</Max><Min>0.4</Min></X>
+              <Y><Center>2.4</Center><Max>2.4</Max><Min>2.4</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
         </ScalingValues>
         <RendererCommonValues>
-          <ColorTexture>textures/birdfall_ribbon.png</ColorTexture>
+          <ColorTexture>textures/plasma_arc_bolt.png</ColorTexture>
           <AlphaBlend>2</AlphaBlend>
           <ZWrite>False</ZWrite>
           <ZTest>True</ZTest>
           <FadeOutType>1</FadeOutType>
-          <FadeOut><Frame>9</Frame></FadeOut>
+          <FadeOut><Frame>7</Frame></FadeOut>
         </RendererCommonValues>
         <DrawingValues>
           <Type>2</Type>
           <Sprite>
-            <Billboard>2</Billboard>
+            <Billboard>0</Billboard>
             <ColorAll>2</ColorAll>
             <ColorAll_Easing>
               <Start>
-                <R><Center>129</Center><Max>129</Max><Min>129</Min></R>
-                <G><Center>140</Center><Max>140</Max><Min>140</Min></G>
-                <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
-                <A><Center>245</Center><Max>245</Max><Min>245</Min></A>
+                <R><Center>224</Center><Max>224</Max><Min>224</Min></R>
+                <G><Center>248</Center><Max>248</Max><Min>248</Min></G>
+                <B><Center>255</Center><Max>255</Max><Min>255</Min></B>
+                <A><Center>255</Center><Max>255</Max><Min>255</Min></A>
               </Start>
               <End>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
-                <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
+                <R><Center>139</Center><Max>139</Max><Min>139</Min></R>
+                <G><Center>92</Center><Max>92</Max><Min>92</Min></G>
+                <B><Center>246</Center><Max>246</Max><Min>246</Min></B>
                 <A><Center>0</Center><Max>0</Max><Min>0</Min></A>
               </End>
             </ColorAll_Easing>
           </Sprite>
         </DrawingValues>
-        <Name>PrimeRecoilRibbon</Name>
+        <Name>RecoilLightning</Name>
         <Children />
       </Node>
     </Children>

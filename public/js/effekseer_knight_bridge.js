@@ -639,7 +639,7 @@
       durationSec: 0.36,
       attachToCaster: false,
       color: '#a78bfa',
-      desc: 'ระเบิดดาวแฉกไฟฟ้าขาว-ม่วง (Grooving Muzzle) + ริบบิ้นพลังงานฟ้าครามและวงคลื่นใต้เท้า'
+      desc: 'ระเบิดดาวแฉกไฟฟ้าขาว-ม่วง (Grooving Muzzle) + กรวยพลาสม่าปลายปืนและวงคลื่นใต้เท้า'
     },
     cyborg_heavy_laser: {
       id: 'cyborg_heavy_laser',
@@ -653,7 +653,7 @@
       durationSec: 0.72,
       attachToCaster: false,
       color: '#f97316',
-      desc: 'กรวยลำแสง Penetration Shot สีส้มทอง-ฟ้าพวยพุ่ง 4.8 ม. + ริบบิ้นพลังงานและวงคลื่นคู่ใต้เท้า'
+      desc: 'กรวยลำแสง Penetration Shot สีส้มทอง-ฟ้าพวยพุ่ง 4.8 ม. + ระเบิดแฉกไฟฟ้าและวงคลื่นใต้เท้า'
     },
     cyborg_weapon: {
       id: 'cyborg_weapon',
@@ -681,7 +681,7 @@
       durationSec: 1.38,
       attachToCaster: false,
       color: '#818cf8',
-      desc: 'คลื่นพื้นฟ้าครามขอบส้ม 9.8 ม. + โดมตาข่ายหกเหลี่ยมม่วงฟ้า + ริบบิ้นดูดเข้าใน 4 สายและสายฟ้า 6 สาย'
+      desc: 'คลื่นพื้นฟ้าครามขอบส้ม 9.8 ม. + โดมตาข่ายหกเหลี่ยมม่วงฟ้า + วงคลื่นดูดเข้าในและสายฟ้า 6 สาย'
     },
     cyborg_helmet: {
       id: 'cyborg_helmet',
@@ -695,7 +695,7 @@
       durationSec: 0.90,
       attachToCaster: false,
       color: '#f97316',
-      desc: 'กรวยไฟ Covering Fire 3 แนว + โค้งริบบิ้น Birdfall กวาดหน้าพร้อมปล่อยมิสไซล์นำวิถี'
+      desc: 'กรวยไฟ Covering Fire 3 แนวตามมุมปล่อยมิสไซล์ + ไอพ่นด้านหลังและระเบิดแฉกทอง'
     },
     cyborg_trinket: {
       id: 'cyborg_trinket',
@@ -714,7 +714,7 @@
     cyborg_mobility_jetpack: {
       id: 'cyborg_mobility_jetpack',
       hero: 'cyborg',
-      nameTh: 'บินไอพ่น / บูสต์กลางอากาศ (Prime Ribbon Jetpack)',
+      nameTh: 'บินไอพ่น / บูสต์กลางอากาศ (Recoil Wing Jetpack)',
       file: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkefc',
       fallbackFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efk',
       sourceFile: '/assets/vfx/cyborg/cyborg_mobility_jetpack.efkproj',
@@ -723,7 +723,7 @@
       durationSec: 0.48,
       attachToCaster: false,
       color: '#67e8f9',
-      desc: 'เปลวไอพ่นปีกคู่ + ริบบิ้นพลังงาน Prime & Load หมุนรอบตัวและระเบิด Grooving Starburst'
+      desc: 'เปลวไอพ่นปีกคู่ + วงคลื่นแรงขับเต็มวงและระเบิด Grooving Starburst'
     }
   };
 

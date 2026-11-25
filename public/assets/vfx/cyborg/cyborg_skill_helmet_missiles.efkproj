@@ -204,48 +204,39 @@
       <Node>
         <CommonValues>
           <MaxGeneration><Value>1</Value></MaxGeneration>
-          <Life><Center>40</Center><Max>40</Max><Min>40</Min></Life>
+          <Life><Center>38</Center><Max>38</Max><Min>38</Min></Life>
           <GenerationTime><Center>1</Center><Max>1</Max><Min>1</Min></GenerationTime>
           <GenerationTimeOffset><Center>0</Center><Max>0</Max><Min>0</Min></GenerationTimeOffset>
         </CommonValues>
         <LocationValues>
           <Type>0</Type>
           <Fixed>
-            <Location><X>0</X><Y>1.35</Y><Z>0.9</Z></Location>
+            <Location><X>0</X><Y>0.06</Y><Z>0.15</Z></Location>
           </Fixed>
         </LocationValues>
         <RotationValues>
-          <Type>1</Type>
-          <PVA>
-            <Rotation>
-              <X><Center>-84</Center><Max>-84</Max><Min>-84</Min></X>
-              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>-90</Center><Max>-90</Max><Min>-90</Min></Z>
-            </Rotation>
-            <Velocity>
-              <X><Center>0</Center><Max>0</Max><Min>0</Min></X>
-              <Y><Center>0</Center><Max>0</Max><Min>0</Min></Y>
-              <Z><Center>10</Center><Max>10</Max><Min>10</Min></Z>
-            </Velocity>
-          </PVA>
+          <Type>0</Type>
+          <Fixed>
+            <Rotation><X>-90</X><Y>0</Y><Z>0</Z></Rotation>
+          </Fixed>
         </RotationValues>
         <ScalingValues>
           <Type>2</Type>
           <Easing>
             <Start>
-              <X><Center>1.6</Center><Max>1.6</Max><Min>1.6</Min></X>
-              <Y><Center>1.6</Center><Max>1.6</Max><Min>1.6</Min></Y>
+              <X><Center>1.1</Center><Max>1.1</Max><Min>1.1</Min></X>
+              <Y><Center>1.1</Center><Max>1.1</Max><Min>1.1</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </Start>
             <End>
-              <X><Center>4.6</Center><Max>4.6</Max><Min>4.6</Min></X>
-              <Y><Center>4.6</Center><Max>4.6</Max><Min>4.6</Min></Y>
+              <X><Center>3.4</Center><Max>3.4</Max><Min>3.4</Min></X>
+              <Y><Center>3.4</Center><Max>3.4</Max><Min>3.4</Min></Y>
               <Z><Center>1</Center><Max>1</Max><Min>1</Min></Z>
             </End>
           </Easing>
         </ScalingValues>
         <RendererCommonValues>
-          <ColorTexture>textures/birdfall_ribbon.png</ColorTexture>
+          <ColorTexture>textures/cerulean_wave_ring.png</ColorTexture>
           <AlphaBlend>2</AlphaBlend>
           <ZWrite>False</ZWrite>
           <ZTest>True</ZTest>
@@ -259,10 +250,10 @@
             <ColorAll>2</ColorAll>
             <ColorAll_Easing>
               <Start>
-                <R><Center>56</Center><Max>56</Max><Min>56</Min></R>
-                <G><Center>189</Center><Max>189</Max><Min>189</Min></G>
-                <B><Center>248</Center><Max>248</Max><Min>248</Min></B>
-                <A><Center>250</Center><Max>250</Max><Min>250</Min></A>
+                <R><Center>255</Center><Max>255</Max><Min>255</Min></R>
+                <G><Center>255</Center><Max>255</Max><Min>255</Min></G>
+                <B><Center>255</Center><Max>255</Max><Min>255</Min></B>
+                <A><Center>240</Center><Max>240</Max><Min>240</Min></A>
               </Start>
               <End>
                 <R><Center>249</Center><Max>249</Max><Min>249</Min></R>
@@ -273,7 +264,7 @@
             </ColorAll_Easing>
           </Sprite>
         </DrawingValues>
-        <Name>BirdfallSweepArc</Name>
+        <Name>LaunchFloorWave</Name>
         <Children />
       </Node>
       <Node>
