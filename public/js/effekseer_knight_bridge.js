@@ -316,6 +316,108 @@
       attachToCaster: false,
       color: '#fb923c',
       desc: 'วงเวทอัคคีใต้เท้า + ปีกฟีนิกซ์เพลิงและสะเก็ดไฟขณะโดด/แดชกลางอากาศ'
+    },
+
+    // ========================================================================
+    // 4. DESPERADO COWBOY (คาวบอยปืนคู่) 7-MOVE EFFEKSEER VFX SUITE
+    // ========================================================================
+    cowboy_basic_shot: {
+      id: 'cowboy_basic_shot',
+      hero: 'cowboy',
+      nameTh: 'ยิงปืนลูกโม่คู่ (Dual Revolver Quickdraw)',
+      file: '/assets/vfx/cowboy/cowboy_basic_shot.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_basic_shot.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_basic_shot.efkproj',
+      scale: 1.0,
+      speed: 1.2,
+      durationSec: 0.34,
+      attachToCaster: false,
+      color: '#fbbf24',
+      desc: 'ประกายปากกระบอกปืนรูปดาว + เส้นกระสุนทองคำความเร็วสูงและควันดินปืน'
+    },
+    cowboy_heavy_deadeye: {
+      id: 'cowboy_heavy_deadeye',
+      hero: 'cowboy',
+      nameTh: 'กระสุนแม็กนั่มเดดอาย (Deadeye Magnum)',
+      file: '/assets/vfx/cowboy/cowboy_heavy_deadeye.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_heavy_deadeye.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_heavy_deadeye.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.68,
+      attachToCaster: false,
+      color: '#fde047',
+      desc: 'เป้าเล็งเดดอาย + ลำแสงกระสุนแม็กนั่มทะลุเกราะและคลื่นโซนิกบูม 3 ชั้น'
+    },
+    cowboy_weapon: {
+      id: 'cowboy_weapon',
+      hero: 'cowboy',
+      nameTh: '[Q/SD] พายุกระสุนเที่ยงตรง (High Noon Barrage)',
+      file: '/assets/vfx/cowboy/cowboy_skill_weapon_highnoon.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_skill_weapon_highnoon.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_skill_weapon_highnoon.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.15,
+      attachToCaster: false,
+      color: '#fbbf24',
+      desc: 'นาฬิกาแดดนายอำเภอ 8.4 เมตร + พายุกระสุน 360 องศา + ระเบิดกระสุนทองคำปิดท้าย'
+    },
+    cowboy_armor: {
+      id: 'cowboy_armor',
+      hero: 'cowboy',
+      nameTh: '[E/ASD] ระเบิดไดนาไมต์ TNT (TNT Dynamite Toss)',
+      file: '/assets/vfx/cowboy/cowboy_skill_armor_tnt.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_skill_armor_tnt.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_skill_armor_tnt.efkproj',
+      scale: 1.0,
+      speed: 1.0,
+      durationSec: 1.25,
+      attachToCaster: false,
+      color: '#ef4444',
+      desc: 'โยนมัดไดนาไมต์ TNT วิถีโค้ง + เป้าเตือนภัย + ระเบิดเพลิงและกลุ่มควันดินปืนยักษ์'
+    },
+    cowboy_helmet: {
+      id: 'cowboy_helmet',
+      hero: 'cowboy',
+      nameTh: '[R/AD] กลิ้งหลบยิงแฟลช (Tactical Roll & Stun Shot)',
+      file: '/assets/vfx/cowboy/cowboy_skill_helmet_rollshot.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_skill_helmet_rollshot.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_skill_helmet_rollshot.efkproj',
+      scale: 1.0,
+      speed: 1.1,
+      durationSec: 0.68,
+      attachToCaster: false,
+      color: '#fde047',
+      desc: 'วงแหวนหลบหลีก + แสงแฟลชสตั๊นเจิดจ้าและแนวกระสุนความเร็วสูง'
+    },
+    cowboy_trinket: {
+      id: 'cowboy_trinket',
+      hero: 'cowboy',
+      nameTh: '[F/AS] บ่วงบาศเชือกคล้อง (Bounty Hunter Lasso)',
+      file: '/assets/vfx/cowboy/cowboy_skill_trinket_lasso.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_skill_trinket_lasso.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_skill_trinket_lasso.efkproj',
+      scale: 1.0,
+      speed: 1.05,
+      durationSec: 0.80,
+      attachToCaster: false,
+      color: '#d97706',
+      desc: 'เหวี่ยงบ่วงเชือกคาวบอยระยะ 8 เมตร + รัดบ่วงคล้องแล้วกระชากศัตรูเข้าหาตัว'
+    },
+    cowboy_mobility_tumble: {
+      id: 'cowboy_mobility_tumble',
+      hero: 'cowboy',
+      nameTh: 'กระโดด 2 ชั้น / กลิ้งหลบแดช (Tumble Dash)',
+      file: '/assets/vfx/cowboy/cowboy_mobility_tumble.efkefc',
+      fallbackFile: '/assets/vfx/cowboy/cowboy_mobility_tumble.efk',
+      sourceFile: '/assets/vfx/cowboy/cowboy_mobility_tumble.efkproj',
+      scale: 1.0,
+      speed: 1.15,
+      durationSec: 0.46,
+      attachToCaster: false,
+      color: '#fbbf24',
+      desc: 'ตราดาวนายอำเภอสีทอง + ฝุ่นแคนยอนและประกายเดือยรองเท้า'
     }
   };
 
@@ -356,6 +458,19 @@
     'phoenix_wings',
     'volcanic_smoke',
     'fire_ember'
+  ];
+
+  const COWBOY_TEX_NAMES = [
+    'sheriff_crest',
+    'deadeye_reticle',
+    'muzzle_star',
+    'bullet_tracer',
+    'sonic_ring',
+    'tnt_bundle',
+    'tnt_blast',
+    'lasso_loop',
+    'gun_smoke',
+    'brass_spark'
   ];
 
   function easeOutCubic(t) {
@@ -441,6 +556,11 @@
       for (const name of MAGE_TEX_NAMES) {
         const img = new Image();
         img.src = `/assets/vfx/mage/textures/${name}.png`;
+        this.textures[name] = img;
+      }
+      for (const name of COWBOY_TEX_NAMES) {
+        const img = new Image();
+        img.src = `/assets/vfx/cowboy/textures/${name}.png`;
         this.textures[name] = img;
       }
     }
@@ -789,12 +909,87 @@
         };
       }
 
+      // --- DESPERADO COWBOY ---
+      if (fx.type === 'skill_cast' && ['cowboy_weapon', 'cowboy_helmet'].includes(fx.skillId)) {
+        return {
+          effectId: fx.skillId,
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'explosion' && fx.fromSkill === 'cowboy_armor') {
+        return {
+          effectId: 'cowboy_armor',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 0.5),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'lasso' && fx.fromSkill === 'cowboy_trinket') {
+        return {
+          effectId: 'cowboy_trinket',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if (fx.type === 'muzzle' && fx.heroId === 'cowboy') {
+        return {
+          effectId: 'cowboy_basic_shot',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          comboStep: fx.comboStep || 1,
+          isFinisher: !!fx.isFinisher,
+          scale: fx.isFinisher ? 1.25 : 1.0
+        };
+      }
+
+      if (fx.type === 'heavy_cast' && fx.heroId === 'cowboy') {
+        return {
+          effectId: 'cowboy_heavy_deadeye',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : Math.max(0, (fx.y || 0) - 1.0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: 1.0
+        };
+      }
+
+      if ((fx.type === 'air_jump' || fx.type === 'dash') && fx.heroId === 'cowboy') {
+        return {
+          effectId: 'cowboy_mobility_tumble',
+          x: fx.originX !== undefined ? fx.originX : (fx.x || 0),
+          y: fx.originY !== undefined ? fx.originY : (fx.y || 0),
+          z: fx.originZ !== undefined ? fx.originZ : (fx.z || 0),
+          facing: typeof fx.facing === 'number' ? fx.facing : 0,
+          playerId: fx.playerId || null,
+          scale: fx.type === 'air_jump' ? 0.95 : 0.85
+        };
+      }
+
       return null;
     }
 
     /**
      * Returns true if this event is exclusively handled by the dedicated
-     * Knight, Ninja, or Fire Archmage VFX suite so legacy PixelFX doesn't double-render.
+     * Knight, Ninja, Fire Archmage, or Desperado Cowboy VFX suite so legacy PixelFX doesn't double-render.
      */
     shouldSuppressLegacyVfx(fx) {
       if (!fx) return false;
@@ -803,7 +998,7 @@
       if (fx.type === 'shockwave' && (fx.fromSkill === 'knight_armor' || fx.fromSkill === 'knight_helmet' || fx.fromSkill === 'mage_armor')) {
         return true;
       }
-      if (fx.type === 'skill_cast' && (fx.skillId === 'ninja_weapon' || fx.skillId === 'mage_weapon' || fx.skillId === 'mage_trinket')) return true;
+      if (fx.type === 'skill_cast' && (fx.skillId === 'ninja_weapon' || fx.skillId === 'mage_weapon' || fx.skillId === 'mage_trinket' || fx.skillId === 'cowboy_armor' || fx.skillId === 'cowboy_trinket')) return true;
       if (fx.type === 'smoke' && fx.fromSkill === 'ninja_armor') return true;
       if (fx.type === 'explosion' && fx.fromSkill === 'ninja_trinket') return true;
       return false;
@@ -1072,17 +1267,18 @@
       const sparks = [];
       const isNinja = meta && meta.hero === 'ninja';
       const isMage = meta && meta.hero === 'mage';
-      const sparkCount = (effectId === 'basic_slash' || effectId === 'ninja_basic_slash' || effectId === 'mage_basic_fireball')
+      const isCowboy = meta && meta.hero === 'cowboy';
+      const sparkCount = (effectId === 'basic_slash' || effectId === 'ninja_basic_slash' || effectId === 'mage_basic_fireball' || effectId === 'cowboy_basic_shot')
         ? 14
-        : ((effectId === 'guard_parry' || effectId === 'ninja_mobility_shadowstep' || effectId === 'mage_mobility_hover') ? 16 : 24);
+        : ((effectId === 'guard_parry' || effectId === 'ninja_mobility_shadowstep' || effectId === 'mage_mobility_hover' || effectId === 'cowboy_mobility_tumble') ? 16 : 24);
       const dirX = Math.cos(opts.facing || 0);
       const dirZ = Math.sin(opts.facing || 0);
 
       for (let i = 0; i < sparkCount; i++) {
         const ang = Math.random() * Math.PI * 2;
         const spd = 2.0 + Math.random() * 5.2;
-        const forwardBias = (effectId === 'heavy_shield_bash' || effectId === 'basic_slash' || effectId === 'ninja_basic_slash' || effectId === 'ninja_helmet' || effectId === 'mage_basic_fireball') ? 4.5 : 0;
-        const upBias = (effectId === 'knight_helmet' || effectId === 'knight_armor' || effectId === 'ninja_weapon' || effectId === 'ninja_trinket' || effectId === 'mage_weapon' || effectId === 'mage_heavy_pillar')
+        const forwardBias = (effectId === 'heavy_shield_bash' || effectId === 'basic_slash' || effectId === 'ninja_basic_slash' || effectId === 'ninja_helmet' || effectId === 'mage_basic_fireball' || effectId === 'cowboy_basic_shot' || effectId === 'cowboy_heavy_deadeye' || effectId === 'cowboy_helmet') ? 4.5 : 0;
+        const upBias = (effectId === 'knight_helmet' || effectId === 'knight_armor' || effectId === 'ninja_weapon' || effectId === 'ninja_trinket' || effectId === 'mage_weapon' || effectId === 'mage_heavy_pillar' || effectId === 'cowboy_armor' || effectId === 'cowboy_weapon')
           ? (2.4 + Math.random() * 4.5)
           : (1.5 + Math.random() * 4.0);
         sparks.push({
@@ -1095,10 +1291,11 @@
           size: 0.45 + Math.random() * 0.55,
           delay: effectId === 'ninja_trinket'
             ? (0.42 + Math.random() * 0.14)
-            : (effectId === 'mage_weapon' ? (0.27 + Math.random() * 0.14) : (Math.random() * 0.16)),
+            : (effectId === 'mage_weapon' ? (0.27 + Math.random() * 0.14) : (effectId === 'cowboy_armor' ? (0.21 + Math.random() * 0.12) : (Math.random() * 0.16))),
           isHeal: effectId === 'knight_helmet' && i < 12,
           isNinja,
-          isMage
+          isMage,
+          isCowboy
         });
       }
 
@@ -1108,7 +1305,7 @@
 
       this.fallbackInstances.push({
         id: effectId,
-        hero: isNinja ? 'ninja' : (isMage ? 'mage' : 'knight'),
+        hero: isNinja ? 'ninja' : (isMage ? 'mage' : (isCowboy ? 'cowboy' : 'knight')),
         born: now,
         durationMs: (meta.durationSec || 0.9) * 1000,
         x: opts.x,
@@ -1293,6 +1490,34 @@
           const rRing = unit * (0.8 + ease * 2.0);
           this.drawSpriteTex(ctx, 'pyro_rune_circle', '#2b0604', gp.x, gp.y, rRing * 2.0, rRing * 2.0, t * 5.0, fade * 0.72, renderer.isoTilt, 'source-over');
           this.drawSpriteTex(ctx, 'pyro_rune_circle', '#fb923c', gp.x, gp.y, rRing * 2.0, rRing * 2.0, t * 5.0, fade * 0.92, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'cowboy_weapon') {
+          const rC = unit * (1.6 + ease * 4.2);
+          this.drawSpriteTex(ctx, 'sheriff_crest', '#241005', gp.x, gp.y, rC * 2.1, rC * 2.1, t * 4.5, fade * 0.88, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'sheriff_crest', '#fbbf24', gp.x, gp.y, rC * 2.0, rC * 2.0, t * 4.5, fade * 0.96, renderer.isoTilt, 'lighter');
+          this.drawSpriteTex(ctx, 'sonic_ring', '#fde047', gp.x, gp.y, rC * 2.2, rC * 2.2, -t * 5.0, fade * 0.9, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'cowboy_armor') {
+          const detT = 0.22 / 1.25;
+          const rZ = unit * (1.5 + ease * 3.9);
+          this.drawSpriteTex(ctx, 'deadeye_reticle', '#2e0704', gp.x, gp.y, rZ * 2.1, rZ * 2.1, t * 3.5, fade * 0.85, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'deadeye_reticle', '#ef4444', gp.x, gp.y, rZ * 2.0, rZ * 2.0, t * 3.5, fade * 0.95, renderer.isoTilt, 'lighter');
+          if (t >= detT) {
+            const wt = Math.min(1, (t - detT) / 0.55);
+            const rW = unit * (1.2 + easeOutCubic(wt) * 4.6);
+            this.drawSpriteTex(ctx, 'sonic_ring', '#fde047', gp.x, gp.y, rW * 2, rW * 2, 0, (1 - wt) * 0.96, renderer.isoTilt, 'lighter');
+          }
+        } else if (fx.id === 'cowboy_helmet') {
+          const rW = unit * (0.9 + ease * 2.8);
+          this.drawSpriteTex(ctx, 'sonic_ring', '#2b1205', gp.x, gp.y, rW * 2.1, rW * 2.1, 0, fade * 0.82, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'sonic_ring', '#fde047', gp.x, gp.y, rW * 2.0, rW * 2.0, 0, fade * 0.95, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'cowboy_trinket') {
+          const dirX = Math.cos(fx.facing), dirZ = Math.sin(fx.facing);
+          const tp = renderer.project(fx.x + dirX * 7.6, fx.y + 0.05, fx.z + dirZ * 7.6);
+          const rR = unit * (2.6 - ease * 0.9);
+          this.drawSpriteTex(ctx, 'deadeye_reticle', '#d97706', tp.x, tp.y, rR * 2, rR * 2, -t * 4.5, fade * 0.92, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'cowboy_mobility_tumble') {
+          const rS = unit * (0.8 + ease * 1.9);
+          this.drawSpriteTex(ctx, 'sheriff_crest', '#261005', gp.x, gp.y, rS * 2.0, rS * 2.0, t * 5.0, fade * 0.78, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'sheriff_crest', '#fbbf24', gp.x, gp.y, rS * 2.0, rS * 2.0, t * 5.0, fade * 0.92, renderer.isoTilt, 'lighter');
         }
       }
     }
@@ -1632,9 +1857,74 @@
           const wSz = unit * (1.2 + ease * 1.4);
           this.drawSpriteTex(ctx, 'phoenix_wings', '#3b0604', pOrigin.x, pOrigin.y, wSz * 1.2, wSz, 0, fade * 0.82, 1.0, 'source-over');
           this.drawSpriteTex(ctx, 'phoenix_wings', '#fde047', pOrigin.x, pOrigin.y, wSz * 1.15, wSz * 0.95, 0, fade * 0.95, 1.0, 'lighter');
+        } else if (fx.id === 'cowboy_basic_shot') {
+          const pTip = renderer.project(fx.x + dirX * 1.0, fx.y + 1.05, fx.z + dirZ * 1.0);
+          const pTrail = renderer.project(fx.x + dirX * (1.8 + t * 5.5), fx.y + 1.05, fx.z + dirZ * (1.8 + t * 5.5));
+          const sz = unit * (1.0 + ease * 1.3);
+          this.drawSpriteTex(ctx, 'muzzle_star', '#fde047', pTip.x, pTip.y, sz, sz, t * 8, fade * 0.96, 1.0, 'lighter');
+          this.drawSpriteTex(ctx, 'bullet_tracer', '#fbbf24', pTrail.x, pTrail.y, unit * 2.4, unit * 0.65, screenAng, fade * 0.95, 1.0, 'lighter');
+        } else if (fx.id === 'cowboy_heavy_deadeye') {
+          const pRet = renderer.project(fx.x + dirX * 1.5, fx.y + 1.08, fx.z + dirZ * 1.5);
+          const pBeam = renderer.project(fx.x + dirX * 5.2, fx.y + 1.05, fx.z + dirZ * 5.2);
+          const rSz = unit * (2.6 - ease * 1.0);
+          this.drawSpriteTex(ctx, 'deadeye_reticle', '#260d04', pRet.x, pRet.y, rSz * 1.08, rSz * 1.08, t * 5, fade * 0.85, 1.0, 'source-over');
+          this.drawSpriteTex(ctx, 'deadeye_reticle', '#fbbf24', pRet.x, pRet.y, rSz, rSz, t * 5, fade * 0.98, 1.0, 'lighter');
+          this.drawSpriteTex(ctx, 'bullet_tracer', '#fde047', pBeam.x, pBeam.y, unit * 8.4, unit * 1.25, screenAng, fade * 0.96, 1.0, 'lighter');
+        } else if (fx.id === 'cowboy_weapon') {
+          for (let k = 0; k < 12; k++) {
+            const kt = (t - k * 0.038) / 0.34;
+            if (kt <= 0 || kt >= 1) continue;
+            const ang = (k / 12) * Math.PI * 2;
+            const dist = 1.4 + easeOutCubic(kt) * 5.2;
+            const pt = renderer.project(fx.x + Math.cos(ang) * dist, fx.y + 1.05, fx.z + Math.sin(ang) * dist);
+            const pt2 = renderer.project(fx.x + Math.cos(ang) * (dist + 1.0), fx.y + 1.05, fx.z + Math.sin(ang) * (dist + 1.0));
+            const sAng = Math.atan2(pt2.y - pt.y, pt2.x - pt.x);
+            this.drawSpriteTex(ctx, 'bullet_tracer', '#fde047', pt.x, pt.y, unit * 2.8, unit * 0.72, sAng, (1 - kt) * 0.96, 1.0, 'lighter');
+          }
+          if (t >= 0.58) {
+            const st = (t - 0.58) / 0.42;
+            const bSz = unit * (2.2 + easeOutCubic(st) * 4.8);
+            this.drawSpriteTex(ctx, 'tnt_blast', '#fbbf24', pOrigin.x, pOrigin.y, bSz, bSz, st * 2, (1 - st) * 0.96, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'cowboy_armor') {
+          const detT = 0.22 / 1.25;
+          if (t < detT) {
+            const lt = t / detT;
+            const tx = fx.x - dirX * 4.5 * (1 - lt);
+            const tz = fx.z - dirZ * 4.5 * (1 - lt);
+            const ty = fx.y + 1.1 * (1 - lt) + 0.5 * lt + Math.sin(lt * Math.PI) * 2.8;
+            const pt = renderer.project(tx, ty, tz);
+            this.drawSpriteTex(ctx, 'tnt_bundle', '#ffffff', pt.x, pt.y, unit * 1.5, unit * 1.5, t * 24, 1.0, 1.0, 'source-over');
+          } else {
+            const dt2 = (t - detT) / (1 - detT);
+            const dEase = easeOutCubic(dt2);
+            const dFade = Math.pow(1 - dt2, 1.2);
+            const smkSz = unit * (2.6 + dEase * 4.2);
+            this.drawSpriteTex(ctx, 'gun_smoke', '#21120a', pOrigin.x, pOrigin.y, smkSz, smkSz * 0.85, dt2 * 2, dFade * 0.88, 1.0, 'source-over');
+            const bSz = unit * (2.2 + dEase * 4.6);
+            this.drawSpriteTex(ctx, 'tnt_blast', '#f97316', pOrigin.x, pOrigin.y, bSz, bSz, dt2 * 1.5, dFade * 0.98, 1.0, 'lighter');
+            this.drawSpriteTex(ctx, 'muzzle_star', '#fef08a', pOrigin.x, pOrigin.y, bSz * 0.8, bSz * 0.8, -dt2 * 4, dFade * 0.95, 1.0, 'lighter');
+          }
+        } else if (fx.id === 'cowboy_helmet') {
+          const pFl = renderer.project(fx.x + dirX * 1.9, fx.y + 1.08, fx.z + dirZ * 1.9);
+          const pBm = renderer.project(fx.x + dirX * 4.6, fx.y + 1.05, fx.z + dirZ * 4.6);
+          const fSz = unit * (1.6 + ease * 3.2);
+          this.drawSpriteTex(ctx, 'muzzle_star', '#fef08a', pFl.x, pFl.y, fSz, fSz, t * 9, fade * 0.98, 1.0, 'lighter');
+          this.drawSpriteTex(ctx, 'bullet_tracer', '#fef08a', pBm.x, pBm.y, unit * 7.2, unit * 1.1, screenAng, fade * 0.95, 1.0, 'lighter');
+        } else if (fx.id === 'cowboy_trinket') {
+          const reach = t < 0.25 ? easeOutCubic(t / 0.25) : Math.max(0.18, 1 - (t - 0.25) * 1.05);
+          const pMid = renderer.project(fx.x + dirX * (4.1 * reach), fx.y + 1.02, fx.z + dirZ * (4.1 * reach));
+          const pEnd = renderer.project(fx.x + dirX * (0.5 + 7.8 * reach), fx.y + 0.95, fx.z + dirZ * (0.5 + 7.8 * reach));
+          this.drawSpriteTex(ctx, 'bullet_tracer', '#f59e0b', pMid.x, pMid.y, unit * (8.0 * reach), unit * 0.55, screenAng, fade * 0.96, 1.0, 'lighter');
+          const lSz = unit * (t < 0.32 ? (3.0 - (t / 0.32) * 1.3) : 1.7);
+          this.drawSpriteTex(ctx, 'lasso_loop', '#2b1204', pEnd.x, pEnd.y, lSz * 1.08, lSz * 1.08, t * 14, fade * 0.85, renderer.isoTilt, 'source-over');
+          this.drawSpriteTex(ctx, 'lasso_loop', '#fde047', pEnd.x, pEnd.y, lSz, lSz, t * 14, fade * 0.98, renderer.isoTilt, 'lighter');
+        } else if (fx.id === 'cowboy_mobility_tumble') {
+          const dSz = unit * (1.2 + ease * 1.4);
+          this.drawSpriteTex(ctx, 'gun_smoke', '#4f321c', pOrigin.x, pOrigin.y, dSz, dSz * 0.8, t * 3, fade * 0.78, 1.0, 'source-over');
         }
 
-        // Draw sparks & Lionheart heal crosses for every Knight, Ninja & Fire Archmage effect!
+        // Draw sparks & Lionheart heal crosses for every Knight, Ninja, Fire Archmage & Cowboy effect!
         const sec = age * 0.001;
         for (const sp of fx.sparks) {
           const localSec = sec - sp.delay;
@@ -1666,6 +1956,10 @@
             const pSz = renderer.camZoom * pNow.scale * sp.size * (1.1 - st * 0.65);
             const tint = (fx.id === 'mage_weapon' || fx.id === 'mage_heavy_pillar') ? '#fb923c' : '#fde047';
             this.drawSpriteTex(ctx, 'fire_ember', tint, pNow.x, pNow.y, pSz * 0.55, pSz * 1.45, velAng, alpha);
+          } else if (sp.isCowboy) {
+            const pSz = renderer.camZoom * pNow.scale * sp.size * (1.1 - st * 0.65);
+            const tint = fx.id === 'cowboy_armor' ? '#fb923c' : '#fde047';
+            this.drawSpriteTex(ctx, 'brass_spark', tint, pNow.x, pNow.y, pSz * 0.55, pSz * 1.45, velAng, alpha);
           } else {
             const pSz = renderer.camZoom * pNow.scale * sp.size * (1.1 - st * 0.65);
             const tint = (fx.id === 'knight_armor' || fx.id === 'knight_trinket' || fx.id === 'guard_parry') ? '#7dd3fc' : '#fde047';

@@ -1461,7 +1461,19 @@ class GameRoom {
       case 'cowboy_armor': { // TNT Dynamite Toss
         const tx = player.x + dirX * 4.5;
         const tz = player.z + dirZ * 4.5;
-        this.emitFx('explosion', tx, player.y + 0.5, tz, { radius: 4.0, color: '#ef4444' });
+        this.emitFx('explosion', tx, player.y + 0.5, tz, {
+          radius: 4.0,
+          color: '#ef4444',
+          fromSkill: 'cowboy_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz,
+          startX: player.x,
+          startZ: player.z
+        });
         this.hitAoE(player, tx, player.y, tz, 4.0, {
           damage: 25, knockback: 8.5, launchY: 10.5, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1501,7 +1513,16 @@ class GameRoom {
           skillNameTh: skill.nameTh
         });
         this.emitFx('lasso', player.x, player.y + 1.0, player.z, {
-          tx: player.x + dirX * 8.0, tz: player.z + dirZ * 8.0, color: '#d97706'
+          tx: player.x + dirX * 8.0,
+          tz: player.z + dirZ * 8.0,
+          color: '#d97706',
+          fromSkill: 'cowboy_trinket',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
         });
         break;
       }
