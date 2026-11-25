@@ -2053,8 +2053,18 @@ class GameRoom {
       // 10. NECRO GRIM REAPER SKILLS
       // ----------------------------------------------------------------------
       case 'reaper_weapon': { // Grim Soul Harvest (High Lifesteal + 65% Gear Strip Chance!)
-        this.emitFx('scythe_reap', player.x + dirX * 2.2, player.y + 1.0, player.z + dirZ * 2.2, {
-          facing: player.facing, color: '#a855f7', radius: 4.2
+        const tx = player.x + dirX * 2.2;
+        const tz = player.z + dirZ * 2.2;
+        this.emitFx('scythe_reap', tx, player.y + 1.0, tz, {
+          fromSkill: 'reaper_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz,
+          color: '#a855f7',
+          radius: 4.2
         });
         this.hitAoE(player, player.x + dirX * 2.0, player.y, player.z + dirZ * 2.0, 4.2, {
           damage: 25,
@@ -2070,7 +2080,17 @@ class GameRoom {
       case 'reaper_armor': { // Wraith Mist Form
         player.wraithUntil = now + 3500;
         player.speedBuffUntil = now + 3500;
-        this.emitFx('smoke', player.x, player.y + 0.9, player.z, { radius: 3.8, color: '#9333ea' });
+        this.emitFx('smoke', player.x, player.y + 0.9, player.z, {
+          fromSkill: 'reaper_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z,
+          radius: 3.8,
+          color: '#9333ea'
+        });
         this.hitAoE(player, player.x, player.y, player.z, 3.6, {
           damage: 15, knockback: 4.0, lifesteal: 0.8, skillNameTh: skill.nameTh
         });
@@ -2102,7 +2122,17 @@ class GameRoom {
       case 'reaper_trinket': { // Abyssal Grave Chains (AoE Root + Pull)
         const tx = player.x + dirX * 4.2;
         const tz = player.z + dirZ * 4.2;
-        this.emitFx('grave_chains', tx, player.y, tz, { radius: 4.0, color: '#d946ef' });
+        this.emitFx('grave_chains', tx, player.y, tz, {
+          fromSkill: 'reaper_trinket',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: tx,
+          originY: player.y,
+          originZ: tz,
+          radius: 4.0,
+          color: '#d946ef'
+        });
         this.hitAoE(player, tx, player.y, tz, 4.0, {
           damage: 19, knockback: -4.0, root: true, stunMs: 1400, guardBreak: true, skillNameTh: skill.nameTh
         });
