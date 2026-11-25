@@ -1157,7 +1157,15 @@ class GameRoom {
       player.x += dirX * 4.8;
       player.z += dirZ * 4.8;
       this.emitFx('iaido_line', startX, player.y + 0.9, startZ, {
-        tx: player.x, tz: player.z, color: '#f472b6'
+        tx: player.x,
+        tz: player.z,
+        color: '#f472b6',
+        heroId: 'samurai',
+        playerId: player.id,
+        facing: player.facing,
+        originX: startX,
+        originY: player.y,
+        originZ: startZ
       });
       for (const t of this.players.values()) {
         if (this.areEnemies(player, t) && t.state !== 'dead') {
@@ -1634,17 +1642,37 @@ class GameRoom {
       // 5. RONIN SAMURAI SKILLS
       // ----------------------------------------------------------------------
       case 'samurai_weapon': { // Senbonzakura Storm
-        this.emitFx('sakura_storm', player.x + dirX * 3.0, player.y + 1.0, player.z + dirZ * 3.0, {
-          facing: player.facing, color: '#f472b6', radius: 3.8
+        const tx = player.x + dirX * 3.0;
+        const tz = player.z + dirZ * 3.0;
+        this.emitFx('sakura_storm', tx, player.y + 1.0, tz, {
+          facing: player.facing,
+          color: '#f472b6',
+          radius: 3.8,
+          fromSkill: 'samurai_weapon',
+          heroId: player.heroId,
+          playerId: player.id,
+          originX: tx,
+          originY: player.y,
+          originZ: tz
         });
-        this.hitAoE(player, player.x + dirX * 3.0, player.y, player.z + dirZ * 3.0, 3.8, {
+        this.hitAoE(player, tx, player.y, tz, 3.8, {
           damage: 28, knockback: 8.0, launchY: 9.0, stunMs: 1100, guardBreak: true, skillNameTh: skill.nameTh
         });
         break;
       }
       case 'samurai_armor': { // Mind's Eye Counter
         player.invulnUntil = now + 700;
-        this.emitFx('shockwave', player.x, player.y + 1.0, player.z, { radius: 4.5, color: '#ef4444' });
+        this.emitFx('shockwave', player.x, player.y + 1.0, player.z, {
+          radius: 4.5,
+          color: '#ef4444',
+          fromSkill: 'samurai_armor',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         this.hitAoE(player, player.x, player.y, player.z, 4.4, {
           damage: 22, knockback: 7.5, launchY: 9.5, stunMs: 1300, guardBreak: true, skillNameTh: skill.nameTh
         });
@@ -1653,7 +1681,17 @@ class GameRoom {
       case 'samurai_helmet': { // Asura Blood Aura
         player.attackBuffUntil = now + 6000;
         player.speedBuffUntil = now + 6000;
-        this.emitFx('aura', player.x, player.y + 1.0, player.z, { color: '#dc2626', text: 'ASURA AURA!' });
+        this.emitFx('aura', player.x, player.y + 1.0, player.z, {
+          color: '#dc2626',
+          text: 'ASURA AURA!',
+          fromSkill: 'samurai_helmet',
+          heroId: player.heroId,
+          playerId: player.id,
+          facing: player.facing,
+          originX: player.x,
+          originY: player.y,
+          originZ: player.z
+        });
         break;
       }
       case 'samurai_trinket': { // Tsubame Gaeshi
