@@ -202,11 +202,19 @@ export function fixHands(view, data) {
   const bladeTip = new Vector3();
   const along = new Vector3();
   const nearest = new Vector3();
+  // The shield's face is the wrist's -Y and its crest points along +Z. Facing forward
+  // leaves the roll about the face free, and each clip would settle on its own roll:
+  // two clips could then sit half a turn apart and spin the shield when they blend.
+  // The roll term keeps the crest upright in every clip.
+  const up = new Vector3();
+  let rollOff = 0;
   const facing = (value) => {
     R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
     R.handL.updateMatrixWorld(true);
-    normal.set(0, -1, 0).applyQuaternion(R.handL.getWorldQuaternion(turn));
-    normal.applyQuaternion(rootInverse);
+    R.handL.getWorldQuaternion(turn);
+    normal.set(0, -1, 0).applyQuaternion(turn).applyQuaternion(rootInverse);
+    up.set(0, 0, 1).applyQuaternion(turn).applyQuaternion(rootInverse);
+    rollOff = Math.acos(Math.max(-1, Math.min(1, up.y)));
     return Math.acos(Math.max(-1, Math.min(1, normal.dot(SHIELD_FACING))));
   };
   const clearance = (joint, value) => {
@@ -236,29 +244,42 @@ export function fixHands(view, data) {
     }
     return value;
   };
-  let shield = [0, 0, 0];
-  const blade = { handR: [0, 0, 0], foreR: [0, 0, 0] };
-  for (let i = 0; i < data.times.length; i++) {
-    poseFrame(view, out, i);
-    view.root.getWorldQuaternion(rootInverse).invert();
-    base.copy(R.handL.quaternion);
-    const previousShield = shield;
-    shield = search(shield, v => facing(v) ** 2 + 0.02 * v.reduce((a, x) => a + x * x, 0)
-      + 0.5 * v.reduce((a, x, k) => a + (x - previousShield[k]) ** 2, 0), 2.2);
-    R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...shield)));
-    R.handL.quaternion.toArray().forEach((v, k) => { out.rotations.handL[i * 4 + k] = +v.toFixed(4); });
-    for (const joint of ['handR', 'foreR']) {
-      base.copy(R[joint].quaternion);
-      const previous = blade[joint];
-      const start = clearance(joint, previous) >= HELMET_CLEARANCE ? previous.map(x => x * 0.85) : previous;
-      blade[joint] = search(start, v => Math.max(0, HELMET_CLEARANCE - clearance(joint, v)) ** 2 * 200
-        + 0.05 * v.reduce((a, x) => a + x * x, 0) + 0.3 * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4);
-      R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...blade[joint])));
-      R[joint].updateMatrixWorld(true);
-      R[joint].quaternion.toArray().forEach((v, k) => { out.rotations[joint][i * 4 + k] = +v.toFixed(4); });
+  // The search carries each frame's answer into the next, so frame 0 would start
+  // from nothing and land far from frame 1: a wrist snap at the start of every
+  // clip. Solve once to learn where the wrist settles, then solve again from there.
+  const solve = (startShield, startBlade) => {
+    const result = { ...out, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
+    let shield = startShield;
+    const blade = { handR: startBlade.handR, foreR: startBlade.foreR };
+    const settled = { shield: null, blade: null };
+    for (let i = 0; i < data.times.length; i++) {
+      poseFrame(view, result, i);
+      view.root.getWorldQuaternion(rootInverse).invert();
+      base.copy(R.handL.quaternion);
+      const previousShield = shield;
+      shield = search(shield, v => facing(v) ** 2 + 0.3 * rollOff ** 2 + 0.02 * v.reduce((a, x) => a + x * x, 0)
+        + 0.5 * v.reduce((a, x, k) => a + (x - previousShield[k]) ** 2, 0), 2.2);
+      R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...shield)));
+      R.handL.quaternion.toArray().forEach((v, k) => { result.rotations.handL[i * 4 + k] = +v.toFixed(4); });
+      for (const joint of ['handR', 'foreR']) {
+        base.copy(R[joint].quaternion);
+        const previous = blade[joint];
+        const start = clearance(joint, previous) >= HELMET_CLEARANCE ? previous.map(x => x * 0.85) : previous;
+        blade[joint] = search(start, v => Math.max(0, HELMET_CLEARANCE - clearance(joint, v)) ** 2 * 200
+          + 0.05 * v.reduce((a, x) => a + x * x, 0) + 0.3 * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4);
+        R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...blade[joint])));
+        R[joint].updateMatrixWorld(true);
+        R[joint].quaternion.toArray().forEach((v, k) => { result.rotations[joint][i * 4 + k] = +v.toFixed(4); });
+      }
+      if (i === Math.min(2, data.times.length - 1)) {
+        settled.shield = shield.slice();
+        settled.blade = { handR: blade.handR.slice(), foreR: blade.foreR.slice() };
+      }
     }
-  }
-  return out;
+    return { result, settled };
+  };
+  const first = solve([0, 0, 0], { handR: [0, 0, 0], foreR: [0, 0, 0] });
+  return solve(first.settled.shield, first.settled.blade).result;
 }
 
 // Lowest point of a set of meshes, from every fourth vertex, in world units.

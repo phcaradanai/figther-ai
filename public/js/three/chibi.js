@@ -1398,6 +1398,20 @@ function bakedClip(name, data) {
 }
 
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
+// The baked clips solve the shield wrist to face front with the crest up (see bake-mixamo.mjs),
+// in the skeleton's root space; the shield face is the wrist's -Y and its crest points along +Z.
+const SHIELD_FRONT = new THREE.Vector3(0.35, 0.05, 0.93).normalize();
+const SHIELD_REST = (() => {
+  const crest = new THREE.Vector3(0, 1, 0);
+  crest.addScaledVector(SHIELD_FRONT, -crest.dot(SHIELD_FRONT)).normalize();
+  const face = SHIELD_FRONT.clone().negate();
+  const side = new THREE.Vector3().crossVectors(face, crest);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, face, crest));
+})();
+const BAKED_SHIELD_CLIPS = new Set(Object.keys(SKINNED_MODELS.knight?.bakedClips || {}).filter(name => name !== 'dead'));
+const _shieldRoot = new THREE.Quaternion();
+const _shieldNow = new THREE.Quaternion();
+const _shieldParent = new THREE.Quaternion();
 const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airCut', 'airSpike']);
 const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
 const KNIGHT_BLADE_CONTACT = Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.contact]));
@@ -1911,7 +1925,7 @@ const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:atta
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
-const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
+const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'handL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
 const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll', ...KNIGHT_BRAKE_CLIPS]);
 // Standing clips whose boots are levelled and set on the floor.
@@ -2437,9 +2451,38 @@ export class ChibiView {
   }
 
   // Procedural layers applied after the mixer has written this frame's pose
+  // Each baked clip keeps its own split of twist between forearm and wrist, so a
+  // crossfade can spin the shield well away from the front (a combo hit handing over
+  // to the next, or to a run). Pull a shield that has strayed back to facing forward,
+  // crest up, in proportion to how much of the pose comes from the baked clips.
+  steadyShield() {
+    const R = this.R;
+    let baked = 0;
+    let total = 0;
+    for (const name in this.actions) {
+      const action = this.actions[name];
+      if (!action.isRunning()) continue;
+      const weight = action.getEffectiveWeight();
+      total += weight;
+      if (BAKED_SHIELD_CLIPS.has(name)) baked += weight;
+    }
+    if (total <= 0 || baked / total < 0.01) return;
+    R.handL.updateWorldMatrix(true, false);
+    this.root.getWorldQuaternion(_shieldRoot);
+    R.handL.getWorldQuaternion(_shieldNow).premultiply(_shieldParent.copy(_shieldRoot).invert());
+    // Leave the natural sway alone; correct only what has strayed past ~23 degrees.
+    const strayed = 2 * Math.acos(Math.min(1, Math.abs(_shieldNow.dot(SHIELD_REST))));
+    const pull = THREE.MathUtils.smoothstep(strayed, 0.4, 1.0) * baked / total;
+    if (pull < 0.001) return;
+    _shieldNow.slerp(SHIELD_REST, pull).premultiply(_shieldRoot);
+    R.handL.parent.getWorldQuaternion(_shieldParent);
+    R.handL.quaternion.copy(_shieldParent.invert().multiply(_shieldNow));
+  }
+
   applyLayers(pl, dt, paused) {
     const R = this.R;
     const t = this.time - this.clipStart;
+    if (this.skinnedKnight) this.steadyShield();
     // Whole-body spins (spin barrage, wind slash, spinning finisher)
     const sp = SPIN[`${this.style}:${this.currentName}`] || SPIN[this.currentName];
     if (sp) {
