@@ -106,6 +106,37 @@ test('Knight emits the server swing accent once at visual contact', t => {
   assert.ok(events[0].time >= 0.10 && events[0].time <= 0.15);
 });
 
+test('Knight holds a hit until the blade lands, and never swallows it', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const released = [];
+  const shown = [];
+  const hit = { type: 'hit', damage: 9 };
+  assert.equal(knight.holdForContact(hit), false, 'nothing to wait for before a swing');
+
+  knight.queueBladeAccent({ type: 'slash' }, (event, held) => shown.push(...held), held => released.push(...held));
+  assert.equal(knight.holdForContact(hit), true);
+  advance(knight, { state: 'attack', comboStep: 1 }, 4);
+  assert.equal(shown.length, 0, 'still waiting while the blade is in the air');
+  advance(knight, { state: 'attack', comboStep: 1 }, 15);
+  assert.deepEqual(shown, [hit], 'shown with the contact frame');
+  assert.equal(released.length, 0);
+
+  // A swing that never lands hands its hits back when it expires...
+  const late = { type: 'hit', damage: 5 };
+  knight.queueBladeAccent({ type: 'slash' }, () => {}, held => released.push(...held));
+  knight.holdForContact(late);
+  advance(knight, {}, 60);
+  assert.deepEqual(released, [late]);
+
+  // ...and when a newer swing replaces it.
+  const replaced = { type: 'hit', damage: 6 };
+  knight.queueBladeAccent({ type: 'slash' }, () => {}, held => released.push(...held));
+  knight.holdForContact(replaced);
+  knight.queueBladeAccent({ type: 'slash' }, () => {}, () => {});
+  assert.deepEqual(released, [late, replaced]);
+});
+
 test('Knight keeps its ankles under its body through ground and air poses', t => {
   const left = new Vector3();
   const right = new Vector3();
