@@ -450,8 +450,86 @@ export class KnightHolyVFX {
     else if (effectId === 'knight_armor') this.aegis(o);
     else if (effectId === 'knight_helmet') this.lionheart(o);
     else if (effectId === 'knight_trinket') this.chariot(o);
+    else if (effectId === 'basic_slash') this.basicSlash(o);
+    else if (effectId === 'heavy_shield_bash') this.shieldBash(o);
+    else if (effectId === 'guard_parry') this.guardParry(o);
     else return false;
     return true;
+  }
+
+  // Cohesive, feather-light ToS basic slash accent (3D SwordTrail draws the actual blade arc!)
+  basicSlash(o) {
+    const f = o.facing || 0;
+    const dx = Math.cos(f), dz = Math.sin(f);
+    const x = (o.x || 0) + dx * 1.15;
+    const y = (o.y || 0) + 1.0;
+    const z = (o.z || 0) + dz * 1.15;
+    const isFin = !!o.isFinisher;
+    this.sparkBurst(x, y, z, isFin ? 10 : 5, {
+      dir: f, cone: 0.75, speedMin: 4.5, speed: isFin ? 10 : 7.5,
+      color: C.gold, white: 0.45, lifeMin: 0.12, life: 0.22, width: 0.065, gravity: -12
+    });
+    if (isFin) {
+      this.groundCrack(x + dx * 0.25, o.y || 0, z + dz * 0.25, 1.55, { glow: C.gold, life: 0.75 });
+      this.dustRing(x + dx * 0.25, o.y || 0, z + dz * 0.25, 6, 4.2);
+      this.shake(3.5);
+    }
+  }
+
+  // Cohesive ToS heavy Shield Bash (warm ivory-gold crest + crisp shock ring + instanced sparks)
+  shieldBash(o) {
+    const f = o.facing || 0;
+    const dx = Math.cos(f), dz = Math.sin(f);
+    const e = this.effect(o, 0.36, null);
+    const crestBack = this.quad(e.root, 'crest', C.outline, 1, { blend: 'normal', opacity: 0.55 });
+    const crestBody = this.quad(e.root, 'crest', C.paint, 1, { blend: 'normal', opacity: 0.88 });
+    const crestHot = this.quad(e.root, 'crest', C.white, 1.2, { blend: 'add', opacity: 0.9 });
+    const ring = this.quad(e.root, 'shock', C.gold, 1, { blend: 'normal', opacity: 0.85 });
+    e.tick = (dt, age) => {
+      const k = clamp01(age / 0.36);
+      const ease = easeOut(k);
+      const a = age < 0.04 ? age / 0.04 : 1 - easeIn((age - 0.04) / 0.32);
+      const zPos = 0.75 + ease * 1.15;
+      const sc = 0.85 + ease * 1.15;
+      for (const [m, mul, op, dzOff] of [[crestBack, 1.08, 0.55, -0.02], [crestBody, 1.0, 0.88, 0], [crestHot, 0.92, 0.85, 0.02]]) {
+        m.position.set(0, 1.0, zPos + dzOff);
+        m.scale.set(sc * mul, sc * mul, 1);
+        m.material.opacity = op * a;
+      }
+      ring.position.set(0, 1.0, zPos + 0.12);
+      const rs = 0.65 + ease * 1.95;
+      ring.scale.set(rs, rs, 1);
+      ring.material.opacity = 0.8 * (1 - k);
+    };
+    this.dustRing((o.x || 0) + dx * 1.1, o.y || 0, (o.z || 0) + dz * 1.1, 7, 5.0);
+    this.sparkBurst((o.x || 0) + dx * 1.25, (o.y || 0) + 1.0, (o.z || 0) + dz * 1.25, 12, {
+      dir: f, cone: 0.8, speedMin: 5, speed: 12, color: C.gold, white: 0.5, life: 0.26
+    });
+    this.shake(5);
+  }
+
+  // Cohesive ToS Guard / Perfect Parry spark flash
+  guardParry(o) {
+    const f = o.facing || 0;
+    const dx = Math.cos(f), dz = Math.sin(f);
+    const x = (o.x || 0) + dx * 0.75;
+    const y = (o.y || 0) + 1.05;
+    const z = (o.z || 0) + dz * 0.75;
+    const e = this.effect(o, 0.24, null);
+    const ring = this.quad(e.root, 'shock', C.sky, 1, { blend: 'normal', opacity: 0.8 });
+    const flare = this.sprite(e.root, 'flare', C.white, 1.4);
+    flare.position.set(0, 1.05, 0.85);
+    e.tick = (dt, age) => {
+      const k = clamp01(age / 0.24);
+      const ease = easeOut(k);
+      ring.position.set(0, 1.05, 0.82);
+      const s = 0.55 + ease * 1.25;
+      ring.scale.set(s, s, 1);
+      ring.material.opacity = 0.8 * (1 - k);
+      flare.scale.setScalar(0.75 + ease * 1.1);
+      flare.material.opacity = 1 - k;
+    };
+    this.sparkBurst(x, y, z, 10, { dir: f, cone: 1.1, speedMin: 4, speed: 10, color: C.gold, white: 0.55, life: 0.22 });
   }
 
   // ------------------------------------------------------------------ 1. Excalibur Wave

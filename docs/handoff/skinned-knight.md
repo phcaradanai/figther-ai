@@ -27,26 +27,30 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
     shadow split-tone (`tosWarmTint`), and delicate warm-brown Fresnel ink contour
     (`onBeforeCompile`, 0 extra draw calls); skips heavy PBR/IBL/normal lookups while preserving
     emissive hit-flash/Super Armor tints and opacity.
-  - **Chibi-heroic proportions & ToS M Swordsman/Peltasta/Murmilo clips**: `headScale: 1.12`,
-    `swordScale: 1.12`, `shieldScale: 1.10`; upright chest & head, broadsword held out in open
-    silhouette to the right flank, kite shield angled forward; lively bounce idle, Double Slash
-    (`attack1`), Shield Bash + reverse cut (`attack2`), airborne Highlander Crosscut (`attack3`),
-    Murmilo Shield Drive (`heavy`), and wide Excalibur cleave (`sweep`).
-  - **Live 3D `SwordTrail` crescent ribbon + hybrid 15 FPS stepping (`stepFps: 15`)**:
-    zero-allocation per-vertex RGBA curved sword-blade arc trail (`SWORD_TRAIL_WINDOWS`) that
-    switches out of 15 FPS stepped cadence during active swings so blade arcs stay silky smooth
-    while idle/locomotion/holds keep the snappy ToS/2D 15 FPS feel (`?step=0` disables).
-  - **Telephoto diorama camera (`renderer3d.js`, `stage.js`)**: `FOV 22`, `CAM_PITCH 0.62`,
-    `camDist 41` (wheel `22..58`), matched fog pullback (`+11/+15`), and unobstructed north
-    `sky_temple` painted castle backdrop.
-  - **A-pose arm alignment (`alignArms: true`)** + **3-bone skinned cape** (`cape1..cape3`,
-    topologically isolated from legs/arms via BFS + two-pass bone-heat binding).
-  - **Modular gear** via `Builder.glbPart()` (`KnightHelmet`, `KnightSword`, `KnightShield`,
-    plus dropped loot in `buildGearItem`), mixed helmet scaling (`otherHelmetScale: 0.56`),
-    and procedural fallback when `gear.armor !== heroId` (`?skinned=0` disables skinned).
-  - Verified live in browser at default `/` (idle, run, guard, 3-hit combo with golden
-    `SwordTrail`, Q/E/R/F skills + Super Armor emissive, helmet drop & pickup, My Item 3D
-    turntable, unobstructed north-west sky at FOV 22, 0 console/network/WebGL errors).
+  - **Curled gauntlet weapon grip & zero-clip split `KnightCape`** (`hero-knight.glb` **1.17 MB**,
+    13.1k tris = `Body` 11.5k + `KnightCape` 1.6k sharing 1 baked albedo texture; `knight-gear.glb`
+    **0.48 MB**): both open A-pose hands curled along a smooth circular arc into clenched fists
+    gripping `KnightSword` dead-center (`swordMount: { p: [0.001, -0.091, 0.026], tilt: 0.28 }`);
+    `KnightCape` cleanly split at the collar (`z=1.13`) with monotonic `torso -> cape1 -> cape2 -> cape3`
+    weights, physical back clearance, torso-pitch compensation in `chibi.js`, and visibility toggled
+    by `gear.trinket === heroId` (hides cleanly when trinket drops).
+  - **Stripped-gear continuity**: `useSkinned = !!(skinned && (!gear.armor || gear.armor === pl.heroId))`
+    so dropping armor, helmet, and cape keeps the skinned anime Knight model (never reverts to old
+    procedural geometry).
+  - **Fluid 60 FPS Tree of Savior Swordsman animations (`stepFps: 0`, `?step=15` optional)**:
+    classic ToS Swordsman 3/4 wide stance with 4-phase organic breathing idle, counter-rotated
+    athletic run, shield-prow dash, low shield-evade dodge (`'shield:roll': null` skips stiff 360
+    ball flip), braced guard, smooth attack follow-through, and RGBA `SwordTrail`.
+  - **Lightweight, cohesive ToS VFX & WebGL budget (`knight_holy_vfx.js`, `knight_effekseer_3d.js`,
+    `renderer3d.js`)**: all 7 Knight moves (including `basic_slash`, `heavy_shield_bash`,
+    `guard_parry`) run on zero-download procedural `KnightHolyVFX` (removed clashing neon-blue/pink
+    basic slash discs and 10 Knight PNG downloads); other 9 hero VFX suites lazy-load on demand
+    (cuts ~99 startup VFX PNG downloads / ~12 MB / ~100 MB VRAM); unused empty `#effekseerCanvas`
+    second WebGL context and multi-pass `UnrealBloomPass` disabled by default (`?effekseer=1`,
+    `?bloom=1` opt-in); 1024×1024 soft shadows and refined grounded contact shadow + thin gold ring.
+  - Verified live in browser at default `/` (idle, run, dash, guard, dodge, `J` slash, `Q` skill,
+    all transferable gear dropped `E`/`R`/`F`, My Item 3D close-up grip, 0 Knight VFX PNG requests,
+    0 console/network/WebGL errors).
 - Blender MCP connects once Blender's window is open (the add-on auto-starts its server),
   but all AI generators are off. The user generates models themselves on
   https://hy3d.tencent.ai/ and hands over GLBs. Source files: `D:\3D-Models\*.glb` and

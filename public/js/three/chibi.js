@@ -29,27 +29,28 @@ const SKINNED_HEROES = {
     hipHeight: 0.78,
     alignArms: true,
     painterly: true,
-    stepFps: 15,
-    headScale: 1.12,
-    swordScale: 1.12,
-    shieldScale: 1.10,
-    fused: ['trinket'],
+    stepFps: 0,
+    headScale: 1.10,
+    swordScale: 1.10,
+    shieldScale: 1.08,
+    fused: [],
+    capeMesh: 'KnightCape',
     helmetMesh: 'KnightHelmet',
     swordMesh: 'KnightSword',
     shieldMesh: 'KnightShield',
-    swordMount: { p: [0, -0.085, 0.02], tilt: 0.35 },
-    swordTrail: { base: [0, 0, 0.18], tip: [0, 0, 1.12] },
+    swordMount: { p: [0.001, -0.091, 0.026], tilt: 0.28 },
+    swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.15] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
     capeBones: [
-      { name: 'cape1', weight: 0.35 },
-      { name: 'cape2', weight: 0.35 },
-      { name: 'cape3', weight: 0.25 }
+      { name: 'cape1', weight: 0.22 },
+      { name: 'cape2', weight: 0.38 },
+      { name: 'cape3', weight: 0.40 }
     ]
   }
 };
 const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
-const SKIP_STEP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('step') === '0';
+const FORCE_STEP = typeof location !== 'undefined' ? (Number(new URLSearchParams(location.search).get('step')) || 0) : 0;
 const skinnedEntries = !SKIP_SKINNED
   ? await Promise.all(Object.entries(SKINNED_HEROES).map(async ([id, spec]) => {
     try {
@@ -1070,15 +1071,22 @@ function buildSkinnedRig(b, heroId, gear, model) {
   // canonical bones. Attached bind mode re-inverts mesh.matrixWorld each frame so
   // squash & stretch and root motion apply once.
   const rebindQueue = [];
+  const armorStripped = !gear.armor;
   for (const { mesh, bindWorld } of skinnedMeshes) {
     const mappedBones = mesh.skeleton.bones.map(orig => newBones.get(orig) || byName.get(orig.name));
     mesh.position.set(0, 0, 0);
     mesh.quaternion.identity();
     mesh.scale.set(1, 1, 1);
     body.add(mesh);
+    const isCapeMesh = !!(spec.capeMesh && mesh.name === spec.capeMesh);
+    if (isCapeMesh) {
+      mesh.visible = gear.trinket === heroId;
+    }
     const cloneMat = (m) => {
       const c = spec.painterly ? makeToSMaterial(m) : m.clone();
       if (spec.painterly) c.userData.keepUnmerged = true;
+      // Subtle visual cue when armor is knocked off, while keeping the skinned model
+      if (armorStripped && !isCapeMesh) c.color.multiplyScalar(0.84);
       b.materials.push(c);
       return c;
     };
@@ -1087,7 +1095,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
     } else if (mesh.material) {
       mesh.material = cloneMat(mesh.material);
     }
-    mesh.castShadow = true;
+    mesh.castShadow = mesh.visible;
     mesh.frustumCulled = false;
     mesh.bindMode = THREE.AttachedBindMode;
     rebindQueue.push({ mesh, mappedBones, bindWorld });
@@ -1155,7 +1163,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
       extras.capes.push(bone);
     }
   }
-  if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket]) {
+  if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket] && !(spec.capeMesh && gear.trinket === heroId)) {
     TRINKETS[gear.trinket](b, unscaled(R.torso), extras);
   }
   R.extras = extras;
@@ -1237,11 +1245,14 @@ const READY = {
   },
   fist:  { armR: [-0.45, 0, -0.3], foreR: [-1.9, 0, 0], armL: [-0.55, 0, 0.3], foreL: [-1.9, 0, 0], torso: [0.12, 0.15, 0] },
   shield: {
-    // Tree of Savior M Peltasta / Murmilo stance: chest proud, shield angled cleanly in front,
-    // broadsword held out to the right flank so the blade reads crisply in open silhouette
-    armL: [-0.62, 0, -0.26], foreL: [-1.12, 0, 0], armR: [-0.15, 0, -0.78], foreR: [-0.45, 0, 0],
-    torso: [0.06, 0.28, 0], head: [-0.08, -0.24, 0],
-    legL: [-0.34, 0, 0.14], shinL: [0.42, 0, 0], legR: [0.36, 0, -0.15], shinR: [0.32, 0, 0], hipsY: 0.56
+    // Classic Tree of Savior Swordsman/Peltasta 3/4 stance: wide athletic footing,
+    // shield held upright beside the left flank, sword relaxed diagonally down-out to the right
+    hips: [0.03, 0.28, 0],
+    torso: [0.05, 0.14, -0.02], head: [-0.04, -0.36, 0.01],
+    armL: [-0.58, 0, 0.18], foreL: [-1.15, 0, 0],
+    armR: [0.22, 0, -0.56], foreR: [-0.30, 0, 0],
+    legL: [-0.30, 0.12, 0.15], shinL: [0.36, 0, 0],
+    legR: [0.28, -0.10, -0.16], shinR: [0.30, 0, 0], hipsY: 0.565
   }
 };
 const KNEEL = { legL: [-1.45, 0, 0.14], shinL: [1.5, 0, 0], legR: [0.25, 0, -0.12], shinR: [1.55, 0, 0], hipsY: 0.37 };
@@ -1321,16 +1332,31 @@ function buildClips(style) {
   const lunge = { legL: [-0.45, 0, 0.05], shinL: [0.35, 0, 0], legR: [0.4, 0, -0.05], shinR: [0.25, 0, 0], hipsY: 0.57 };
 
   // Locomotion
-  // Idle: breathing + weight shift (shield style uses ToS M lively rhythmic combat bounce)
+  // Idle: organic multi-phase breathing & weight shift (shield style matches ToS Swordsman poise)
   if (style === 'shield') {
-    const shIdleA = P({ hips: [0, 0, 0.025], torso: [0.05, 0.30, -0.02], head: [-0.09, -0.26, 0.01], hipsY: 0.565 });
-    const shIdleB = P({
-      hips: [0, 0, -0.02], torso: [0.10, 0.25, 0.02], head: [-0.05, -0.21, -0.01], hipsY: 0.538,
-      armL: [base.armL[0] - 0.07, 0, base.armL[2] - 0.03],
-      armR: [base.armR[0] + 0.05, 0, base.armR[2] - 0.08],
-      legL: [-0.40, 0, 0.15], shinL: [0.50, 0, 0], legR: [0.42, 0, -0.16], shinR: [0.40, 0, 0]
+    const shIdle0 = P({
+      hips: [0.02, 0.28, 0.015], torso: [0.04, 0.15, -0.025], head: [-0.05, -0.37, 0.015], hipsY: 0.570,
+      armL: [-0.56, 0, 0.19], foreL: [-1.12, 0, 0],
+      armR: [0.20, 0, -0.55], foreR: [-0.28, 0, 0]
     });
-    clips.idle = makeClip('idle', [[0, shIdleA], [0.55, shIdleB], [1.1, shIdleA]]);
+    const shIdle1 = P({
+      hips: [0.04, 0.26, -0.012], torso: [0.07, 0.13, 0.010], head: [-0.03, -0.34, -0.010], hipsY: 0.552,
+      armL: [-0.62, 0, 0.16], foreL: [-1.19, 0, 0],
+      armR: [0.25, 0, -0.59], foreR: [-0.34, 0, 0],
+      legL: [-0.34, 0.12, 0.16], shinL: [0.43, 0, 0], legR: [0.32, -0.10, -0.17], shinR: [0.37, 0, 0]
+    });
+    const shIdle2 = P({
+      hips: [0.03, 0.29, -0.018], torso: [0.06, 0.16, 0.016], head: [-0.06, -0.39, -0.012], hipsY: 0.558,
+      armL: [-0.60, 0, 0.17], foreL: [-1.17, 0, 0],
+      armR: [0.24, 0, -0.60], foreR: [-0.33, 0, 0],
+      legL: [-0.32, 0.12, 0.15], shinL: [0.40, 0, 0], legR: [0.30, -0.10, -0.16], shinR: [0.34, 0, 0]
+    });
+    const shIdle3 = P({
+      hips: [0.02, 0.30, 0.010], torso: [0.03, 0.16, -0.018], head: [-0.04, -0.38, 0.008], hipsY: 0.573,
+      armL: [-0.54, 0, 0.20], foreL: [-1.10, 0, 0],
+      armR: [0.18, 0, -0.53], foreR: [-0.26, 0, 0]
+    });
+    clips.idle = makeClip('idle', [[0, shIdle0], [0.45, shIdle1], [0.90, shIdle2], [1.35, shIdle3], [1.80, shIdle0]]);
   } else {
     const idleA = P({ hips: [0, 0, 0.035], torso: [0.06, 0.05, -0.04], head: [0.06, -0.04, 0.02] });
     const idleB = P({ hips: [0, 0, -0.03], torso: [0.1, -0.04, 0.035], head: [0.02, 0.04, -0.02], hipsY: 0.6, armR: [base.armR[0] - 0.06, 0, base.armR[2] - 0.05], armL: [base.armL[0] - 0.06, 0, base.armL[2] + 0.05] });
@@ -1363,32 +1389,68 @@ function buildClips(style) {
     const pr = (p) => pose(p, { torso: [0.2, p.torso[1] * 0.5, 0], armR: [-0.35, 0, -0.2], foreR: [-1.25, 0, 0] });
     clips.run = makeClip('run', [[0, pr(runK(1))], [0.12, pr(pass(1)), 'out'], [0.24, pr(runK(-1)), 'in'], [0.36, pr(pass(-1)), 'out'], [0.48, pr(runK(1)), 'in']]);
   } else if (style === 'shield') {
-    // ToS M Swordsman/Peltasta dash-run: shield braced forward, broadsword held cleanly out-and-back
-    const sh = (p, swing) => pose(p, {
-      armL: [-0.74, 0, -0.22], foreL: [-1.08, 0, 0],
-      armR: [0.32 + swing, 0, -0.74], foreR: [-0.35, 0, 0],
-      torso: [0.32, 0.10 * Math.sign(swing || 1), 0], head: [-0.24, -0.08 * Math.sign(swing || 1), 0]
+    // Fluid ToS Swordsman athletic run: counter-rotated hips & torso, grounded knee drive,
+    // shield bobbing protectively ahead-left, sword trailing smoothly out-back with elbow lag
+    const shContact = (s) => P({
+      hips: [0.08, -0.16 * s, 0.04 * s],
+      torso: [0.22, 0.22 * s, -0.04 * s],
+      head: [-0.14, -0.08 * s, 0.01 * s],
+      legL: [s > 0 ? -0.78 : 0.62, 0, 0.05], shinL: [s > 0 ? 0.22 : 0.68, 0, 0],
+      legR: [s > 0 ? 0.62 : -0.78, 0, -0.05], shinR: [s > 0 ? 0.68 : 0.22, 0, 0],
+      armL: [-0.66 - 0.08 * s, 0, 0.14], foreL: [-1.12 - 0.06 * s, 0, 0],
+      armR: [0.48 + 0.14 * s, 0, -0.52], foreR: [-0.36 - 0.08 * s, 0, 0],
+      hipsY: 0.555
     });
-    clips.run = makeClip('run', [[0, sh(runK(1), 0.16)], [0.11, sh(pass(1), 0), 'out'], [0.22, sh(runK(-1), -0.14), 'in'], [0.33, sh(pass(-1), 0), 'out'], [0.44, sh(runK(1), 0.16), 'in']]);
+    const shPass = (s) => P({
+      hips: [0.06, 0, -0.02 * s],
+      torso: [0.24, 0.04 * s, 0.02 * s],
+      head: [-0.15, -0.02 * s, 0],
+      legL: [s > 0 ? -0.14 : -0.26, 0, 0.05], shinL: [s > 0 ? 0.34 : 1.24, 0, 0],
+      legR: [s > 0 ? -0.26 : -0.14, 0, -0.05], shinR: [s > 0 ? 1.24 : 0.34, 0, 0],
+      armL: [-0.60, 0, 0.16], foreL: [-1.06, 0, 0],
+      armR: [0.42, 0, -0.56], foreR: [-0.30, 0, 0],
+      hipsY: 0.635
+    });
+    clips.run = makeClip('run', [
+      [0, shContact(1)],
+      [0.115, shPass(1), 'out'],
+      [0.23, shContact(-1), 'in'],
+      [0.345, shPass(-1), 'out'],
+      [0.46, shContact(1), 'in']
+    ]);
   } else {
     clips.run = makeClip('run', [[0, runK(1)], [0.12, pass(1), 'out'], [0.24, runK(-1), 'in'], [0.36, pass(-1), 'out'], [0.48, runK(1), 'in']]);
   }
 
-  const air = P({ torso: [0.12, 0, 0], legL: [-1.0, 0, 0.06], shinL: [1.5, 0, 0], legR: [-0.25, 0, -0.06], shinR: [1.0, 0, 0], armR: [-0.5, 0, -0.95], foreR: [-0.6, 0, 0], armL: [-0.5, 0, 0.95], foreL: [-0.6, 0, 0] });
-  const air2 = pose(air, { legL: [-0.85, 0, 0.06], armR: [-0.4, 0, -1.05], armL: [-0.4, 0, 1.05] });
-  clips.jump = makeClip('jump', [[0, air], [0.3, air2], [0.6, air]]);
-  const fall = P({ torso: [0.02, 0, 0], head: [-0.1, 0, 0], legL: [-0.45, 0, 0.08], shinL: [0.65, 0, 0], legR: [0.15, 0, -0.08], shinR: [0.45, 0, 0], armR: [-0.9, 0, -1.25], foreR: [-0.3, 0, 0], armL: [-0.9, 0, 1.25], foreL: [-0.3, 0, 0] });
-  clips.fall = makeClip('fall', [[0, fall], [0.25, pose(fall, { armR: [-1.0, 0, -1.35], armL: [-1.0, 0, 1.35] })], [0.5, fall]]);
-  const dash = P({ torso: [0.7, 0, 0], head: [-0.45, 0, 0], armR: [0.95, 0, -0.35], foreR: [-0.3, 0, 0], armL: [0.95, 0, 0.35], foreL: [-0.3, 0, 0], legL: [-0.75, 0, 0], shinL: [1.0, 0, 0], legR: [0.85, 0, 0], shinR: [0.35, 0, 0], hipsY: 0.52 });
-  clips.dash = makeClip('dash', [[0, dash], [0.2, pose(dash, { torso: [0.62, 0, 0] })], [0.4, dash]]);
+  const air = style === 'shield'
+    ? P({ hips: [0.06, 0.12, 0], torso: [0.12, 0.10, 0], head: [-0.08, -0.16, 0], legL: [-0.88, 0, 0.08], shinL: [1.35, 0, 0], legR: [-0.18, 0, -0.08], shinR: [0.85, 0, 0], armL: [-0.85, 0, 0.24], foreL: [-1.05, 0, 0], armR: [0.25, 0, -0.76], foreR: [-0.40, 0, 0], hipsY: 0.62 })
+    : P({ torso: [0.12, 0, 0], legL: [-1.0, 0, 0.06], shinL: [1.5, 0, 0], legR: [-0.25, 0, -0.06], shinR: [1.0, 0, 0], armR: [-0.5, 0, -0.95], foreR: [-0.6, 0, 0], armL: [-0.5, 0, 0.95], foreL: [-0.6, 0, 0] });
+  const air2 = style === 'shield'
+    ? pose(air, { legL: [-0.74, 0, 0.08], shinL: [1.20, 0, 0], armL: [-0.78, 0, 0.28], armR: [0.18, 0, -0.84] })
+    : pose(air, { legL: [-0.85, 0, 0.06], armR: [-0.4, 0, -1.05], armL: [-0.4, 0, 1.05] });
+  clips.jump = makeClip('jump', [[0, air], [0.28, air2], [0.56, air]]);
+  const fall = style === 'shield'
+    ? P({ hips: [0.04, 0.16, 0], torso: [0.08, 0.08, 0], head: [0.06, -0.18, 0], legL: [-0.42, 0, 0.10], shinL: [0.55, 0, 0], legR: [0.20, 0, -0.10], shinR: [0.42, 0, 0], armL: [-0.70, 0, 0.30], foreL: [-0.95, 0, 0], armR: [-0.12, 0, -0.88], foreR: [-0.35, 0, 0], hipsY: 0.60 })
+    : P({ torso: [0.02, 0, 0], head: [-0.1, 0, 0], legL: [-0.45, 0, 0.08], shinL: [0.65, 0, 0], legR: [0.15, 0, -0.08], shinR: [0.45, 0, 0], armR: [-0.9, 0, -1.25], foreR: [-0.3, 0, 0], armL: [-0.9, 0, 1.25], foreL: [-0.3, 0, 0] });
+  clips.fall = makeClip('fall', [[0, fall], [0.25, pose(fall, { armR: [fall.armR[0] - 0.08, 0, fall.armR[2] - 0.08], armL: [fall.armL[0] - 0.06, 0, fall.armL[2] + 0.08] })], [0.5, fall]]);
+  const dash = style === 'shield'
+    ? P({ hips: [0.14, 0.18, 0], torso: [0.38, 0.14, 0], head: [-0.30, -0.24, 0], armL: [-0.92, 0, 0.08], foreL: [-1.18, 0, 0], armR: [0.68, 0, -0.52], foreR: [-0.28, 0, 0], legL: [-0.72, 0, 0.08], shinL: [0.92, 0, 0], legR: [0.78, 0, -0.08], shinR: [0.36, 0, 0], hipsY: 0.50 })
+    : P({ torso: [0.7, 0, 0], head: [-0.45, 0, 0], armR: [0.95, 0, -0.35], foreR: [-0.3, 0, 0], armL: [0.95, 0, 0.35], foreL: [-0.3, 0, 0], legL: [-0.75, 0, 0], shinL: [1.0, 0, 0], legR: [0.85, 0, 0], shinR: [0.35, 0, 0], hipsY: 0.52 });
+  clips.dash = style === 'shield'
+    ? makeClip('dash', [
+        [0, dash],
+        [0.10, pose(dash, { legL: [0.66, 0, 0.08], shinL: [0.42, 0, 0], legR: [-0.68, 0, -0.08], shinR: [0.95, 0, 0], hipsY: 0.54, torso: [0.34, 0.18, 0] }), 'out'],
+        [0.20, dash, 'in']
+      ])
+    : makeClip('dash', [[0, dash], [0.2, pose(dash, { torso: [0.62, 0, 0] })], [0.4, dash]]);
   const fly = P({ torso: [0.8, 0, 0], head: [-0.55, 0, 0], armR: [0.5, 0, -0.65], foreR: [-0.2, 0, 0], armL: [0.5, 0, 0.65], foreL: [-0.2, 0, 0], legL: [0.45, 0, 0.06], shinL: [0.45, 0, 0], legR: [0.35, 0, -0.06], shinR: [0.7, 0, 0] });
   clips.fly = makeClip('fly', [[0, fly], [0.4, pose(fly, { legL: [0.3, 0, 0.06], legR: [0.5, 0, -0.06], torso: [0.74, 0, 0] })], [0.8, fly]]);
 
   const guard = P({ torso: [0.15, 0.25, 0], armL: [-1.35, 0, -0.55], foreL: [-0.9, 0, 0], armR: [-0.6, 0, -0.25], foreR: [-1.3, 0, 0], legL: [-0.38, 0, 0.1], shinL: [0.5, 0, 0], legR: [0.38, 0, -0.1], shinR: [0.4, 0, 0], hipsY: 0.55 });
   const guardPose = style === 'shield'
-    ? P({ torso: [0.18, 0.16, 0], head: [-0.04, -0.16, 0], armL: [-1.30, 0, -0.32], foreL: [-0.65, 0, 0], armR: [0.32, 0, -0.72], foreR: [-0.45, 0, 0], legL: [-0.46, 0, 0.16], shinL: [0.60, 0, 0], legR: [0.46, 0, -0.16], shinR: [0.46, 0, 0], hipsY: 0.51 })
+    ? P({ hips: [0.08, 0.26, 0], torso: [0.16, 0.14, 0], head: [-0.08, -0.34, 0], armL: [-1.18, 0, -0.16], foreL: [-0.72, 0, 0], armR: [0.28, 0, -0.62], foreR: [-0.52, 0, 0], legL: [-0.46, 0.10, 0.16], shinL: [0.60, 0, 0], legR: [0.46, -0.10, -0.16], shinR: [0.48, 0, 0], hipsY: 0.505 })
     : guard;
-  clips.guard = makeClip('guard', [[0, guardPose], [0.5, pose(guardPose, { hipsY: guardPose.hipsY - 0.01 })], [1.0, guardPose]]);
+  clips.guard = makeClip('guard', [[0, guardPose], [0.55, pose(guardPose, { hipsY: guardPose.hipsY - 0.012, torso: [guardPose.torso[0] + 0.02, guardPose.torso[1], 0] })], [1.1, guardPose]]);
 
   // Attacks: [anticipation] -> [strike, eased out = snappy] -> [follow-through] -> settle
   const A = {};
@@ -1474,14 +1536,15 @@ function buildClips(style) {
     const smashAntic = P({ torso: [-0.34, -0.18, 0], head: [-0.28, 0.12, 0], armR: [-3.05, 0, -0.14], foreR: [-0.4, 0, 0], armL: [-0.7, 0, 0.45], foreL: [-1.0, 0, 0], legL: [-0.85, 0, 0.12], shinL: [1.3, 0, 0], legR: [-0.3, 0, -0.12], shinR: [1.0, 0, 0], hipsY: 0.76 });
     const smashHit = P(deepLunge, tucked, { torso: [0.52, 0.12, 0], head: [-0.28, -0.08, 0], armR: [-0.68, 0, 0.14], foreR: [0, 0, 0], hipsY: 0.43 });
     const smashHold = pose(smashHit, { torso: [0.54, 0.14, 0] });
-    const strikeHold = (name, antic, hit, hold, t) => makeClip(name, [[0, base], [t[0], antic, 'out'], [t[1], hit, 'out'], [t[2], hold, 'lin'], [t[3], base, 'io']]);
-    clips.attack1 = strikeHold('attack1', sweepAntic, sweepHit, sweepHold, [0.05, 0.11, 0.38, 0.54]);
-    clips.attack2 = strikeHold('attack2', bashAntic, bashHit, bashHold, [0.05, 0.10, 0.36, 0.52]);
-    clips.attack3 = makeClip('attack3', [[0, base], [0.04, smashGather, 'out'], [0.10, smashAntic, 'out'], [0.17, smashHit, 'in'], [0.50, smashHold, 'lin'], [0.68, base, 'io']]);
-    // Heavy: Murmilo Shield Drive — deep pull, explosive shield slam, crisp hold
-    clips.heavy = makeClip('heavy', [[0, base], [0.16, pose(bashAntic, { hipsY: 0.46, foreL: [-2.2, 0, 0], armR: [0.45, 0, -0.78] }), 'out'], [0.24, pose(bashHit, { armL: [-1.56, 0, -0.14], torso: [0.48, -0.60, 0], armR: [0.60, 0, -0.82] }), 'out'], [0.52, pose(bashHold, { armR: [0.55, 0, -0.82] }), 'lin'], [0.7, base, 'io']]);
+    // Smooth, organic attack timings: snappy strike + elastic follow-through settle (no robotic statue freeze)
+    const strikeHold = (name, antic, hit, hold, t) => makeClip(name, [[0, base], [t[0], antic, 'out'], [t[1], hit, 'out'], [t[2], hold, 'io'], [t[3], base, 'io']]);
+    clips.attack1 = strikeHold('attack1', sweepAntic, sweepHit, sweepHold, [0.06, 0.13, 0.32, 0.50]);
+    clips.attack2 = strikeHold('attack2', bashAntic, bashHit, bashHold, [0.055, 0.12, 0.30, 0.48]);
+    clips.attack3 = makeClip('attack3', [[0, base], [0.05, smashGather, 'out'], [0.11, smashAntic, 'out'], [0.19, smashHit, 'in'], [0.42, smashHold, 'io'], [0.64, base, 'io']]);
+    // Heavy: Murmilo Shield Drive — deep pull, explosive shield slam, elastic settle
+    clips.heavy = makeClip('heavy', [[0, base], [0.15, pose(bashAntic, { hipsY: 0.46, foreL: [-2.1, 0, 0], armR: [0.45, 0, -0.72] }), 'out'], [0.24, pose(bashHit, { armL: [-1.46, 0, -0.14], torso: [0.44, -0.56, 0], armR: [0.58, 0, -0.78] }), 'out'], [0.46, pose(bashHold, { armR: [0.52, 0, -0.76] }), 'io'], [0.68, base, 'io']]);
     // Skills: Excalibur Wave wide sweeping cleave
-    clips.sweep = strikeHold('sweep', pose(sweepAntic, { torso: [0.26, -1.02, 0], armR: [-1.55, 0, -1.42], hipsY: 0.46 }), pose(sweepHit, { torso: [0.50, 0.98, 0], armR: [-1.14, 0, 0.82] }), pose(sweepHold, { torso: [0.52, 1.02, 0] }), [0.11, 0.19, 0.58, 0.76]);
+    clips.sweep = strikeHold('sweep', pose(sweepAntic, { torso: [0.22, -0.96, 0], armR: [-1.52, 0, -1.36], hipsY: 0.47 }), pose(sweepHit, { torso: [0.46, 0.92, 0], armR: [-1.14, 0, 0.78] }), pose(sweepHold, { torso: [0.44, 0.96, 0] }), [0.11, 0.19, 0.50, 0.72]);
     A.a1 = null;
   } else if (style === 'cast') {
     A.a1 = [
@@ -1636,9 +1699,16 @@ function buildClips(style) {
   fl.push([0.62, base, 'io']);
   clips.flurry = makeClip('flurry', fl);
 
-  // Dodge roll: tucked ball pose; ChibiView rotates the body around its centre
+  // Dodge roll: shield style uses a fluid low athletic shield-evade glide instead of a stiff 360 ball flip
   const tuck = P({ torso: [0.9, 0, 0], head: [0.5, 0, 0], armR: [-1.0, 0, -0.25], foreR: [-1.7, 0, 0], armL: [-1.0, 0, 0.25], foreL: [-1.7, 0, 0], legL: [-1.75, 0, 0.12], shinL: [2.3, 0, 0], legR: [-1.6, 0, -0.12], shinR: [2.3, 0, 0], hipsY: 0.48 });
-  clips.roll = makeClip('roll', [[0, base], [0.05, tuck, 'out'], [0.33, tuck], [0.46, base, 'io']]);
+  if (style === 'shield') {
+    const evadeDip = P({ hips: [0.22, 0.36, -0.06], torso: [0.42, 0.24, 0.05], head: [-0.32, -0.46, 0], armL: [-1.12, 0, -0.12], foreL: [-0.95, 0, 0], armR: [0.62, 0, -0.68], foreR: [-0.35, 0, 0], legL: [-0.95, 0.12, 0.18], shinL: [1.18, 0, 0], legR: [0.85, -0.10, -0.16], shinR: [0.68, 0, 0], hipsY: 0.42 });
+    const evadeGlide = P({ hips: [0.26, 0.42, -0.08], torso: [0.48, 0.28, 0.06], head: [-0.36, -0.52, 0], armL: [-1.25, 0, -0.18], foreL: [-0.82, 0, 0], armR: [0.78, 0, -0.74], foreR: [-0.25, 0, 0], legL: [-1.05, 0.12, 0.18], shinL: [1.10, 0, 0], legR: [0.95, -0.10, -0.16], shinR: [0.45, 0, 0], hipsY: 0.39 });
+    const evadeRecover = P({ hips: [0.10, 0.20, 0.02], torso: [0.18, 0.14, 0], head: [-0.12, -0.28, 0], armL: [-0.82, 0, 0.12], foreL: [-1.08, 0, 0], armR: [0.35, 0, -0.60], foreR: [-0.32, 0, 0], legL: [-0.46, 0.10, 0.15], shinL: [0.58, 0, 0], legR: [0.42, -0.10, -0.15], shinR: [0.44, 0, 0], hipsY: 0.50 });
+    clips.roll = makeClip('roll', [[0, base], [0.06, evadeDip, 'out'], [0.22, evadeGlide, 'io'], [0.34, evadeRecover, 'out'], [0.46, base, 'io']]);
+  } else {
+    clips.roll = makeClip('roll', [[0, base], [0.05, tuck, 'out'], [0.33, tuck], [0.46, base, 'io']]);
+  }
   // Roll & shoot: forward roll that comes up on one knee, both weapons out
   const kneelOut = P(KNEEL, { torso: [0.12, 0, 0], head: [-0.05, 0, 0], armR: [-1.45, 0, 0.06], foreR: [0, 0, 0], armL: [-1.45, 0, -0.06], foreL: [0, 0, 0] });
   clips.rollshot = makeClip('rollshot', [[0, base], [0.04, tuck, 'out'], [0.28, tuck], [0.34, kneelOut, 'out'], [0.52, kneelOut, 'lin'], [0.66, base, 'io']]);
@@ -1703,7 +1773,7 @@ const _vp = new THREE.Vector3();
 // Whole-body spins done in code: [start, duration, turns], keyed by clip or style:clip
 const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:attack3': [0.08, 0.2, 1], 'twingun:spin': [0.06, 0.56, 2] };
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
-const FLIP = { roll: [0.03, 0.33, 1, 0], backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
+const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL'];
 const LOCOMOTION = new Set(['idle', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
 const easeInOut = (x) => x * x * (3 - 2 * x);
@@ -1857,12 +1927,13 @@ export class ChibiView {
     this.b = new Builder();
     const gear = pl.gear || {};
     const skinned = SKINNED_MODELS[pl.heroId];
-    const useSkinned = !!(skinned && gear.armor === pl.heroId);
+    // Keep skinned model even when all gear/armor is knocked off (never revert to procedural chibi!)
+    const useSkinned = !!(skinned && (!gear.armor || gear.armor === pl.heroId));
     this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
     this.b.bake(this.R.root);
-    this.stepFps = useSkinned && !SKIP_STEP ? (skinned.spec.stepFps || 0) : 0;
+    this.stepFps = useSkinned ? (FORCE_STEP || skinned.spec.stepFps || 0) : 0;
     this.stepAcc = 0;
     this.stepForce = true;
     this.swordTrail = this.R.swordMount && this.R.swordTrailSpec
@@ -2047,7 +2118,8 @@ export class ChibiView {
     // Rolls / flips: rotate the curled body about its centre, not the feet
     R.body.rotation.x = 0;
     R.body.position.set(0, 0, 0);
-    const fl = FLIP[this.currentName];
+    const flipKey = `${this.style}:${this.currentName}`;
+    const fl = flipKey in FLIP ? FLIP[flipKey] : FLIP[this.currentName];
     if (fl) {
       const k = Math.min(1, Math.max(0, (t - fl[0]) / fl[1]));
       const a = easeInOut(k) * Math.PI * 2 * fl[2];
@@ -2091,9 +2163,9 @@ export class ChibiView {
 
     // Position & smooth turning
     this.root.position.set(pl.x, pl.y, pl.z);
-    // Actions snap to their aim direction instantly; locomotion turns smoothly
+    // Actions turn briskly into aim; locomotion turns fluidly without jarring snaps
     const acting = pl.state === 'attack' || pl.state === 'heavy' || pl.state === 'skill';
-    this.yaw = lerpAngle(this.yaw, Math.PI / 2 - (pl.facing || 0), 1 - Math.exp(-dt * (acting ? 70 : 16)));
+    this.yaw = lerpAngle(this.yaw, Math.PI / 2 - (pl.facing || 0), 1 - Math.exp(-dt * (acting ? 28 : 14)));
     this.root.rotation.y = this.yaw;
 
     // Animation state machine
@@ -2232,13 +2304,30 @@ export class ChibiView {
     const sq = Math.sin(this.squash * Math.PI * 0.5) * 0.22 - Math.sin(this.stretch * Math.PI * 0.5) * 0.14;
     this.R.body.scale.set(1 + sq * 0.8, 1 - sq, 1 + sq * 0.8);
 
-    // Spring-driven cape / scarf / flag (quantized on stepped characters to match limb cadence)
-    const capeTarget = 0.12 + Math.min(1.1, speed * 0.13) + (grounded ? 0 : 0.35) + Math.sin(this.time * 7) * 0.04 * Math.min(1, speed);
-    this.capeVel += (capeTarget - this.capeAng) * 60 * dt;
-    this.capeVel *= Math.exp(-dt * 7);
-    this.capeAng += this.capeVel * dt;
-    if (doPose) {
-      for (const c of this.R.extras.capes) c.rotation.x = this.capeAng * (c.userData.capeScale ?? 1);
+    // Spring-driven cape / scarf / flag with torso-pitch compensation so the cape
+    // flows smoothly behind the knight and NEVER swings forward through armor or legs
+    const speedFactor = Math.min(0.68, speed * 0.11);
+    const airLift = grounded ? 0 : 0.24;
+    const rollLift = this.currentName === 'roll' || this.currentName === 'dash' ? 0.22 : 0;
+    const capeTarget = 0.08 + speedFactor + airLift + rollLift;
+    this.capeVel += (capeTarget - this.capeAng) * 46 * dt;
+    this.capeVel *= Math.exp(-dt * 8.5);
+    this.capeAng = Math.max(0.04, Math.min(0.92, this.capeAng + this.capeVel * dt));
+    if (doPose && this.R.extras.capes.length > 0) {
+      const torsoPitch = _e.setFromQuaternion(this.R.torso.quaternion, 'XYZ').x;
+      // When torso leans backward (torsoPitch < 0), compensate cape1 so cloth stays clear of legs!
+      const backComp = Math.max(0, -torsoPitch * 0.85);
+      // When torso leans steeply forward (torsoPitch > 0.25), keep collar gentle so cape never folds into upper back
+      const fwdTrim = Math.max(0, (torsoPitch - 0.25) * 0.35);
+      for (let i = 0; i < this.R.extras.capes.length; i++) {
+        const c = this.R.extras.capes[i];
+        const w = c.userData.capeScale ?? 1;
+        const flutter = Math.sin(this.time * 5.2 - i * 1.05) * (0.015 + 0.032 * Math.min(1, speed * 0.25 + 0.2)) * (i === 0 ? 0.35 : 1);
+        let ang = this.capeAng * w + flutter;
+        if (i === 0) ang = Math.max(0.05, Math.min(0.32, ang + backComp - fwdTrim));
+        else ang = Math.max(0.03, Math.min(0.45, ang + backComp * 0.25));
+        c.rotation.x = ang;
+      }
     }
     for (let i = 0; i < this.R.extras.orbiters.length; i++) {
       const o = this.R.extras.orbiters[i];

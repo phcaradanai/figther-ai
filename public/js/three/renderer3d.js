@@ -64,7 +64,7 @@ export class ThreeRenderer {
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.toneMapping = THREE.NeutralToneMapping;
-    r.toneMappingExposure = 0.95;
+    r.toneMappingExposure = 1.02;
     r.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer = r;
 
@@ -81,9 +81,9 @@ export class ThreeRenderer {
     this.hemi = new THREE.HemisphereLight('#fff5e0', '#a7bfd9', 1.3);
     this.sun = new THREE.DirectionalLight('#fff0d4', 2.5);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(1024, 1024);
     const sc = this.sun.shadow.camera;
-    sc.left = -20; sc.right = 20; sc.top = 20; sc.bottom = -20; sc.near = 1; sc.far = 80;
+    sc.left = -18; sc.right = 18; sc.top = 18; sc.bottom = -18; sc.near = 1; sc.far = 75;
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.hemi, this.sun, this.sun.target);
@@ -94,85 +94,53 @@ export class ThreeRenderer {
       floorY: (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     };
 
-    // Dedicated Iron Knight, Shadow Ninja & Fire Archmage 3D EffekseerForWebGL + Three.js HDR-Bloom VFX Suites
-    this.knightVfx = new KnightThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
+    const shakeFn = (a) => this.addShake(a);
+    const floorFn = (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0);
+
+    // Iron Knight VFX runs purely on zero-download procedural canvas textures (KnightHolyVFX).
+    this.knightVfx = new KnightThreeVFX(this.scene, this.camera, shakeFn, floorFn);
     this.knightVfx.attachHoly({
       fx: this.fx,
       getProjectiles: () => this.projectiles,
       hitStop: (id, ms) => this.players?.get(id)?.view?.hitStop(ms),
       punch: (a) => this.addPunch(a)
     });
-    this.ninjaVfx = new NinjaThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.mageVfx = new MageThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.cowboyVfx = new CowboyThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.samuraiVfx = new SamuraiThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.witchVfx = new WitchThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.cyborgVfx = new CyborgThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.vikingVfx = new VikingThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.strikerVfx = new StrikerThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    this.reaperVfx = new ReaperThreeVFX(
-      this.scene,
-      this.camera,
-      (a) => this.addShake(a),
-      (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
-    );
-    if (window.KnightEffekseerVFX) {
+
+    // Lazy-instantiate the other 9 hero VFX suites ONLY when a hero/gear actually appears
+    // in the match — avoids downloading ~99 VFX PNGs (~12 MB / ~100 MB VRAM) on startup!
+    this._vfxFactories = {
+      ninja: () => new NinjaThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      mage: () => new MageThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      cowboy: () => new CowboyThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      samurai: () => new SamuraiThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      witch: () => new WitchThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      cyborg: () => new CyborgThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      viking: () => new VikingThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      striker: () => new StrikerThreeVFX(this.scene, this.camera, shakeFn, floorFn),
+      reaper: () => new ReaperThreeVFX(this.scene, this.camera, shakeFn, floorFn)
+    };
+    this.heroVfx = new Map([['knight', this.knightVfx]]);
+
+    // Skip empty second WebGL context (#effekseerCanvas) unless explicitly opted in (?effekseer=1)
+    this.useEffekseer = typeof location !== 'undefined' && new URLSearchParams(location.search).get('effekseer') === '1';
+    if (this.useEffekseer && window.KnightEffekseerVFX) {
       const efkCanvas = document.getElementById('effekseerCanvas');
       if (efkCanvas) window.KnightEffekseerVFX.attachGameCanvas(efkCanvas);
     }
 
-    // Post-processing: render -> bloom -> tone map/sRGB -> warm grade + vignette
-    this.composer = new EffectComposer(r);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.4, 0.45, 0.92);
-    this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
-    this.composer.addPass(new ShaderPass(GradeShader));
+    // Direct WebGL render by default (crisper ToS painterly colors & ~65% less GPU fill-rate);
+    // pass ?bloom=1 to enable legacy multi-pass UnrealBloom post-processing.
+    this.useBloom = typeof location !== 'undefined' && new URLSearchParams(location.search).get('bloom') === '1';
+    this.composer = null;
+    this.bloom = null;
+    if (this.useBloom) {
+      this.composer = new EffectComposer(r);
+      this.composer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.4, 0.45, 0.92);
+      this.composer.addPass(this.bloom);
+      this.composer.addPass(new OutputPass());
+      this.composer.addPass(new ShaderPass(GradeShader));
+    }
 
     // 2D overlay for nameplates, damage numbers and skill callouts
     this.overlay = document.createElement('canvas');
@@ -212,8 +180,10 @@ export class ThreeRenderer {
     this.width = w;
     this.height = h;
     this.renderer.setSize(w, h, false);
-    this.composer.setPixelRatio(this.renderer.getPixelRatio());
-    this.composer.setSize(w, h);
+    if (this.composer) {
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(w, h);
+    }
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -221,6 +191,15 @@ export class ThreeRenderer {
     this.overlay.height = Math.floor(h * dpr);
     this.octx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.fx.setPixelScale((h * this.renderer.getPixelRatio()) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2))));
+  }
+
+  ensureHeroVfx(heroId) {
+    if (!heroId || this.heroVfx.has(heroId)) return this.heroVfx.get(heroId) || null;
+    const factory = this._vfxFactories[heroId];
+    if (!factory) return null;
+    const suite = factory();
+    this.heroVfx.set(heroId, suite);
+    return suite;
   }
 
   addShake(amount) {
@@ -272,17 +251,17 @@ export class ThreeRenderer {
           if (shooter.view.style === 'twingun') skipLegacyTwinGunMuzzle = true;
         }
       }
-      const handledByHeroVfx =
-        !!(this.knightVfx && this.knightVfx.handleServerFx(fx)) ||
-        !!(this.ninjaVfx && this.ninjaVfx.handleServerFx(fx)) ||
-        !!(this.mageVfx && this.mageVfx.handleServerFx(fx)) ||
-        !!(this.cowboyVfx && this.cowboyVfx.handleServerFx(fx)) ||
-        !!(this.samuraiVfx && this.samuraiVfx.handleServerFx(fx)) ||
-        !!(this.witchVfx && this.witchVfx.handleServerFx(fx)) ||
-        !!(this.cyborgVfx && this.cyborgVfx.handleServerFx(fx)) ||
-        !!(this.vikingVfx && this.vikingVfx.handleServerFx(fx)) ||
-        !!(this.strikerVfx && this.strikerVfx.handleServerFx(fx)) ||
-        !!(this.reaperVfx && this.reaperVfx.handleServerFx(fx));
+      // Lazily ensure VFX suite for any hero referenced by this FX event
+      if (fx.heroId) this.ensureHeroVfx(fx.heroId);
+      const skillPrefix = (fx.skillId || fx.fromSkill || '').split('_')[0];
+      if (skillPrefix) this.ensureHeroVfx(skillPrefix);
+      let handledByHeroVfx = false;
+      for (const suite of this.heroVfx.values()) {
+        if (suite.handleServerFx(fx)) {
+          handledByHeroVfx = true;
+          break;
+        }
+      }
       if (handledByHeroVfx) {
         // Preserve floating skill callouts & guard/parry status text on the 2D HUD overlay
         if (fx.type === 'skill_cast' && fx.skillNameTh) {
@@ -367,40 +346,50 @@ export class ThreeRenderer {
         e.view.yaw = yaw;
         this.scene.add(e.view.root);
       }
+      // Lazily load VFX suites ONLY for heroes/gear actually present in this room
+      this.ensureHeroVfx(pl.heroId);
+      if (pl.gear) {
+        for (const gid of Object.values(pl.gear)) if (gid) this.ensureHeroVfx(gid);
+      }
       e.pl = pl;
       e.view.update(pl, { dt, fx: this.fx });
 
-      // Soft blob shadow on the floor below (shrinks with height)
+      // Grounded ToS contact shadow beneath feet (shrinks softly with height)
       const fy = this.stage.floorY(pl.x, pl.z, pl.y + 0.1);
       if (fy !== null && pl.state !== 'dead') {
-        const k = Math.max(0.3, 1 - Math.max(0, pl.y - fy) * 0.12);
+        const k = Math.max(0.32, 1 - Math.max(0, pl.y - fy) * 0.12);
         e.shadow.visible = true;
-        e.shadow.position.set(pl.x, fy + 0.025, pl.z);
-        e.shadow.scale.setScalar(k);
-        e.shadow.material.opacity = k;
+        e.shadow.position.set(pl.x, fy + 0.024, pl.z);
+        e.shadow.scale.setScalar(k * 1.08);
+        e.shadow.material.opacity = k * 0.92;
       } else {
         e.shadow.visible = false;
       }
 
-      // Target ring: gold for you, blue/red for teams
+      // Subtle storybook target ring (thin refined ring instead of loud neon magic pentagram)
       let ringColor = null;
-      if (pl.id === localId) ringColor = '#fcd34d';
+      if (pl.id === localId) ringColor = '#d4a349';
       else if (mode === 'team' && pl.team) ringColor = me && pl.team === me.team ? '#60a5fa' : '#f87171';
       if (ringColor && !e.ring) {
-        e.ring = this.makeDecal(ringColor, 1.7, true);
+        const ringGeo = new THREE.RingGeometry(0.56, 0.63, 36);
+        const ringMat = new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide });
+        const rm = new THREE.Mesh(ringGeo, ringMat);
+        rm.rotation.x = -Math.PI / 2;
+        rm.renderOrder = 3;
+        this.scene.add(rm);
+        e.ring = rm;
         e.ringColor = ringColor;
       }
       if (e.ring) {
         if (!ringColor) e.ring.visible = false;
         else {
           if (e.ringColor !== ringColor) {
-            e.ring.material.color.copy(hdr(ringColor, 1.5));
+            e.ring.material.color.set(ringColor);
             e.ringColor = ringColor;
           }
           e.ring.visible = fy !== null && pl.state !== 'dead';
-          e.ring.position.set(pl.x, (fy ?? pl.y) + 0.035, pl.z);
-          e.ring.rotation.z += dt * 0.8;
-          e.ring.material.opacity = pl.id === localId ? 0.95 : 0.6;
+          e.ring.position.set(pl.x, (fy ?? pl.y) + 0.030, pl.z);
+          e.ring.material.opacity = pl.id === localId ? 0.42 : 0.48;
         }
       }
       this.updateBuffs(e, pl, dt);
@@ -1065,18 +1054,13 @@ export class ThreeRenderer {
     this.updateCamera(dt, me);
     this.stage.update(this.time, dt, state?.shrineState);
     this.fx.update(dt);
-    if (this.knightVfx) this.knightVfx.update(dt, state);
-    if (this.ninjaVfx) this.ninjaVfx.update(dt);
-    if (this.mageVfx) this.mageVfx.update(dt, state);
-    if (this.cowboyVfx) this.cowboyVfx.update(dt);
-    if (this.samuraiVfx) this.samuraiVfx.update(dt, state);
-    if (this.witchVfx) this.witchVfx.update(dt, state);
-    if (this.cyborgVfx) this.cyborgVfx.update(dt, state);
-    if (this.vikingVfx) this.vikingVfx.update(dt, state);
-    if (this.strikerVfx) this.strikerVfx.update(dt, state);
-    if (this.reaperVfx) this.reaperVfx.update(dt, state);
-    this.composer.render(dt);
-    if (window.KnightEffekseerVFX) {
+    for (const suite of this.heroVfx.values()) suite.update(dt, state);
+    if (this.composer) {
+      this.composer.render(dt);
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+    if (this.useEffekseer && window.KnightEffekseerVFX) {
       window.KnightEffekseerVFX.renderForThreeCamera(dt, this.camera, state);
     }
     this.drawOverlay(state, localId);

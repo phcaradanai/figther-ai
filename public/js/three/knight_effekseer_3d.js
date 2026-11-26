@@ -14,8 +14,18 @@
 import * as THREE from 'three';
 import { KnightHolyVFX } from './knight_holy_vfx.js';
 
-// Gear skills drawn by the crisp holy-light suite (knight_holy_vfx.js)
-const HOLY_SKILLS = new Set(['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket']);
+// All 7 Iron Knight moves are rendered via the cohesive, zero-download procedural
+// Tree-of-Savior holy-light suite (knight_holy_vfx.js) — no external PNGs or
+// secondary Effekseer WebGL context needed.
+const HOLY_SKILLS = new Set([
+  'basic_slash',
+  'heavy_shield_bash',
+  'knight_weapon',
+  'knight_armor',
+  'knight_helmet',
+  'knight_trinket',
+  'guard_parry'
+]);
 
 const TEX_NAMES = [
   'slash_crescent',
@@ -65,7 +75,7 @@ export class KnightThreeVFX {
     this.scene.add(this.group);
 
     this.textures = {};
-    this.loadTextures();
+    // All 7 Knight effects run on KnightHolyVFX procedural canvas textures (0 external PNG downloads!)
 
     // Shared low-allocation 3D geometries
     this.geo = {
