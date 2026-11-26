@@ -1,9 +1,10 @@
-import { MathUtils, Quaternion, Vector3 } from 'three';
+import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
 
 const { clamp, smoothstep } = MathUtils;
 const up = new Vector3(0, 1, 0);
 const forward = new Vector3(0, 0, 1);
 const CATCH = 0.06;
+const heading = new Euler();
 
 // Anchor the support boot in world space while the clip drives its swing leg.
 // The placement follows the visual root so server tick cadence cannot tug the boot along.
@@ -76,7 +77,7 @@ export class KnightFootwork {
     for (const leg of this.legs) leg.planted = false;
   }
 
-  apply(action, grounded, floorY) {
+  apply(action, grounded, floorY, feetDown = false) {
     const name = action.getClip().name;
     const gait = name === 'walk' || name === 'run';
     const { rig } = this;
@@ -92,6 +93,7 @@ export class KnightFootwork {
     }
     if (!grounded || !gait) {
       this.release();
+      if (grounded && feetDown) this.ground(action, floorY);
       return;
     }
 
@@ -134,6 +136,24 @@ export class KnightFootwork {
         * action.getEffectiveWeight();
       if (weight <= 0.001) continue;
       this.target.set(leg.contact.x, ground + rig.restFootY, leg.contact.z).lerp(this.ankle, 1 - weight);
+      this.solve(leg, weight);
+    }
+  }
+
+  // Strikes: pull a boot that is near the floor onto it and stand it flat, so a
+  // wide stance never floats one foot or sinks the other.
+  ground(action, floorY) {
+    const { rig } = this;
+    for (const leg of this.legs) {
+      leg.ankle.getWorldPosition(this.ankle);
+      const floor = floorY ? floorY(this.ankle.x, this.ankle.z, this.position.y + 0.10) : this.position.y;
+      if (floor == null || Math.abs(floor - this.position.y) > 0.18) continue;
+      const lift = this.ankle.y - floor - rig.restFootY;
+      const weight = (1 - smoothstep(lift, 0.05, 0.14)) * action.getEffectiveWeight();
+      if (weight <= 0.001) continue;
+      leg.knee.getWorldQuaternion(this.parentRotation);
+      leg.yaw = heading.setFromQuaternion(this.parentRotation, 'YXZ').y;
+      this.target.set(this.ankle.x, floor + rig.restFootY, this.ankle.z).lerp(this.ankle, 1 - weight);
       this.solve(leg, weight);
     }
   }

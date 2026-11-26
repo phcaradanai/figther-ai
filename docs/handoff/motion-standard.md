@@ -85,4 +85,24 @@ The player re-sent the same 55 s recording (`Recording 2026-11-26 214755.mp4`). 
 
 The drift estimate rose because each stride now covers about twice the ground and has a flight phase. The planted boot itself holds still through its support window, which the `plants the supporting foot` test covers. The cape test checks that the hem keeps moving against the torso through a sprint and a turn. The old spring moved 0.000 units sideways and 0.066 vertically there, and the strand moves about 0.3 in each.
 
-`/knight_motion_lab.html` is a dev page that drives one `ChibiView` with scripted snapshots at 60 Hz (`?scenario=walk|sprint|jump|runJump|turn|attack|dodge|guard&cam=game|side|front|back`). `lab.sheet(name, t0, t1, { cols, rows, mode })` renders a contact sheet for side-by-side comparison with reference frames.
+`/knight_motion_lab.html` is a dev page that drives one `ChibiView` with scripted snapshots at 60 Hz (`?scenario=walk|sprint|jump|runJump|turn|attack|combo|heavy|dodge|guard&cam=game|side|front|back`; `combo` presses J at the server's 280 ms limit). `lab.sheet(name, t0, t1, { cols, rows, mode })` renders a contact sheet for side-by-side comparison with reference frames.
+
+## Tree of Savior sword strikes (2026-11-26)
+
+The sword sections of the same recording (18.6–24.5 and 27.5–28.8) show one rhythm. A quick wind-up cocks the blade over the shoulder or head, and the strike covers its arc in two or three frames with a bright flat crescent. The swing finishes in a low, wide stance with both boots down and holds there briefly before the next swing. Swings alternate between diagonal chops and flat sweeps.
+
+[knight_attacks.js](../../public/js/three/knight_attacks.js) builds the skinned Knight's strikes. `KNIGHT_STRIKES` holds each strike's blade contact, trail window and commit time, and `chibi.js` reads them from there.
+
+| Clip | Strike | Blade contact |
+| --- | --- | ---: |
+| `attack1` | Diagonal cleave from over the right shoulder into a wide lunge | 0.12 s |
+| `attack2` | Backhand: drawn across the hips, swept flat out to the sword side | 0.115 s |
+| `attack3` | Finisher: gather, leap with the sword overhead, crush into a deep squat | 0.19 s |
+| `heavy` | Shield to the chest, step in and drive it forward | 0.21 s |
+
+- The server deals damage on the press and allows a swing every 280 ms, so the first two strikes reach contact near 0.12 s. Their holds give way to the next swing.
+- `stance()` places both boots on the floor through two-bone leg IK when a pose is authored. During a strike the lowest sole is pulled to the floor, and `KnightFootwork.ground()` sets the other boot flat on it. The finisher's leap (`KNIGHT_AIRBORNE`) is exempt.
+- Arm and wrist angles were solved against target blade directions and hand positions measured on the real rig. For example, the cleave's wind-up puts the hand above the right shoulder with the blade pointing up and back. Re-solve them in the lab if the sword mount or the rig changes.
+
+The previous clips finished the cleave with the back boot about 0.15 units off the floor, which read as a hop. The strike test now requires the hips to drop at least 0.08 below standing and both ankles to sit within 0.03 of rest height after the first two strikes. It also requires the finisher's leap to lift a boot.
+

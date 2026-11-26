@@ -78,6 +78,14 @@
         const step = t < 0.3 ? 0 : t < 0.75 ? 1 : t < 1.2 ? 2 : t < 1.8 ? 3 : 0;
         return { facing: RIGHT, state: step ? 'attack' : 'idle', comboStep: step };
       } },
+      // Mashing J: the server allows a swing every 280 ms and holds 'attack' for 238 ms.
+      combo: { length: 2, at: t => {
+        const since = t - 0.3;
+        const step = since < 0 || since >= 0.84 ? 0 : Math.floor(since / 0.28) + 1;
+        const held = step && since - (step - 1) * 0.28 < 0.238;
+        return { facing: RIGHT, state: held ? 'attack' : 'idle', comboStep: step };
+      } },
+      heavy: { length: 1.6, at: t => ({ facing: RIGHT, state: t > 0.3 && t < 0.82 ? 'heavy' : 'idle' }) },
       dodge: { length: 2, at: t => (t > 0.4 && t < 0.8 ? { speed: 10 * (1 - (t - 0.4) * 1.5), facing: RIGHT, rolling: true } : { facing: RIGHT }) },
       guard: { length: 2.5, at: t => ({ facing: RIGHT, guarding: t > 0.4 && t < 2 }) }
     };

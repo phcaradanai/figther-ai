@@ -1,7 +1,10 @@
 // Poses for the skinned Knight's proportions. The render root still follows
 // the server; the hip offsets are local weight shifts, in rig units.
-export function buildKnightLocomotion(makeClip, ready, pose) {
-  const idle = pose(ready, {
+
+// The Knight's ready stance, shared by locomotion and attacks so both start and
+// finish on the same pose.
+export function knightIdle(ready, pose) {
+  return pose(ready, {
     hips: [0.01, 0.09, -0.022], hipsY: 0.604,
     torso: [0.08, 0.18, 0.035], head: [-0.04, -0.31, -0.02],
     armL: [-0.48, 0, 0.22], foreL: [-1.11, 0, 0],
@@ -9,6 +12,10 @@ export function buildKnightLocomotion(makeClip, ready, pose) {
     legL: [-0.24, 0.03, 0.004], shinL: [0.27, 0, 0],
     legR: [0.10, -0.025, 0.008], shinR: [0.17, 0, 0]
   });
+}
+
+export function buildKnightLocomotion(makeClip, ready, pose) {
+  const idle = knightIdle(ready, pose);
   const breathe = pose(idle, {
     torso: [0.025, 0.15, 0.048], head: [-0.015, -0.29, -0.035],
     armL: [-0.56, 0, 0.25], foreL: [-1.16, 0, 0],

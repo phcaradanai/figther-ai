@@ -192,6 +192,40 @@ test('Knight cape sways with the stride and turns, lifts while falling and stays
   }
 });
 
+test('Knight strikes coil high, then finish low with both boots on the floor', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const point = new Vector3();
+  const tipHeight = () => knight.R.swordMount.localToWorld(point.set(0, 0, 1.04)).y;
+  const ankles = () => [knight.R.footL, knight.R.footR].map(foot => foot.getWorldPosition(point).y);
+  advance(knight, {}, 40);
+  const standingHips = knight.R.hips.getWorldPosition(point).y;
+  const rest = knight.R.restFootY;
+
+  for (const comboStep of [1, 2]) {
+    advance(knight, {}, 40);
+    advance(knight, { state: 'attack', comboStep }, 4);
+    const coiled = tipHeight();
+    advance(knight, { state: 'attack', comboStep }, 8);
+    assert.equal(knight.currentName, 'attack' + comboStep);
+    const hips = knight.R.hips.getWorldPosition(point).y;
+    assert.ok(standingHips - hips > 0.08, `attack${comboStep} finished only ${(standingHips - hips).toFixed(3)} below standing`);
+    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `attack${comboStep} left a boot at ${y.toFixed(3)}`);
+    if (comboStep === 1) assert.ok(coiled - tipHeight() > 0.5, 'the cleave should start high and finish low');
+  }
+
+  // The finisher leaves the floor on its leap and lands planted.
+  advance(knight, {}, 40);
+  let highest = 0;
+  for (let i = 0; i < 11; i++) {
+    advance(knight, { state: 'attack', comboStep: 3 }, 1);
+    highest = Math.max(highest, ...ankles());
+  }
+  assert.ok(highest - rest > 0.08, `the leap only lifted a boot ${(highest - rest).toFixed(3)}`);
+  advance(knight, { state: 'attack', comboStep: 3 }, 8);
+  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the slam left a boot at ${y.toFixed(3)}`);
+});
+
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());
