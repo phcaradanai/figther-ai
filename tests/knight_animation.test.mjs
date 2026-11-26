@@ -28,6 +28,68 @@ test('skinned Knight uses separate gaits and preserves gait phase across a sprin
   assert.ok(runPhase >= walkPhase && runPhase - walkPhase < 0.1);
 });
 
+test('Knight plants the supporting foot while the render root travels forward', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const ankle = new Vector3();
+  let lowest = Infinity;
+  let highest = -Infinity;
+  let samples = 0;
+  for (let i = 0; i < 120; i++) {
+    advance(knight, { z: i * 5.4 * dt, vz: 5.4 }, 1);
+    if (i < 25 || knight.currentName !== 'walk') continue;
+    const phase = knight.current.time / knight.current.getClip().duration;
+    if (phase >= 0.10 && phase <= 0.28) {
+      knight.R.footL.getWorldPosition(ankle);
+      lowest = Math.min(lowest, ankle.z);
+      highest = Math.max(highest, ankle.z);
+      samples++;
+    } else if (samples >= 4) break;
+    else {
+      lowest = Infinity;
+      highest = -Infinity;
+      samples = 0;
+    }
+  }
+  assert.ok(samples >= 4, 'the left foot entered its support phase');
+  const travel = highest - lowest;
+  assert.ok(travel < 0.10, `supporting ankle slid ${travel.toFixed(3)} units`);
+});
+
+test('Knight compresses more when landing with greater downward speed', t => {
+  function drop(vy) {
+    const knight = new ChibiView(base);
+    t.after(() => knight.dispose());
+    advance(knight, {}, 60);
+    const hips = new Vector3();
+    const readyY = knight.R.hips.getWorldPosition(hips).y;
+    advance(knight, { y: 0.4, grounded: false, vy }, 18);
+    let lowest = readyY;
+    for (let i = 0; i < 12; i++) {
+      advance(knight, {}, 1);
+      lowest = Math.min(lowest, knight.R.hips.getWorldPosition(hips).y);
+    }
+    return readyY - lowest;
+  }
+  const light = drop(-4.5);
+  const heavy = drop(-11.2);
+  assert.ok(heavy - light >= 0.025, `landing compression did not scale: ${light} → ${heavy}`);
+});
+
+test('Knight emits the server swing accent once at visual contact', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const events = [];
+  const fx = { type: 'slash', comboStep: 1 };
+  knight.queueBladeAccent(fx, event => events.push({ event, time: knight.current.time }));
+  advance(knight, { state: 'attack', comboStep: 1 }, 4);
+  assert.equal(events.length, 0);
+  advance(knight, { state: 'attack', comboStep: 1 }, 15);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event, fx);
+  assert.ok(events[0].time >= 0.10 && events[0].time <= 0.15);
+});
+
 test('Knight keeps its ankles under its body through ground and air poses', t => {
   const left = new Vector3();
   const right = new Vector3();

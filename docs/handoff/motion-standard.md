@@ -52,3 +52,16 @@ With an explicit hero ID the command runs the default rig and the forced Procedu
 The drift statistic samples ankles near the bottom of each rig's stride while moving backward relative to its root. Inspect its sample count and raw trajectory alongside the measured speed. It estimates how the boot moves on flat ground, and direct sole tracking during an authored contact is needed for the acceptance check. The JSON also records the time to the first locomotion clip during acceleration, yaw lag while turning, and time to idle after the prescribed dodge ends. The stop number is the last post-stop frame with over 0.15 units/s of ankle motion. Hip drop is measured from standing height through the first 200 ms of ground contact. Peak hand speed describes the visual pose only. Actual impact timing comes from the combat event and effects.
 
 For Knight, the biggest clear difference in this replay is the visible compression on landing. The skinned rig moves its hips by about 9% of the procedural rig's amount, and both rigs use the same compression magnitude for the two tested heights. Both settle after a similar time on this prescribed stop. The next movement review should pair the landing and brake footage with these measurements before deciding how much of each reaction belongs in the common animation layer.
+
+## First skinned motion implementation
+
+Knight uses the same gameplay inputs and adds [support-foot placement](../../public/js/three/knight_footwork.js) during walk and sprint. The solver anchors the supported foot to the visible surface and gives the foot back to the clip near toe-off and during sharp turns. Gait pace and upper-body lean respond to rendered travel. Landing compression uses the last airborne vertical speed. The sword's bright accent uses the authored blade contact marker, while gameplay damage keeps the server timing.
+
+| Knight measure | Before | With support-foot placement and landing response |
+| --- | ---: | ---: |
+| Walk ankle drift estimate (units/s, P90) | 3.86 | 0.63 |
+| Sprint ankle drift estimate (units/s, P90) | 4.21 | 0.54 |
+| Low jump hip drop (units) | 0.009 | 0.015 |
+| High jump hip drop (units) | 0.009 | 0.064 |
+
+Run the same replay and an in-arena pass before tuning these choices for another skinned hero. Keep the landing strength and lean limits in proportion to that hero, and choose where its authored arcs reach contact instead of copying Knight's clip times.

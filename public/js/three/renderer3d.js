@@ -238,6 +238,10 @@ export class ThreeRenderer {
   // ------------------------------------------------------------------ fx
   processServerFx(list) {
     for (const fx of list) {
+      if (fx.type === 'slash' && fx.heroId === 'knight' &&
+          this.players.get(fx.playerId)?.view.queueBladeAccent(fx, event => {
+            if (!this.knightVfx.handleServerFx(event)) this.fx.handle(event);
+          })) continue;
       let shooter = null;
       let skipLegacyTwinGunMuzzle = false;
       if (fx.type === 'muzzle') {
@@ -352,7 +356,7 @@ export class ThreeRenderer {
         for (const gid of Object.values(pl.gear)) if (gid) this.ensureHeroVfx(gid);
       }
       e.pl = pl;
-      e.view.update(pl, { dt, fx: this.fx });
+      e.view.update(pl, { dt, fx: this.fx, floorY: this.fx.ctx.floorY });
 
       // Grounded ToS contact shadow beneath feet (shrinks softly with height)
       const fy = this.stage.floorY(pl.x, pl.z, pl.y + 0.1);
