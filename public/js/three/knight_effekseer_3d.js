@@ -12,6 +12,10 @@
 //      512x512 Knight PNG textures with UnrealBloom HDR & real 3D depth test!
 // ============================================================================
 import * as THREE from 'three';
+import { KnightHolyVFX } from './knight_holy_vfx.js';
+
+// Gear skills drawn by the crisp holy-light suite (knight_holy_vfx.js)
+const HOLY_SKILLS = new Set(['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket']);
 
 const TEX_NAMES = [
   'slash_crescent',
@@ -73,6 +77,12 @@ export class KnightThreeVFX {
     this.geo.cone.rotateX(Math.PI * 0.5);
 
     this.activeEffects = [];
+    this.holy = null;
+  }
+
+  // Renderer hands over its particle system and live projectiles for the skill suite
+  attachHoly({ fx, getProjectiles }) {
+    this.holy = new KnightHolyVFX({ scene: this.scene, camera: this.camera, fx, shake: this.shake, floorY: this.floorY, getProjectiles });
   }
 
   loadTextures() {
@@ -114,6 +124,10 @@ export class KnightThreeVFX {
     if (!bridge || !fx) return false;
 
     const mapped = bridge.resolveServerFxMapping(fx);
+    if (mapped && this.holy && HOLY_SKILLS.has(mapped.effectId)) {
+      this.holy.spawn(mapped.effectId, mapped);
+      return true;
+    }
     if (mapped && KNIGHT_EFFECT_IDS.has(mapped.effectId)) {
       // 1. Try real 3D EffekseerForWebGL (.efkefc) first!
       const playedEffekseer = bridge.playWebGLOnly(mapped.effectId, mapped);
@@ -733,6 +747,7 @@ export class KnightThreeVFX {
   }
 
   update(dt, gameState) {
+    if (this.holy) this.holy.update(dt, gameState);
     if (this.activeEffects.length === 0) return;
 
     const playerMap = new Map();

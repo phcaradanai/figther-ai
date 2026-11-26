@@ -93,6 +93,7 @@ export class ThreeRenderer {
       (a) => this.addShake(a),
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
+    this.knightVfx.attachHoly({ fx: this.fx, getProjectiles: () => this.projectiles });
     this.ninjaVfx = new NinjaThreeVFX(
       this.scene,
       this.camera,
@@ -500,6 +501,9 @@ export class ThreeRenderer {
         break;
       }
       case 'crescent_wave':
+        // Excalibur Wave is drawn by KnightHolyVFX, which follows this projectile
+        g.userData.drawnByHeroVfx = true;
+        break;
       case 'wave': {
         const geom = new THREE.RingGeometry(0.6, 1, 32, 1, -1.1, 2.2);
         const m = add(geom, new THREE.MeshBasicMaterial({ color: hdr(color, 2.2), transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }), [r * 3, r * 3, r * 3]);
@@ -586,7 +590,7 @@ export class ThreeRenderer {
         else spin.rotation.z += dt * 24;
       }
       e.trailT -= dt;
-      if (e.trailT <= 0) {
+      if (e.trailT <= 0 && !e.obj.userData.drawnByHeroVfx) {
         e.trailT = 0.016;
         const c = e.obj.userData.trail || e.obj.userData.color;
         const p = e.obj.position;
@@ -602,7 +606,7 @@ export class ThreeRenderer {
     for (const [id, e] of this.projectiles) {
       if (!seen.has(id)) {
         const p = e.obj.position;
-        this.fx.flash(p.x, p.y, p.z, e.obj.userData.color, 1.2, 0.12);
+        if (!e.obj.userData.drawnByHeroVfx) this.fx.flash(p.x, p.y, p.z, e.obj.userData.color, 1.2, 0.12);
         e.obj.removeFromParent();
         e.obj.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); });
         this.projectiles.delete(id);
