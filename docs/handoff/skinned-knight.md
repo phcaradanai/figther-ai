@@ -1,5 +1,8 @@
 # Handoff: skinned hero models (knight first)
 
+Use the [character motion standard](motion-standard.md) and its replay when reviewing Knight
+or authoring motion for the next skinned hero.
+
 Status as of 2026-11-26. Goal from the user: replace the procedural chibi knight with a
 Tree-of-Savior-quality **skinned** model (modular gear later), driven by the game's
 existing animation clips. Do not reuse the old procedural look; quality is what matters.

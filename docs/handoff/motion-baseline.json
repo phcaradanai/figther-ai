@@ -1,0 +1,98 @@
+{
+  "protocol": 1,
+  "fps": 60,
+  "profiles": [
+    {
+      "heroId": "knight",
+      "rig": "skinned",
+      "metrics": {
+        "walk": {
+          "lowAnkleSamples": 34,
+          "apparentSlideP90": 3.8614
+        },
+        "sprint": {
+          "lowAnkleSamples": 24,
+          "apparentSlideP90": 4.2143
+        },
+        "gaitFromStartMs": 33,
+        "turnYawLagP90Deg": 14.1578,
+        "stopPoseSettledMs": 133,
+        "landingHipDrop": {
+          "low": 0.009,
+          "high": 0.009
+        },
+        "idleAfterDodgeInputMs": 0,
+        "attackHandSpeedPeakMs": 100
+      }
+    },
+    {
+      "heroId": "knight",
+      "rig": "procedural",
+      "metrics": {
+        "walk": {
+          "lowAnkleSamples": 49,
+          "apparentSlideP90": 5.0044
+        },
+        "sprint": {
+          "lowAnkleSamples": 35,
+          "apparentSlideP90": 6.594
+        },
+        "gaitFromStartMs": 33,
+        "turnYawLagP90Deg": 14.1578,
+        "stopPoseSettledMs": 133,
+        "landingHipDrop": {
+          "low": 0.1047,
+          "high": 0.1047
+        },
+        "idleAfterDodgeInputMs": 117,
+        "attackHandSpeedPeakMs": 67
+      }
+    },
+    {
+      "heroId": "ninja",
+      "rig": "procedural",
+      "metrics": {
+        "walk": {
+          "lowAnkleSamples": 51,
+          "apparentSlideP90": 5.178
+        },
+        "sprint": {
+          "lowAnkleSamples": 37,
+          "apparentSlideP90": 7.17
+        },
+        "gaitFromStartMs": 33,
+        "turnYawLagP90Deg": 14.1578,
+        "stopPoseSettledMs": 133,
+        "landingHipDrop": {
+          "low": 0.1773,
+          "high": 0.1773
+        },
+        "idleAfterDodgeInputMs": 117,
+        "attackHandSpeedPeakMs": 33
+      }
+    },
+    {
+      "heroId": "viking",
+      "rig": "procedural",
+      "metrics": {
+        "walk": {
+          "lowAnkleSamples": 54,
+          "apparentSlideP90": 5.154
+        },
+        "sprint": {
+          "lowAnkleSamples": 38,
+          "apparentSlideP90": 7.158
+        },
+        "gaitFromStartMs": 33,
+        "turnYawLagP90Deg": 14.1578,
+        "stopPoseSettledMs": 133,
+        "landingHipDrop": {
+          "low": 0.1186,
+          "high": 0.1186
+        },
+        "idleAfterDodgeInputMs": 117,
+        "attackHandSpeedPeakMs": 83
+      }
+    }
+  ]
+}

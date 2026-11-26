@@ -1,32 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import { LoopOnce, Vector3 } from 'three';
+import { loadChibiViews } from '../tools/rig/load-chibi.mjs';
 
-// Load the actual GLBs in Node while stubbing browser-only image decoding.
-const assetOrigin = 'http://knight-animation.test';
-const NativeRequest = Request;
-const nativeFetch = fetch;
-globalThis.Request = class extends NativeRequest {
-  constructor(input, options) {
-    super(typeof input === 'string' ? new URL(input, assetOrigin) : input, options);
-  }
-};
-globalThis.fetch = async (request, options) => {
-  const url = new URL(request instanceof NativeRequest ? request.url : request);
-  if (url.protocol === 'blob:') return nativeFetch(request, options);
-  assert.equal(url.origin, assetOrigin);
-  assert.ok(url.pathname.startsWith('/assets/models/'));
-  const bytes = await readFile(new URL('../public' + url.pathname, import.meta.url));
-  return new Response(bytes, { headers: { 'Content-Length': bytes.length } });
-};
-globalThis.self = globalThis;
-globalThis.ProgressEvent = Event;
-globalThis.createImageBitmap = async () => ({ width: 1, height: 1 });
-globalThis.location = new URL(assetOrigin);
-globalThis.window = { GAME_DATA: { HEROES: { knight: { speed: 5.4, basicAttack: { comboHits: 3 } } } } };
-
-const { ChibiView } = await import('../public/js/three/chibi.js');
+const { ChibiView } = await loadChibiViews();
 const gear = { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' };
 const base = { heroId: 'knight', gear, grounded: true, x: 0, y: 0, z: 0, facing: Math.PI / 2 };
 const dt = 1 / 60;
