@@ -1334,8 +1334,8 @@ window.startArenaGame = function (renderer) {
 
   // --------------------------------------------------------------------------
   // PLAYER INPUT & LOST SAGA J/K/L COMBO + GEAR SKILL CHORDS
-  // WASD movement · J jump/glide · K guard/roll · L attack/hold-charge/aim
-  // Chords: KL weapon · JKL armor · JL helmet · JK trinket (+ Q/E/R/F shortcuts)
+  // WASD movement · J attack/hold-charge/aim · K jump/glide · L guard/roll
+  // Chords: JL weapon · JKL armor · JK helmet · KL trinket (+ Q/E/R/F shortcuts)
   // --------------------------------------------------------------------------
   const CHORD_WINDOW_MS = 65;
   const CHORD_CODES = new Set(['KeyJ', 'KeyK', 'KeyL']);
@@ -1367,24 +1367,24 @@ window.startArenaGame = function (renderer) {
       sendSkillCast('armor');
       return;
     }
-    if (hasK && hasL) {
+    if (hasJ && hasL) {
       sendSkillCast('weapon');
       return;
     }
-    if (hasJ && hasL) {
+    if (hasJ && hasK) {
       sendSkillCast('helmet');
       return;
     }
-    if (hasJ && hasK) {
+    if (hasK && hasL) {
       sendSkillCast('trinket');
       return;
     }
-    if (hasJ) {
+    if (hasK) {
       if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'jump' }));
       return;
     }
-    if (hasL) {
-      if (keys['KeyL']) {
+    if (hasJ) {
+      if (keys['KeyJ']) {
         attackPressSent = true;
         sendBasicAttack('press');
       } else {
@@ -1413,7 +1413,7 @@ window.startArenaGame = function (renderer) {
 
   function activeTargeting() {
     const targeting = interpPlayers.get(localClientId)?.targeting;
-    return targeting?.mode === 'ranged' && !keys['KeyL'] ? null : targeting;
+    return targeting?.mode === 'ranged' && !keys['KeyJ'] ? null : targeting;
   }
 
   function getCurrentWorldMove() {
@@ -1430,7 +1430,7 @@ window.startArenaGame = function (renderer) {
   }
 
   function isSprintHeld() {
-    return !!(keys['ShiftLeft'] || keys['ShiftRight'] || (doubleTapSprinting && !keys['KeyK']));
+    return !!(keys['ShiftLeft'] || keys['ShiftRight'] || (doubleTapSprinting && !keys['KeyL']));
   }
 
   function sendBasicAttack(phase) {
@@ -1498,7 +1498,7 @@ window.startArenaGame = function (renderer) {
       if (meState === 'knockdown') {
         const mv = getCurrentWorldMove();
         if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'wakeup', dx: mv.mx, dz: mv.mz }));
-      } else if (keys['KeyK']) {
+      } else if (keys['KeyL']) {
         clearChordWindow();
         const mv = getCurrentWorldMove();
         if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'dodge', dx: mv.mx, dz: mv.mz }));
@@ -1516,7 +1516,7 @@ window.startArenaGame = function (renderer) {
 
     if (!wasPressed && (code === 'KeyC' || code === 'AltLeft')) {
       e.preventDefault();
-      if (keys['KeyK']) {
+      if (keys['KeyL']) {
         clearChordWindow();
         const mv = getCurrentWorldMove();
         if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'dodge', dx: mv.mx, dz: mv.mz }));
@@ -1544,13 +1544,13 @@ window.startArenaGame = function (renderer) {
       return;
     }
 
-    // Lost Saga Primary Controls: J = Jump/Glide, K = Guard/Roll, L = Attack/Hold-Charge/Aim
-    // Simultaneous Chords: KL = Weapon, JKL = Armor, JL = Helmet, JK = Trinket
+    // Lost Saga Primary Controls: J = Attack/Hold-Charge/Aim, K = Jump/Glide, L = Guard/Roll
+    // Simultaneous Chords: JL = Weapon, JKL = Armor, JK = Helmet, KL = Trinket
     if (CHORD_CODES.has(code)) {
       if (!wasPressed) {
-        // Holding K (Guard) then pressing J or L immediately includes K in the chord (JK / KL / JKL)
-        if (chordKeys.size === 0 && code !== 'KeyK' && keys['KeyK']) {
-          chordKeys.add('KeyK');
+        // Holding L (Guard) then pressing J or K immediately includes L in the chord (JL / KL / JKL)
+        if (chordKeys.size === 0 && code !== 'KeyL' && keys['KeyL']) {
+          chordKeys.add('KeyL');
         }
         chordKeys.add(code);
         if (chordKeys.size === 3) {
@@ -1612,7 +1612,7 @@ window.startArenaGame = function (renderer) {
       }
       return;
     }
-    if (e.code === 'KeyL' && wasPressed && attackPressSent && activePlay) {
+    if (e.code === 'KeyJ' && wasPressed && attackPressSent && activePlay) {
       attackPressSent = false;
       sendBasicAttack('release');
     }
@@ -1673,9 +1673,9 @@ window.startArenaGame = function (renderer) {
       doubleTapSprinting = false;
     }
 
-    const guard = !!keys['KeyK'] && chordKeys.size < 2;
+    const guard = !!keys['KeyL'] && chordKeys.size < 2;
     if (guard) doubleTapSprinting = false;
-    const jumpHeld = !!(keys['KeyJ'] || keys['Space']) && chordKeys.size < 2;
+    const jumpHeld = !!(keys['KeyK'] || keys['Space']) && chordKeys.size < 2;
     const sprinting = isSprintHeld();
 
     const facing = mv.ix !== 0 || mv.iz !== 0 ? Math.atan2(mv.mz, mv.mx) : undefined;

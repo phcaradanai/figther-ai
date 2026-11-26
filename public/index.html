@@ -93,10 +93,10 @@
     <div class="glossy-panel quick-keys-box">
       <div class="quick-keys-row">
         <span><kbd>WASD</kbd> เดิน/ดับเบิลแท็บแดช</span>
-        <span><kbd>J</kbd> โดด/ร่อน/ลุกเร็ว</span>
-        <span><kbd>K</kbd> กัน/กลิ้งหลบ</span>
-        <span><kbd>L</kbd> ตี/ค้างชาร์จ·เล็ง</span>
-        <span><kbd>KL</kbd><kbd>JKL</kbd><kbd>JL</kbd><kbd>JK</kbd> สกิลเกียร์</span>
+        <span><kbd>J</kbd> ตี/ค้างชาร์จ·เล็ง</span>
+        <span><kbd>K</kbd> โดด/ร่อน/ลุกเร็ว</span>
+        <span><kbd>L</kbd> กัน/กลิ้งหลบ</span>
+        <span><kbd>JL</kbd><kbd>JKL</kbd><kbd>JK</kbd><kbd>KL</kbd> สกิลเกียร์</span>
         <span><kbd>1-0</kbd> สลับฮีโร่</span>
       </div>
     </div>
@@ -142,14 +142,14 @@
           </div>
         </div>
 
-        <!-- 4 Modular Gear Skill Icon Slots (KL Weapon, JKL Armor, JL Helmet, JK Trinket + Q/E/R/F) -->
+        <!-- 4 Modular Gear Skill Icon Slots (JL Weapon, JKL Armor, JK Helmet, KL Trinket + Q/E/R/F) -->
         <div class="skills-dock" id="skillsDock">
           <button type="button" class="skill-card ready" data-slot="weapon" id="skillBtn_weapon">
             <div class="skill-icon-stage">
               <img class="skill-gear-img" id="skillImg_weapon" src="/assets/tos/weapon/knight.png" alt="อาวุธ" />
               <div class="skill-cd-curtain" id="skillCurtain_weapon" style="height: 0%;"></div>
               <div class="skill-cd-center" id="skillCenter_weapon"></div>
-              <span class="skill-hotkey" id="skillKey_weapon">KL</span>
+              <span class="skill-hotkey" id="skillKey_weapon">JL</span>
               <span class="rarity-badge rarity-rare skill-rarity-badge" id="skillBadge_weapon">R</span>
               <span class="skill-mix-pill" id="skillMix_weapon" hidden>MIX</span>
             </div>
@@ -189,7 +189,7 @@
               <img class="skill-gear-img" id="skillImg_helmet" src="/assets/tos/helmet/knight.png" alt="หมวก" />
               <div class="skill-cd-curtain" id="skillCurtain_helmet" style="height: 0%;"></div>
               <div class="skill-cd-center" id="skillCenter_helmet"></div>
-              <span class="skill-hotkey" id="skillKey_helmet">JL</span>
+              <span class="skill-hotkey" id="skillKey_helmet">JK</span>
               <span class="rarity-badge rarity-normal skill-rarity-badge" id="skillBadge_helmet">N</span>
               <span class="skill-mix-pill" id="skillMix_helmet" hidden>MIX</span>
             </div>
@@ -209,7 +209,7 @@
               <img class="skill-gear-img" id="skillImg_trinket" src="/assets/tos/trinket/knight.png" alt="ผ้าคลุม/ประดับ" />
               <div class="skill-cd-curtain" id="skillCurtain_trinket" style="height: 0%;"></div>
               <div class="skill-cd-center" id="skillCenter_trinket"></div>
-              <span class="skill-hotkey" id="skillKey_trinket">JK</span>
+              <span class="skill-hotkey" id="skillKey_trinket">KL</span>
               <span class="rarity-badge rarity-normal skill-rarity-badge" id="skillBadge_trinket">N</span>
               <span class="skill-mix-pill" id="skillMix_trinket" hidden>MIX</span>
             </div>
@@ -354,10 +354,10 @@
             <div class="controls-grid">
               <span><kbd>WASD</kbd> เคลื่อนที่ · ดับเบิลแท็บ วิ่งเร็ว/แดช</span>
               <span><kbd>Shift</kbd> วิ่งเร็ว · <kbd>C</kbd>/<kbd>Alt</kbd> แดช</span>
-              <span><kbd>J</kbd> กระโดด / โดดหลายชั้น / กดค้างร่อน-บิน · กดตอนล้มลุกเร็ว (รองรับ <kbd>Space</kbd>)</span>
-              <span><kbd>K</kbd> ตั้งการ์ด / Just Guard · <kbd>K</kbd>+ทิศทาง กลิ้งหลบ</span>
-              <span><kbd>L</kbd> โจมตีปกติ / วิ่ง+<kbd>L</kbd> แดชตี / <kbd>J</kbd>+<kbd>L</kbd> ตีกลางอากาศ · ค้าง <kbd>L</kbd> ชาร์จงัดลอย·ทะลวงการ์ด·เล็งยิง</span>
-              <span><kbd>KL</kbd> สกิลอาวุธ · <kbd>JKL</kbd> สกิลเกราะ · <kbd>JL</kbd> สกิลหมวก · <kbd>JK</kbd> สกิลผ้าคลุม (ปุ่มลัด <kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd><kbd>F</kbd>)</span>
+              <span><kbd>J</kbd> โจมตีปกติ / วิ่ง+<kbd>J</kbd> แดชตี / <kbd>K</kbd>+<kbd>J</kbd> ตีกลางอากาศ · ค้าง <kbd>J</kbd> ชาร์จงัดลอย·ทะลวงการ์ด·เล็งยิง</span>
+              <span><kbd>K</kbd> กระโดด / โดดหลายชั้น / กดค้างร่อน-บิน · กดตอนล้มลุกเร็ว (รองรับ <kbd>Space</kbd>)</span>
+              <span><kbd>L</kbd> ตั้งการ์ด / Just Guard · <kbd>L</kbd>+ทิศทาง กลิ้งหลบ</span>
+              <span><kbd>JL</kbd> สกิลอาวุธ · <kbd>JKL</kbd> สกิลเกราะ · <kbd>JK</kbd> สกิลหมวก · <kbd>KL</kbd> สกิลผ้าคลุม (ปุ่มลัด <kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd><kbd>F</kbd>)</span>
               <span><kbd>1</kbd>-<kbd>0</kbd> สลับฮีโร่กลางคอมโบ 10 ตัวทันที</span>
               <span><kbd>G</kbd> เก็บเกียร์ · คลิกขวาช่องเกียร์เพื่อถอด (ยกเว้นอาวุธ)</span>
             </div>

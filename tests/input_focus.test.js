@@ -116,7 +116,7 @@ const neutralInput = {
 
 test('losing focus immediately releases movement, guard, jump and sprint', async () => {
   const client = await createClient();
-  for (const code of ['ArrowRight', 'ShiftLeft', 'Space', 'KeyK']) client.keyDown(code);
+  for (const code of ['ArrowRight', 'ShiftLeft', 'Space', 'KeyL']) client.keyDown(code);
   client.advance(80);
   client.tick();
   assert.equal(client.input().mx, 1);
@@ -142,7 +142,7 @@ test('hiding the tab releases inputs even without a blur event', async () => {
 test('returning to the game accepts fresh keys without a phantom double-tap dash', async () => {
   const client = await createClient();
   client.keyDown('ArrowRight');
-  client.keyDown('KeyJ');
+  client.keyDown('KeyK');
   client.blur();
   client.advance(100);
   client.focus();
@@ -152,13 +152,13 @@ test('returning to the game accepts fresh keys without a phantom double-tap dash
   assert.equal(client.input().mx, 1);
   assert.equal(client.input().sprinting, false);
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
-  client.keyDown('KeyJ');
-  client.keyUp('KeyJ');
+  client.keyDown('KeyK');
+  client.keyUp('KeyK');
   assert.equal(client.packets.at(-1).type, 'jump');
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
   client.keyUp('ArrowRight');
   client.tick();
   assert.equal(client.input().mx, 0);
@@ -185,10 +185,10 @@ test('normal double-tap dash still works after focus returns', async () => {
   client.advance(100);
   client.keyDown('KeyD');
   assert.equal(client.packets.at(-1).type, 'dash');
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: true });
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
 });
 
 test('holding Shift sprints without sending a dash', async () => {
@@ -200,17 +200,17 @@ test('holding Shift sprints without sending a dash', async () => {
   assert.equal(client.packets.slice(start).some(packet => packet.type === 'dash'), false);
   assert.equal(client.input().sprinting, true);
   assert.equal(client.input().guard, false);
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: true });
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
   client.keyUp('ShiftLeft');
   client.tick();
   assert.equal(client.input().sprinting, false);
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
 });
 
 test('losing focus while disconnected clears inputs without sending to a closed socket', async () => {
@@ -232,7 +232,7 @@ test('a visible-tab event does not interrupt active movement', async () => {
   assert.equal(client.input().mx, 1);
 });
 
-test('D moves right while J jumps/glides, K guards, and L attacks or holds to charge/aim', async () => {
+test('D moves right while J attacks/holds, K jumps/glides, and L guards', async () => {
   const client = await createClient();
   client.keyDown('KeyD');
   client.tick();
@@ -240,47 +240,47 @@ test('D moves right while J jumps/glides, K guards, and L attacks or holds to ch
   client.keyUp('KeyD');
   assert.equal(client.packets.some(p => p.type === 'attack'), false);
 
-  // J tap jumps immediately on release, J hold sets jumpHeld for glide/fly
-  client.keyDown('KeyJ');
-  client.keyUp('KeyJ');
+  // K tap jumps immediately on release, K hold sets jumpHeld for glide/fly
+  client.keyDown('KeyK');
+  client.keyUp('KeyK');
   assert.equal(client.packets.at(-1).type, 'jump');
-  client.keyDown('KeyJ');
+  client.keyDown('KeyK');
   client.advance(80);
   client.tick();
   assert.equal(client.input().jumpHeld, true);
-  client.keyUp('KeyJ');
+  client.keyUp('KeyK');
 
-  // K holds guard
-  client.keyDown('KeyK');
+  // L holds guard
+  client.keyDown('KeyL');
   client.advance(80);
   client.tick();
   assert.equal(client.input().guard, true);
-  client.keyUp('KeyK');
-
-  // L tap fires press+release immediately; L hold fires press then release on keyup
-  const beforeAttack = client.packets.length;
-  client.keyDown('KeyL');
   client.keyUp('KeyL');
+
+  // J tap fires press+release immediately; J hold fires press then release on keyup
+  const beforeAttack = client.packets.length;
+  client.keyDown('KeyJ');
+  client.keyUp('KeyJ');
   assert.deepEqual(client.packets.slice(beforeAttack).filter(p => p.type === 'attack').map(p => p.phase), ['press', 'release']);
   const beforeHold = client.packets.length;
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.slice(beforeHold).filter(p => p.type === 'attack').map(p => p.phase), ['press']);
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
   assert.deepEqual(client.packets.slice(beforeHold).filter(p => p.type === 'attack').map(p => p.phase), ['press', 'release']);
 });
 
-test('Lost Saga skill chords KL (weapon), JKL (armor), JL (helmet), JK (trinket) and glide+L jump attack work cleanly', async () => {
+test('Lost Saga skill chords JL (weapon), JKL (armor), JK (helmet), KL (trinket) and glide+J jump attack work cleanly', async () => {
   const client = await createClient();
   const skillSlots = () => client.packets.filter(p => p.type === 'skill').map(p => p.slot);
 
-  // KL -> weapon skill
-  client.keyDown('KeyK');
-  client.advance(20);
+  // JL -> weapon skill
   client.keyDown('KeyL');
+  client.advance(20);
+  client.keyDown('KeyJ');
   client.advance(80);
+  client.keyUp('KeyJ');
   client.keyUp('KeyL');
-  client.keyUp('KeyK');
   assert.deepEqual(skillSlots(), ['weapon']);
 
   // JKL -> armor skill (fires immediately on 3rd key!)
@@ -294,39 +294,39 @@ test('Lost Saga skill chords KL (weapon), JKL (armor), JL (helmet), JK (trinket)
   client.keyUp('KeyK');
   client.keyUp('KeyJ');
 
-  // JL -> helmet skill
-  client.keyDown('KeyJ');
+  // JK -> helmet skill
+  client.keyDown('KeyK');
   client.advance(20);
-  client.keyDown('KeyL');
-  client.keyUp('KeyL');
+  client.keyDown('KeyJ');
   client.keyUp('KeyJ');
+  client.keyUp('KeyK');
   assert.deepEqual(skillSlots(), ['weapon', 'armor', 'helmet']);
 
-  // JK -> trinket skill
-  client.keyDown('KeyJ');
-  client.advance(20);
+  // KL -> trinket skill
   client.keyDown('KeyK');
+  client.advance(20);
+  client.keyDown('KeyL');
   client.advance(80);
+  client.keyUp('KeyL');
   client.keyUp('KeyK');
-  client.keyUp('KeyJ');
   assert.deepEqual(skillSlots(), ['weapon', 'armor', 'helmet', 'trinket']);
 
-  // Holding K (guarding) then tapping L casts weapon skill cleanly
-  client.keyDown('KeyK');
-  client.advance(200);
+  // Holding L (guarding) then tapping J casts weapon skill cleanly
   client.keyDown('KeyL');
+  client.advance(200);
+  client.keyDown('KeyJ');
   client.advance(80);
+  client.keyUp('KeyJ');
   client.keyUp('KeyL');
-  client.keyUp('KeyK');
   assert.deepEqual(skillSlots(), ['weapon', 'armor', 'helmet', 'trinket', 'weapon']);
 
-  // Holding J (gliding) then tapping L performs a jump attack, NOT helmet skill
+  // Holding K (gliding) then tapping J performs a jump attack, NOT helmet skill
   const beforeGlideAttack = client.packets.length;
-  client.keyDown('KeyJ');
+  client.keyDown('KeyK');
   client.advance(200);
-  client.keyDown('KeyL');
-  client.keyUp('KeyL');
+  client.keyDown('KeyJ');
   client.keyUp('KeyJ');
+  client.keyUp('KeyK');
   const glidePackets = client.packets.slice(beforeGlideAttack);
   assert.equal(glidePackets.some(p => p.type === 'skill'), false);
   assert.deepEqual(glidePackets.filter(p => p.type === 'attack').map(p => p.phase), ['press', 'release']);
@@ -334,10 +334,10 @@ test('Lost Saga skill chords KL (weapon), JKL (armor), JL (helmet), JK (trinket)
 
 test('focus loss cancels a held attack without firing it on keyup', async () => {
   const client = await createClient();
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   client.blur();
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
   assert.deepEqual(client.packets.filter(p => p.type === 'attack').map(p => p.phase), ['press']);
   assert.ok(client.packets.some(p => p.type === 'cancel_targeting'));
 });
@@ -367,17 +367,17 @@ test('modular window hotkeys toggle pop-ups without blocking combat keys or firi
   client.keyDown('KeyW');
   client.tick();
   assert.equal(client.input().mz, -1);
-  client.keyDown('KeyL');
+  client.keyDown('KeyJ');
   client.advance(80);
   assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
   client.keyUp('KeyW');
-  client.keyUp('KeyL');
+  client.keyUp('KeyJ');
 });
 
-test('holding Guard (K) plus a direction key performs a Roll/Dodge without triggering Dash', async () => {
+test('holding Guard (L) plus a direction key performs a Roll/Dodge without triggering Dash', async () => {
   const client = await createClient();
   const start = client.packets.length;
-  client.keyDown('KeyK');
+  client.keyDown('KeyL');
   client.keyDown('KeyD');
   const sent = client.packets.slice(start);
   assert.equal(sent.some(p => p.type === 'dash'), false);
@@ -386,7 +386,7 @@ test('holding Guard (K) plus a direction key performs a Roll/Dodge without trigg
   assert.equal(dodge.dx, 1);
   assert.equal(dodge.dz, 0);
   client.keyUp('KeyD');
-  client.keyUp('KeyK');
+  client.keyUp('KeyL');
 });
 
 test('double-tap plus hold sustains sprint until movement stops or focus is lost', async () => {
