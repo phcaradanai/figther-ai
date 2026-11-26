@@ -1056,6 +1056,7 @@ class GameRoom {
             victim.lastAttackTime = 0;
             this.addSkillCharge(victim, 8, now);
             this.emitFx('parry', victim.x, victim.y + 1.2, victim.z, {
+              attackerId: attacker.id,
               text: 'JUST GUARD!',
               color: '#38bdf8',
               heroId: victim.heroId,
@@ -1080,6 +1081,7 @@ class GameRoom {
             victim.vx = dx * (knockback * 0.35);
             victim.vz = dz * (knockback * 0.35);
             this.emitFx('block', victim.x, victim.y + 1.0, victim.z, {
+              attackerId: attacker?.id,
               text: `BLOCK (-${chip})`,
               color: '#60a5fa',
               heroId: victim.heroId,

@@ -225,7 +225,7 @@ window.startArenaGame = function (renderer) {
     if (!me || typeof fx?.x !== 'number') return 1;
     return Math.max(0.2, Math.min(1, 1 - (Math.hypot(fx.x - me.x, fx.z - me.z) - 5) / 22));
   };
-  if (typeof renderer.releaseHits === 'function') renderer.onHit = fx => sfx.playFx('hit', fx, hearing(fx));
+  if (typeof renderer.releaseHits === 'function') renderer.onHit = fx => sfx.playFx(fx.type, fx, hearing(fx));
 
   // --------------------------------------------------------------------------
   // CLIENT STATE, CATALOG OWNERSHIP & INTERPOLATION BUFFER
@@ -1383,7 +1383,8 @@ window.startArenaGame = function (renderer) {
       // The 3D renderer shows a Knight's hit on the blade's contact frame, so it
       // plays the hit sound itself (renderer.onHit) at that moment.
       state.fx.forEach(f => {
-        if (!(f.type === 'hit' && renderer.onHit)) sfx.playFx(f.type, f, hearing(f));
+        const synced = renderer.onHit && (f.type === 'hit' || f.type === 'block' || f.type === 'parry');
+        if (!synced) sfx.playFx(f.type, f, hearing(f));
       });
     }
 

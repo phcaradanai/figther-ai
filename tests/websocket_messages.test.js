@@ -982,6 +982,8 @@ test('simultaneous melee swings clash with zero damage and Just Guard charges sk
   p1.send({ type: 'attack', phase: 'press' });
 
   const parried = await p2.observe((p, m) => m.fx.some(f => f.type === 'parry' && f.text === 'JUST GUARD!'));
+  const parry = parried.fx.find(f => f.type === 'parry');
+  assert.equal(parry.attackerId, s1.id, 'a parry names the attacker so the client can show it on the blade');
   assert.equal(p2.player(parried).hp, p2.player(parried).maxHp);
   assert.ok(p2.player(parried).skillGauges.helmet >= preCharge + 7);
 });

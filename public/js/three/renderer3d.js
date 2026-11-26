@@ -238,11 +238,13 @@ export class ThreeRenderer {
   // ------------------------------------------------------------------ fx
   processServerFx(list) {
     for (const fx of list) {
-      if ((fx.type === 'block' || fx.type === 'parry') && fx.playerId) this.players.get(fx.playerId)?.view.onBlock?.();
-      if (fx.type === 'hit' && !fx._synced && fx.attackerId && this.players.get(fx.attackerId)?.view.holdForContact?.(fx)) {
-        this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0.3);
+      // A blow that lands (a hit, or a block or parry against it) shows on the blade's contact frame.
+      const landing = fx.type === 'hit' || fx.type === 'block' || fx.type === 'parry';
+      if (landing && !fx._synced && fx.attackerId && this.players.get(fx.attackerId)?.view.holdForContact?.(fx)) {
+        if (fx.type === 'hit') this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0.3);
         continue;
       }
+      if ((fx.type === 'block' || fx.type === 'parry') && fx.playerId) this.players.get(fx.playerId)?.view.onBlock?.();
       if (fx.type === 'slash' && fx.heroId === 'knight' &&
           this.players.get(fx.playerId)?.view.queueBladeAccent(fx, (event, held) => {
             if (!this.knightVfx.handleServerFx(event)) this.fx.handle(event);
@@ -288,7 +290,7 @@ export class ThreeRenderer {
         if (clip === 'attack3') { shooter.view.kick(false); shooter.view.kick(true); }
         else shooter.view.kick(clip === 'attack2');
       }
-      if (fx.type === 'hit') this.onHit?.(fx);
+      if (fx.type === 'hit' || fx.type === 'block' || fx.type === 'parry') this.onHit?.(fx);
       if (fx.type === 'hit' || fx.type === 'parry' || fx.type === 'block') {
         const victim = this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8);
         if (victim) {
@@ -304,7 +306,7 @@ export class ThreeRenderer {
   // Hits that waited for a blade's contact frame go through the normal fx path now.
   releaseHits(held) {
     if (!held?.length) return;
-    for (const fx of held) this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0);
+    for (const fx of held) if (fx.type === 'hit') this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0);
     this.processServerFx(held.map(fx => Object.assign(fx, { _synced: true })));
   }
 
