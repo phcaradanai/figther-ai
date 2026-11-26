@@ -138,6 +138,28 @@ test('Knight holds a hit until the blade lands, and never swallows it', t => {
   assert.deepEqual(released, [late, replaced]);
 });
 
+test('a victim keeps its pose until the blade lands, then flinches', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  advance(knight, {}, 30);
+  knight.holdReaction(0.3);
+  advance(knight, { state: 'hurt' }, 8);
+  assert.notEqual(knight.currentName, 'hurt', 'the server flips to hurt before the blade lands');
+  knight.holdReaction(0);
+  advance(knight, { state: 'hurt' }, 2);
+  assert.equal(knight.currentName, 'hurt');
+
+  // The wait never outlives its limit, even if the release is lost.
+  const other = new ChibiView(base);
+  t.after(() => other.dispose());
+  advance(other, {}, 30);
+  other.holdReaction(0.1);
+  advance(other, { state: 'knockdown' }, 3);
+  assert.notEqual(other.currentName, 'knockdown');
+  advance(other, { state: 'knockdown' }, 10);
+  assert.equal(other.currentName, 'knockdown');
+});
+
 test('a Knight impact only goes to hits from the Knight that swung', () => {
   const swings = new Map([['knight1', { at: 1000, x: 2, z: 0, facing: 0, step: 1, fin: false }]]);
   const hit = { x: 3, z: 0.5, attackerId: 'knight1' };

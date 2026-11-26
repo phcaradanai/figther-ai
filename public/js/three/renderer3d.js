@@ -239,7 +239,10 @@ export class ThreeRenderer {
   processServerFx(list) {
     for (const fx of list) {
       if ((fx.type === 'block' || fx.type === 'parry') && fx.playerId) this.players.get(fx.playerId)?.view.onBlock?.();
-      if (fx.type === 'hit' && !fx._synced && fx.attackerId && this.players.get(fx.attackerId)?.view.holdForContact?.(fx)) continue;
+      if (fx.type === 'hit' && !fx._synced && fx.attackerId && this.players.get(fx.attackerId)?.view.holdForContact?.(fx)) {
+        this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0.3);
+        continue;
+      }
       if (fx.type === 'slash' && fx.heroId === 'knight' &&
           this.players.get(fx.playerId)?.view.queueBladeAccent(fx, (event, held) => {
             if (!this.knightVfx.handleServerFx(event)) this.fx.handle(event);
@@ -300,7 +303,9 @@ export class ThreeRenderer {
 
   // Hits that waited for a blade's contact frame go through the normal fx path now.
   releaseHits(held) {
-    if (held?.length) this.processServerFx(held.map(fx => Object.assign(fx, { _synced: true })));
+    if (!held?.length) return;
+    for (const fx of held) this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8)?.view.holdReaction(0);
+    this.processServerFx(held.map(fx => Object.assign(fx, { _synced: true })));
   }
 
   nearestPlayer(x, y, z, maxD, filter = null) {

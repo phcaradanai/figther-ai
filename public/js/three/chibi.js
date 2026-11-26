@@ -2157,6 +2157,7 @@ export class ChibiView {
     this.spawns = 0;
     this.turns = 0;
     this.turnError = 0;
+    this.reactionHoldUntil = 0;
     this.turnSince = null;
     this.stanceYaw = null;
     this.targetYaw = 0;
@@ -2273,8 +2274,10 @@ export class ChibiView {
         this.drawUntil = this.time + this.actions.draw.getClip().duration;
       }
     }
-    if (st === 'knockdown') return { name: 'knockdown', key: 'kd', fade: 0.06 };
-    if (st === 'hurt') return { name: 'hurt', key: 'hurt', fade: 0.04 };
+    // A blow that has not landed on screen yet (see holdReaction) does not flinch the victim early.
+    const braced = this.time < this.reactionHoldUntil;
+    if (st === 'knockdown' && !braced) return { name: 'knockdown', key: 'kd', fade: 0.06 };
+    if (st === 'hurt' && !braced) return { name: 'hurt', key: 'hurt', fade: 0.04 };
     if (st !== 'attack' && st !== 'heavy') {
       this.strikeKey = null;
       if (pl.grounded) this.airStrikes = 0;
@@ -2398,6 +2401,13 @@ export class ChibiView {
     if (this.bladeAccent) this.bladeAccent.release?.(this.bladeAccent.held);
     this.bladeAccent = { event, emit, release, queued: this.time, expires: this.time + 0.42, held: [] };
     return true;
+  }
+
+  // The server flips a victim to `hurt` when the swing starts. While the blade is
+  // still on its way, keep the victim's pose; the hit's own release ends the wait,
+  // and it never lasts longer than `seconds`.
+  holdReaction(seconds) {
+    this.reactionHoldUntil = seconds > 0 ? this.time + seconds : 0;
   }
 
   // The server resolves a hit the moment a swing starts. Showing it on the blade's
