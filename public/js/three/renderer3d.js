@@ -93,7 +93,12 @@ export class ThreeRenderer {
       (a) => this.addShake(a),
       (x, z, y) => (this.stage ? this.stage.floorY(x, z, y) : 0)
     );
-    this.knightVfx.attachHoly({ fx: this.fx, getProjectiles: () => this.projectiles });
+    this.knightVfx.attachHoly({
+      fx: this.fx,
+      getProjectiles: () => this.projectiles,
+      hitStop: (id, ms) => this.players?.get(id)?.view?.hitStop(ms),
+      punch: (a) => this.addPunch(a)
+    });
     this.ninjaVfx = new NinjaThreeVFX(
       this.scene,
       this.camera,
@@ -212,6 +217,11 @@ export class ThreeRenderer {
 
   addShake(amount) {
     this.shake = Math.min(1.4, Math.max(this.shake, amount * 0.07));
+  }
+
+  // Brief zoom-in kick on heavy impacts (decays in ~0.25 s)
+  addPunch(amount) {
+    this.punch = Math.min(2, Math.max(this.punch || 0, amount));
   }
 
   // Keep movement and target switching aligned with the screen.
@@ -746,8 +756,10 @@ export class ThreeRenderer {
       this.camTarget.lerp(target, 1 - Math.exp(-dt * 4.5));
     }
     this._activeCamDist = (this._activeCamDist ?? this.camDist) + (desiredDist - (this._activeCamDist ?? this.camDist)) * (1 - Math.exp(-dt * 6));
-    const horiz = this._activeCamDist * Math.cos(CAM_PITCH);
-    const vert = this._activeCamDist * Math.sin(CAM_PITCH);
+    this.punch = (this.punch || 0) * Math.exp(-dt * 12);
+    const camDist = this._activeCamDist * (1 - 0.045 * this.punch);
+    const horiz = camDist * Math.cos(CAM_PITCH);
+    const vert = camDist * Math.sin(CAM_PITCH);
     const t = this.camTarget;
     this.camera.position.set(t.x + horiz * COS45, t.y + vert, t.z + horiz * COS45);
     this.shake *= Math.exp(-dt * 9);

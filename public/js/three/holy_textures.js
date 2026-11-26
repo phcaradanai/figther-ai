@@ -310,7 +310,7 @@ function makeShockRing(size = 512) {
       const r = Math.hypot(x - size / 2, y - size / 2) / (size / 2);
       let a = 0;
       if (r <= 1) {
-        a = Math.exp(-Math.pow((r - 0.93) / 0.025, 2)) + Math.max(0, (r - 0.55) / 0.38) * 0.3 * (r < 0.93 ? 1 : 0);
+        a = Math.exp(-Math.pow((r - 0.94) / 0.016, 2)) + Math.max(0, (r - 0.72) / 0.22) * 0.12 * (r < 0.94 ? 1 : 0);
       }
       const i = (y * size + x) * 4;
       img.data[i] = 255;
@@ -435,6 +435,97 @@ function makeGroundStreak(w = 512, h = 64) {
   return toTexture(c);
 }
 
+// Impact frame: hard-edged jagged starburst with a solid core (no blur, reads instantly)
+function makeImpact(size = 512, seed = 11) {
+  const c = canvas(size);
+  const g = c.getContext('2d');
+  const rand = rng(seed);
+  const cx = size / 2, cy = size / 2, R = size * 0.48;
+  const spikes = 16;
+  g.fillStyle = 'rgba(255, 255, 255, 1)';
+  g.beginPath();
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2 + rand() * 0.12;
+    const tip = R * (i % 2 === 0 ? 0.75 + rand() * 0.25 : 0.4 + rand() * 0.25);
+    const w = (Math.PI / spikes) * (0.55 + rand() * 0.25);
+    const rin = R * 0.2;
+    const p0 = [cx + Math.cos(a - w) * rin, cy + Math.sin(a - w) * rin];
+    const p1 = [cx + Math.cos(a) * tip, cy + Math.sin(a) * tip];
+    const p2 = [cx + Math.cos(a + w) * rin, cy + Math.sin(a + w) * rin];
+    if (i === 0) g.moveTo(...p0); else g.lineTo(...p0);
+    g.lineTo(...p1);
+    g.lineTo(...p2);
+  }
+  g.closePath();
+  g.fill();
+  g.beginPath();
+  g.arc(cx, cy, R * 0.24, 0, Math.PI * 2);
+  g.fill();
+  return toTexture(c);
+}
+
+// Ground cracks: jagged branches from the centre, thick at the root, tapering out
+function makeCracks(size = 512, seed = 3) {
+  const c = canvas(size);
+  const g = c.getContext('2d');
+  const rand = rng(seed);
+  const cx = size / 2, cy = size / 2, R = size * 0.47;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(255, 255, 255, 1)';
+  const branch = (x, y, ang, len, width, depth) => {
+    const steps = Math.max(3, Math.floor(len / (size * 0.025)));
+    let px = x, py = y;
+    for (let i = 0; i < steps; i++) {
+      ang += (rand() - 0.5) * 0.5;
+      const step = len / steps;
+      const nx = px + Math.cos(ang) * step, ny = py + Math.sin(ang) * step;
+      if (Math.hypot(nx - cx, ny - cy) > R) break;
+      g.lineWidth = Math.max(1, width * (1 - i / steps));
+      g.beginPath();
+      g.moveTo(px, py);
+      g.lineTo(nx, ny);
+      g.stroke();
+      if (depth > 0 && rand() < 0.14) branch(nx, ny, ang + (rand() < 0.5 ? -1 : 1) * (0.5 + rand() * 0.5), len * 0.45, width * 0.6, depth - 1);
+      px = nx;
+      py = ny;
+    }
+  };
+  const mains = 9;
+  for (let i = 0; i < mains; i++) {
+    const a = (i / mains) * Math.PI * 2 + rand() * 0.4;
+    branch(cx + Math.cos(a) * size * 0.03, cy + Math.sin(a) * size * 0.03, a, R * (0.55 + rand() * 0.4), size * 0.032, 2);
+  }
+  g.fillStyle = 'rgba(255, 255, 255, 1)';
+  g.beginPath();
+  g.arc(cx, cy, size * 0.045, 0, Math.PI * 2);
+  g.fill();
+  return toTexture(c);
+}
+
+// Spark needle: long lens with crisp edges and a hot core (stretched along velocity)
+function makeNeedle(w = 256, h = 32) {
+  const c = canvas(w, h);
+  const g = c.getContext('2d');
+  const img = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) {
+    const v = Math.abs((y + 0.5) / h - 0.5) * 2;
+    for (let x = 0; x < w; x++) {
+      const u = (x + 0.5) / w;
+      const half = Math.pow(Math.sin(Math.PI * Math.pow(u, 0.7)), 0.8);
+      const edge = (half - v) * h * 0.5;
+      const a = Math.max(0, Math.min(1, edge)) * (0.35 + 0.65 * Math.pow(u, 0.6));
+      const i = (y * w + x) * 4;
+      img.data[i] = 255;
+      img.data[i + 1] = 255;
+      img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(a * 255);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return toTexture(c);
+}
+
 let cached = null;
 export function holyTextures() {
   if (!cached) {
@@ -449,7 +540,10 @@ export function holyTextures() {
       hex: makeHexBarrier(),
       crest: makeShieldCrest(),
       cross: makeCross(),
-      streak: makeGroundStreak()
+      streak: makeGroundStreak(),
+      impact: makeImpact(),
+      cracks: makeCracks(),
+      needle: makeNeedle()
     };
   }
   return cached;

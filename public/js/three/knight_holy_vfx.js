@@ -1,29 +1,39 @@
 // ============================================================================
-// Iron Knight gear skills - crisp Paladin-style holy VFX (Tree of Savior feel)
-// Every bright additive shape sits on a darker normal-blended copy so it keeps
-// its outline on the light arena floor instead of blooming into a blob.
-//   knight_weapon  Excalibur Wave    vertical sword wave riding the server projectile
-//   knight_armor   Aegis Fortress    sanctuary circle, hex barrier dome, light shards
-//   knight_helmet  Lionheart Warcry  sky pillar, sunburst emblem, roar rings, heal crosses
-//   knight_trinket Chariot Rush      shield crest ram, bow wave, light trail
+// Iron Knight gear skills - crisp, hard-hitting Paladin-style VFX
+// (Tree of Savior feel, drawn from scratch)
+//
+// Feel rules used throughout:
+//   * shapes snap in within 1-3 frames, flash white on contact, then leave fast
+//     (short ease-in fades, no long floating glows)
+//   * every contact gets an impact layer: jagged impact frame, ground cracks,
+//     dust ring, rock chips, sparks that fly fast and fall, camera shake + punch,
+//     caster hit-stop and a brief freeze of the knight's own VFX clock
+//   * bright additive shapes sit on a painted (normal-blend) body and a dark
+//     outline so they keep their edges on light floors
+//
+//   knight_weapon  Excalibur Wave    sword arc + crescent riding the server projectile
+//   knight_armor   Aegis Fortress    shield slam, cracks, hex barrier dome, light shards
+//   knight_helmet  Lionheart Warcry  sky pillar slam, sunburst stamp, roar rings, heal crosses
+//   knight_trinket Chariot Rush      launch blast, shield crest ram, bow wave, speed lines
 // ============================================================================
 import * as THREE from 'three';
 import { holyTextures } from './holy_textures.js';
 
 const C = {
   white: '#fff7e2',
+  gold: '#ffd46e',
   paint: '#ffb02a',
   outline: '#3a1c00',
-  gold: '#ffd46e',
   amber: '#f2a93b',
-  shadow: '#4a2a05',
   sky: '#bfe7ff',
-  steel: '#7fc6ff',
+  blue: '#3d97f0',
   navy: '#0f2a5c',
   heal: '#b6ffc8',
   healBody: '#4fdc7e',
-  blue: '#3d97f0',
-  healDark: '#0d5a26'
+  healDark: '#0d5a26',
+  crack: '#2a1806',
+  dust: '#d9c7a3',
+  rock: '#6b5236'
 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -31,26 +41,43 @@ const easeOut = (x) => 1 - Math.pow(1 - clamp01(x), 3);
 const easeIn = (x) => Math.pow(clamp01(x), 2);
 const easeOutBack = (x) => {
   const k = clamp01(x) - 1;
-  return 1 + 2.4 * k * k * k + 1.4 * k * k;
+  return 1 + 2.6 * k * k * k + 1.6 * k * k;
 };
-// 0 before t0, rises to 1 over fadeIn, holds until t1, falls to 0 over fadeOut
+// 0 before t0, rises to 1 over fadeIn, holds until t1, then drops to 0 over fadeOut (ease-in: leaves fast)
 function env(age, t0, fadeIn, t1, fadeOut) {
   if (age < t0) return 0;
   if (age < t0 + fadeIn) return (age - t0) / Math.max(1e-4, fadeIn);
   if (age < t1) return 1;
-  return clamp01(1 - (age - t1) / Math.max(1e-4, fadeOut));
+  return 1 - easeIn((age - t1) / Math.max(1e-4, fadeOut));
+}
+// Stamp: lands oversized and snaps down to 1 (reads as a slam, not a slow grow)
+function stamp(age, t0, dur, over = 0.35) {
+  if (age < t0) return 1 + over;
+  return 1 + over * (1 - easeOut((age - t0) / dur));
 }
 const rand = (a, b) => a + Math.random() * (b - a);
-const _v = new THREE.Vector3();
+
+const MAX_SPARKS = 480;
 const _cam = new THREE.Vector3();
+const _d = new THREE.Vector3();
+const _s = new THREE.Vector3();
+const _n = new THREE.Vector3();
+const _ax = new THREE.Vector3();
+const _ay = new THREE.Vector3();
+const _pos = new THREE.Vector3();
+const _m4 = new THREE.Matrix4();
+const _col = new THREE.Color();
+const BLACK = new THREE.Color(0, 0, 0);
 
 export class KnightHolyVFX {
-  constructor({ scene, camera, fx, shake, floorY, getProjectiles }) {
+  constructor({ scene, camera, fx, shake, floorY, getProjectiles, hitStop, punch }) {
     this.camera = camera;
     this.fx = fx;
     this.shake = shake || (() => {});
     this.floorY = floorY || (() => 0);
     this.getProjectiles = getProjectiles || (() => new Map());
+    this.hitStop = hitStop || (() => {});
+    this.punch = punch || (() => {});
     this.group = new THREE.Group();
     this.group.name = 'KnightHolyVFX';
     scene.add(this.group);
@@ -62,6 +89,23 @@ export class KnightHolyVFX {
     this.effects = [];
     this.auras = new Map();
     this.boundProjectiles = new Set();
+    this.freezeUntil = 0;
+
+    // Spark needles: one instanced draw call, stretched along velocity, facing the camera
+    this.sparkMesh = new THREE.InstancedMesh(this.geo.plane, new THREE.MeshBasicMaterial({
+      map: this.tex.needle,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending
+    }), MAX_SPARKS);
+    this.sparkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    for (let i = 0; i < MAX_SPARKS; i++) this.sparkMesh.setColorAt(i, BLACK);
+    this.sparkMesh.frustumCulled = false;
+    this.sparkMesh.renderOrder = 22;
+    this.sparkMesh.count = 0;
+    this.group.add(this.sparkMesh);
+    this.sparks = [];
   }
 
   // ------------------------------------------------------------------ building blocks
@@ -81,7 +125,6 @@ export class KnightHolyVFX {
   quad(parent, texKey, color, k = 1, o = {}) {
     const m = new THREE.Mesh(this.geo.plane, this.mat(texKey, color, k, o));
     m.renderOrder = o.blend === 'normal' ? 15 : 16;
-    m.userData.baseOpacity = o.opacity ?? 1;
     parent.add(m);
     return m;
   }
@@ -93,23 +136,23 @@ export class KnightHolyVFX {
     return m;
   }
 
-  // Bright decal over a darker normal-blended copy (crisp on light floors)
-  // bodyColor adds a painted (normal-blend) layer between the outline and the glow
-  decalPair(parent, texKey, color, k, shadowColor = C.shadow, shadowOpacity = 0.5, bodyColor = null, bodyOpacity = 0.85) {
+  // Dark outline + optional painted body + additive highlight, all on the floor
+  decalPair(parent, texKey, color, k, shadowColor = C.outline, shadowOpacity = 0.5, bodyColor = null, bodyOpacity = 0.85) {
     const back = this.decal(parent, texKey, shadowColor, 1, { blend: 'normal', opacity: shadowOpacity });
     const body = bodyColor ? this.decal(parent, texKey, bodyColor, 1, { blend: 'normal', opacity: bodyOpacity }) : null;
     const front = this.decal(parent, texKey, color, k);
     if (body) body.position.y = 0.006;
     front.position.y = 0.012;
     return { back, body, front, set: (s, a, rotZ = 0) => {
-      back.scale.set(s * 1.02, s * 1.02, 1);
-      front.scale.set(s, s, 1);
+      const sc = Math.max(0.001, s);
+      back.scale.set(sc * 1.02, sc * 1.02, 1);
+      front.scale.set(sc, sc, 1);
       back.material.opacity = shadowOpacity * a;
       front.material.opacity = a;
       back.rotation.z = -Math.PI / 2 + rotZ;
       front.rotation.z = -Math.PI / 2 + rotZ;
       if (body) {
-        body.scale.set(s, s, 1);
+        body.scale.set(sc, sc, 1);
         body.material.opacity = bodyOpacity * a;
         body.rotation.z = -Math.PI / 2 + rotZ;
       }
@@ -132,6 +175,23 @@ export class KnightHolyVFX {
     return s;
   }
 
+  // Painted sprite under an additive highlight (light shafts, crosses on bright scenery)
+  spritePair(parent, texKey, bodyColor, glowColor, k = 1, o = {}) {
+    const bodyOpacity = o.bodyOpacity ?? 0.7;
+    const body = this.sprite(parent, texKey, bodyColor, 1, { blend: 'normal', opacity: bodyOpacity, anchorBottom: o.anchorBottom });
+    const glow = this.sprite(parent, texKey, glowColor, k, { anchorBottom: o.anchorBottom });
+    const bodyScale = o.bodyScale ?? 1.25;
+    return { body, glow, set: (sx, sy, a) => {
+      body.scale.set(Math.max(0.001, sx * bodyScale), Math.max(0.001, sy), 1);
+      glow.scale.set(Math.max(0.001, sx), Math.max(0.001, sy), 1);
+      body.material.opacity = bodyOpacity * a;
+      glow.material.opacity = a;
+    }, place: (x, y, z) => {
+      body.position.set(x, y, z);
+      glow.position.set(x, y, z);
+    } };
+  }
+
   // Roll a group about its local +Z (travel axis) so a sheet lying in its local
   // YZ plane turns its face to the camera: crescents stay readable from any angle
   faceCameraRoll(holder) {
@@ -149,7 +209,7 @@ export class KnightHolyVFX {
     return Number.isFinite(g) ? g : y;
   }
 
-  // An effect owns a root group (world space) and a tick(dt, age) that animates it
+  // An effect owns a root group (world space) and a tick(dt, age, player) that animates it
   effect(o, duration, tick, { follow = false } = {}) {
     const root = new THREE.Group();
     root.position.set(o.x || 0, o.y || 0, o.z || 0);
@@ -157,7 +217,7 @@ export class KnightHolyVFX {
     this.group.add(root);
     const e = {
       root, age: 0, duration, tick, follow: follow && !!o.playerId, playerId: o.playerId || null,
-      facing: o.facing || 0, gy: this.ground(o.x || 0, o.y || 0, o.z || 0) - (o.y || 0) + 0.03
+      gy: this.ground(o.x || 0, o.y || 0, o.z || 0) - (o.y || 0) + 0.03
     };
     this.effects.push(e);
     return e;
@@ -166,8 +226,223 @@ export class KnightHolyVFX {
   dispose(obj) {
     obj.removeFromParent();
     obj.traverse((n) => {
-      if (n.material) n.material.dispose();
+      if (n.material && n !== this.sparkMesh) n.material.dispose();
     });
+  }
+
+  // Short global slow-down of the knight VFX clock: the "impact frame"
+  freeze(ms) {
+    this.freezeUntil = Math.max(this.freezeUntil, performance.now() + ms);
+  }
+
+  // ------------------------------------------------------------------ impact layer
+  sparkBurst(x, y, z, n, o = {}) {
+    for (let i = 0; i < n; i++) {
+      if (this.sparks.length >= MAX_SPARKS) this.sparks.shift();
+      let a, el;
+      if (o.dir !== undefined) {
+        a = o.dir + rand(-(o.cone ?? 0.6), o.cone ?? 0.6);
+        el = rand(o.elMin ?? -0.1, o.elMax ?? 0.6);
+      } else {
+        a = rand(0, Math.PI * 2);
+        el = rand(o.elMin ?? -0.15, o.elMax ?? 0.9);
+      }
+      const sp = rand(o.speedMin ?? 6, o.speed ?? 14);
+      const col = Math.random() < (o.white ?? 0.35) ? C.white : (o.color || C.gold);
+      this.sparks.push({
+        p: new THREE.Vector3(x + rand(-0.1, 0.1), y + rand(-0.1, 0.1), z + rand(-0.1, 0.1)),
+        v: new THREE.Vector3(Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + (o.up || 0), Math.sin(a) * Math.cos(el) * sp),
+        age: 0,
+        life: rand(o.lifeMin ?? 0.16, o.life ?? 0.36),
+        color: new THREE.Color(col).multiplyScalar(o.k ?? 1.7),
+        len: o.len ?? 0.05,
+        width: o.width ?? 0.08,
+        g: o.gravity ?? -18,
+        drag: o.drag ?? 2.2
+      });
+    }
+  }
+
+  updateSparks(dt) {
+    if (this.camera) this.camera.getWorldPosition(_cam);
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const s = this.sparks[i];
+      s.age += dt;
+      if (s.age >= s.life) this.sparks.splice(i, 1);
+    }
+    let n = 0;
+    for (const s of this.sparks) {
+      s.v.y += s.g * dt;
+      s.v.multiplyScalar(Math.exp(-s.drag * dt));
+      s.p.addScaledVector(s.v, dt);
+      const speed = s.v.length();
+      if (speed > 0.01) _d.copy(s.v).divideScalar(speed);
+      else _d.set(0, 1, 0);
+      _n.copy(_cam).sub(s.p).normalize();
+      _s.crossVectors(_d, _n);
+      if (_s.lengthSq() < 1e-6) _s.set(1, 0, 0);
+      _s.normalize();
+      _n.crossVectors(_d, _s);
+      const k = 1 - s.age / s.life;
+      const len = Math.max(0.15, speed * s.len);
+      _ax.copy(_d).multiplyScalar(len);
+      _ay.copy(_s).multiplyScalar(s.width * (0.35 + 0.65 * k));
+      _m4.makeBasis(_ax, _ay, _n);
+      _pos.copy(s.p).addScaledVector(_d, -len * 0.5);
+      _m4.setPosition(_pos);
+      this.sparkMesh.setMatrixAt(n, _m4);
+      _col.copy(s.color).multiplyScalar(k);
+      this.sparkMesh.setColorAt(n, _col);
+      n++;
+    }
+    this.sparkMesh.count = n;
+    this.sparkMesh.instanceMatrix.needsUpdate = true;
+    if (this.sparkMesh.instanceColor) this.sparkMesh.instanceColor.needsUpdate = true;
+  }
+
+  // Jagged impact frame: dark outline, painted body, white-hot centre; ~0.13 s total
+  impactBurst(x, y, z, { color = C.paint, size = 3.0, life = 0.16 } = {}) {
+    const e = this.effect({ x, y, z }, life, null);
+    const rot = rand(0, Math.PI * 2);
+    const out = this.sprite(e.root, 'impact', C.outline, 1, { blend: 'normal', opacity: 0.9 });
+    const body = this.sprite(e.root, 'impact', color, 1, { blend: 'normal', opacity: 1 });
+    const hot = this.sprite(e.root, 'impact', C.white, 1.6);
+    const flare = this.sprite(e.root, 'flare', C.white, 1.6);
+    for (const s of [out, body, hot]) s.material.rotation = rot;
+    e.tick = (dt, age) => {
+      const k = clamp01(age / life);
+      const grow = 0.45 + 0.55 * easeOut(age / 0.035) + 0.2 * k;
+      const a = age < 0.05 ? 1 : 1 - easeIn((age - 0.05) / (life - 0.05));
+      out.scale.setScalar(size * grow * 1.12);
+      body.scale.setScalar(size * grow);
+      hot.scale.setScalar(size * grow * 0.45);
+      flare.scale.setScalar(size * 1.4 * (0.6 + 0.4 * k));
+      out.material.opacity = 0.9 * a;
+      body.material.opacity = a;
+      hot.material.opacity = a;
+      flare.material.opacity = a * 0.8;
+    };
+  }
+
+  // X-shaped slash flash across a victim
+  crossSlash(x, y, z, color = C.paint) {
+    const e = this.effect({ x, y, z }, 0.16, null);
+    const lines = [];
+    for (const rot of [Math.PI / 4 + rand(-0.2, 0.2), -Math.PI / 4 + rand(-0.2, 0.2)]) {
+      const body = this.sprite(e.root, 'needle', color, 1, { blend: 'normal', opacity: 0.95 });
+      const hot = this.sprite(e.root, 'needle', C.white, 1.8);
+      body.material.rotation = hot.material.rotation = rot;
+      lines.push(body, hot);
+    }
+    e.tick = (dt, age) => {
+      const g = easeOut(age / 0.05);
+      const a = age < 0.07 ? 1 : 1 - easeIn((age - 0.07) / 0.09);
+      for (let i = 0; i < lines.length; i++) {
+        const hot = i % 2 === 1;
+        lines[i].scale.set(Math.max(0.001, 1.9 * g * (hot ? 0.9 : 1)), hot ? 0.1 : 0.18, 1);
+        lines[i].material.opacity = (hot ? 1 : 0.95) * a;
+      }
+    };
+  }
+
+  // Cracked floor: glowing seams flash and cool, dark cracks stay a moment longer
+  groundCrack(x, y, z, size, { glow = C.gold, life = 1.1 } = {}) {
+    const gy = this.ground(x, y, z);
+    const e = this.effect({ x, y: gy, z, facing: rand(0, Math.PI * 2) }, life, null);
+    const dark = this.decal(e.root, 'cracks', C.crack, 1, { blend: 'normal', opacity: 0.85 });
+    const hot = this.decal(e.root, 'cracks', glow, 1, { blend: 'normal', opacity: 1 });
+    dark.position.y = 0.05;
+    hot.position.y = 0.056;
+    dark.renderOrder = 17;
+    hot.renderOrder = 17;
+    e.tick = (dt, age) => {
+      const s = size * (0.75 + 0.25 * easeOut(age / 0.05));
+      dark.scale.set(s, s, 1);
+      hot.scale.set(s * 0.985, s * 0.985, 1);
+      dark.material.opacity = 0.85 * env(age, 0, 0.02, life * 0.55, life * 0.45);
+      hot.material.opacity = env(age, 0, 0.015, 0.08, 0.35);
+    };
+  }
+
+  // Impact star stamped flat on the floor (self-centred slams: a sprite there hides behind the knight)
+  groundStar(x, y, z, size, color = C.paint) {
+    const gy = this.ground(x, y, z);
+    const e = this.effect({ x, y: gy, z, facing: rand(0, Math.PI * 2) }, 0.2, null);
+    const out = this.decal(e.root, 'impact', C.outline, 1, { blend: 'normal', opacity: 0.85 });
+    const body = this.decal(e.root, 'impact', color, 1, { blend: 'normal', opacity: 1 });
+    const hot = this.decal(e.root, 'impact', C.white, 1.4);
+    out.position.y = 0.06;
+    body.position.y = 0.064;
+    hot.position.y = 0.068;
+    for (const m of [out, body, hot]) m.renderOrder = 18;
+    e.tick = (dt, age) => {
+      const g = size * (0.5 + 0.5 * easeOut(age / 0.04) + 0.15 * clamp01(age / 0.2));
+      const a = age < 0.07 ? 1 : 1 - easeIn((age - 0.07) / 0.13);
+      out.scale.set(g * 1.08, g * 1.08, 1);
+      body.scale.set(g, g, 1);
+      hot.scale.set(g * 0.42, g * 0.42, 1);
+      out.material.opacity = 0.85 * a;
+      body.material.opacity = a;
+      hot.material.opacity = a;
+    };
+  }
+
+  dustRing(x, y, z, n, speed = 7, color = C.dust) {
+    const gy = this.ground(x, y, z);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand(-0.15, 0.15);
+      const sp = speed * rand(0.7, 1.15);
+      this.fx.norm.spawn({
+        x: x + Math.cos(a) * 0.3, y: gy + 0.15, z: z + Math.sin(a) * 0.3,
+        vx: Math.cos(a) * sp, vy: rand(0.4, 1.4), vz: Math.sin(a) * sp,
+        color, size: rand(0.55, 0.85), sizeEnd: rand(1.4, 2.0), life: rand(0.4, 0.6),
+        alpha: 0.7, drag: 5.5, tile: 'dust', spin: rand(-2, 2)
+      });
+    }
+  }
+
+  debris(x, y, z, n, spread = 5) {
+    const gy = this.ground(x, y, z);
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2);
+      const sp = rand(2, spread);
+      this.fx.norm.spawn({
+        x: x + rand(-0.3, 0.3), y: gy + 0.1, z: z + rand(-0.3, 0.3),
+        vx: Math.cos(a) * sp, vy: rand(4, 9), vz: Math.sin(a) * sp,
+        color: Math.random() < 0.5 ? C.rock : '#8a7356', size: rand(0.14, 0.26), sizeEnd: 0.12,
+        life: rand(0.45, 0.7), alpha: 1, gravity: -24, drag: 0.6, tile: 'dot'
+      });
+    }
+  }
+
+  // A full contact hit: frame, cracks, dust, chips, sparks, camera + caster weight
+  slamImpact(x, y, z, o) {
+    if (o.groundStar) this.groundStar(x, y, z, o.groundStar, o.color);
+    else this.impactBurst(x, y + (o.lift ?? 0.4), z, { color: o.color, size: o.size ?? 2.6 });
+    if (o.crack) this.groundCrack(x, y, z, o.crack, { glow: o.glow || C.paint });
+    if (o.dust) this.dustRing(x, y, z, o.dust, o.dustSpeed ?? 7);
+    if (o.debris) this.debris(x, y, z, o.debris);
+    if (o.sparks) this.sparkBurst(x, y + (o.lift ?? 0.4), z, o.sparks, o.sparkOpts || {});
+    this.shake(o.shake ?? 7);
+    this.punch(o.punch ?? 1);
+    if (o.playerId) this.hitStop(o.playerId, o.hitStop ?? 60);
+    const ms = o.freeze ?? 50;
+    this.fx.later(o.freezeDelay ?? 0.035, () => this.freeze(ms));
+  }
+
+  // Server hit events near a live knight effect get a knight-styled impact on the victim
+  onHit(fx) {
+    for (const e of this.effects) {
+      const h = e.hitTest ? e.hitTest(fx.x, fx.y, fx.z, e.age) : null;
+      if (!h) continue;
+      this.impactBurst(fx.x, fx.y, fx.z, { color: h.color, size: 1.6 });
+      if (h.slash) this.crossSlash(fx.x, fx.y, fx.z, h.color);
+      this.sparkBurst(fx.x, fx.y, fx.z, 10, { dir: h.dir, cone: h.dir === undefined ? undefined : 0.9, color: h.spark || C.gold, speed: 12 });
+      this.freeze(40);
+      this.shake(3);
+      return true;
+    }
+    return false;
   }
 
   spawn(effectId, o) {
@@ -184,48 +459,51 @@ export class KnightHolyVFX {
     const f = o.facing || 0;
     const dx = Math.cos(f), dz = Math.sin(f);
     const ox = o.x || 0, oy = o.y || 0, oz = o.z || 0;
-    const fx = this.fx;
 
-    // Caster: sanctuary circle under the feet, a charge glint above the sword arm,
-    // and a vertical swing arc from overhead into the ground
-    const e = this.effect(o, 0.9, null);
+    // Caster: circle stamps under the feet, glint on the raised blade, then a
+    // vertical swing arc snaps from overhead into the ground
+    const e = this.effect(o, 0.6, null);
     const circle = this.decalPair(e.root, 'circle', C.white, 0.9, C.outline, 0.7, C.paint, 0.85);
     e.groundPairs = [[circle, 0]];
-    const glint = this.sprite(e.root, 'flare', C.white, 1.5);
+    const glint = this.sprite(e.root, 'flare', C.white, 1.6);
     glint.position.set(-0.25, 2.25, -0.1);
     const swingRoll = new THREE.Group();
     swingRoll.position.set(0, 1.05, 0.15);
     e.root.add(swingRoll);
     const swingPivot = new THREE.Group();
     swingRoll.add(swingPivot);
-    const swingBack = this.quad(swingPivot, 'crescent', C.outline, 1, { blend: 'normal', opacity: 0.7 });
-    const swing = this.quad(swingPivot, 'crescent', C.paint, 1, { blend: 'normal', opacity: 0.9 });
-    const swingCore = this.quad(swingPivot, 'crescent', C.white, 1.05);
-    for (const m of [swingBack, swing, swingCore]) {
+    const swingLayers = [
+      [C.outline, 1, 'normal', 0.8, 2.1],
+      [C.paint, 1, 'normal', 0.95, 2.0],
+      [C.white, 1.0, 'add', 1, 1.75],
+      [C.white, 1.8, 'add', 1, 1.9]
+    ].map(([col, k, blend, op, s]) => {
+      const m = this.quad(swingPivot, 'crescent', col, k, { blend, opacity: op });
       m.rotation.y = -Math.PI / 2;
-      m.position.z = -0.35;
-    }
-    swingBack.scale.set(2.8, 2.8, 1);
-    swing.scale.set(2.65, 2.65, 1);
-    swingCore.scale.set(2.35, 2.35, 1);
+      m.position.z = -0.25;
+      m.scale.set(s, s, 1);
+      m.userData.op = op;
+      return m;
+    });
+    const swingHot = swingLayers[3];
     e.tick = (dt, age) => {
       this.faceCameraRoll(swingRoll);
-      circle.set(1.2 + 2.0 * easeOut(age / 0.14), env(age, 0, 0.05, 0.45, 0.35), age * 0.7);
-      const g = env(age, 0, 0.06, 0.1, 0.12);
-      glint.scale.setScalar(0.4 + 1.6 * g);
+      circle.set(1.8 * stamp(age, 0, 0.1), env(age, 0, 0.02, 0.28, 0.22), age * 0.6);
+      const g = env(age, 0, 0.03, 0.05, 0.05);
+      glint.scale.setScalar(0.2 + 0.9 * g);
       glint.material.opacity = g;
-      glint.material.rotation = age * 3;
-      // Sweep from overhead (tipped back) to the ground in front
-      const sw = easeOut((age - 0.07) / 0.12);
-      swingPivot.rotation.x = -1.35 + 1.6 * sw;
-      const sa = env(age, 0.07, 0.03, 0.2, 0.14);
-      swingBack.material.opacity = 0.7 * sa;
-      swing.material.opacity = 0.9 * sa;
-      swingCore.material.opacity = sa;
+      glint.material.rotation = age * 4;
+      swingPivot.rotation.x = -1.35 + 1.6 * easeOut((age - 0.035) / 0.055);
+      const sa = env(age, 0.035, 0.015, 0.12, 0.08);
+      for (const m of swingLayers) m.material.opacity = m.userData.op * sa;
+      swingHot.material.opacity = env(age, 0.07, 0.01, 0.09, 0.05);
     };
-    fx.later(0.1, () => {
-      this.shake(4);
-      fx.dustPuff(ox + dx * 0.9, oy + 0.05, oz + dz * 0.9, 6, 1.1);
+    this.fx.later(0.085, () => {
+      this.slamImpact(ox + dx * 1.3, oy, oz + dz * 1.3, {
+        color: C.paint, size: 1.7, lift: 0.5, crack: 2.0, dust: 8, debris: 6, sparks: 14,
+        sparkOpts: { dir: f, cone: 0.6, speed: 13, color: C.gold, elMin: 0, elMax: 0.6 },
+        shake: 5, punch: 0.8, playerId: o.playerId, hitStop: 60, freeze: 45
+      });
     });
 
     // The wave rides the server's crescent_wave projectile (same position as the hits)
@@ -235,38 +513,34 @@ export class KnightHolyVFX {
     const waveRoll = new THREE.Group();
     wave.add(waveRoll);
     const layers = [
-      { tex: 'crescent', color: C.paint, k: 1, blend: 'normal', opacity: 0.5, s: 3.35, back: -0.7 },
-      { tex: 'crescent', color: C.paint, k: 1, blend: 'normal', opacity: 0.25, s: 3.15, back: -1.35 },
-      { tex: 'crescent', color: C.outline, k: 1, blend: 'normal', opacity: 0.75, s: 3.8, back: -0.08 },
-      { tex: 'crescent', color: C.paint, k: 1, blend: 'normal', opacity: 0.92, s: 3.6, back: 0 },
-      { tex: 'crescent', color: C.gold, k: 0.9, s: 3.45, back: 0.02 },
-      { tex: 'crescent', color: C.white, k: 1.15, s: 3.0, back: 0.05 }
+      { color: C.paint, blend: 'normal', opacity: 0.45, s: 2.3, back: -0.45 },
+      { color: C.outline, blend: 'normal', opacity: 0.85, s: 2.6, back: -0.05 },
+      { color: C.paint, blend: 'normal', opacity: 0.97, s: 2.45, back: 0 },
+      { color: C.white, k: 1.05, s: 2.05, back: 0.03 },
+      { color: C.white, k: 1.8, s: 2.25, back: 0.04, hot: true }
     ].map((L) => {
-      const m = this.quad(waveRoll, L.tex, L.color, L.k, { blend: L.blend, opacity: L.opacity ?? 1 });
+      const m = this.quad(waveRoll, 'crescent', L.color, L.k ?? 1, { blend: L.blend, opacity: L.opacity ?? 1 });
       m.rotation.y = -Math.PI / 2;
       m.scale.set(L.s, L.s, 1);
-      m.position.set(0, 0.3, -1.2 + L.back);
-      m.userData.base = (L.opacity ?? 1) * (L.ghost ?? 1);
+      m.position.set(0, 0.15, -0.8 + L.back);
+      m.userData.base = L.opacity ?? 1;
+      m.userData.hot = !!L.hot;
       return m;
     });
-    const glow = this.sprite(waveRoll, 'glow', C.gold, 0.7);
-    glow.position.set(0, 0.35, 0.1);
-    glow.scale.set(2.2, 3.4, 1);
 
     // Carved light line on the floor from the knight to the wave
     const lineRoot = new THREE.Group();
     lineRoot.position.set(ox + dx * 0.8, this.ground(ox, oy, oz) + 0.035, oz + dz * 0.8);
     lineRoot.rotation.y = -f;
     this.group.add(lineRoot);
-    const lineBack = this.quad(lineRoot, 'streak', C.paint, 1, { blend: 'normal', opacity: 0.6 });
-    const line = this.quad(lineRoot, 'streak', C.white, 0.95);
+    const lineBack = this.quad(lineRoot, 'streak', C.paint, 1, { blend: 'normal', opacity: 0.7 });
+    const line = this.quad(lineRoot, 'streak', C.white, 1.0);
     for (const m of [lineBack, line]) m.rotation.x = -Math.PI / 2;
     line.position.y = 0.01;
 
     const start = { x: ox + dx * 1.2, y: oy + 1.0, z: oz + dz * 1.2 };
-    const st = { boundId: null, lost: false, endAge: -1, last: new THREE.Vector3(start.x, start.y, start.z), sparkT: 0 };
-    const we = this.effect({ x: 0, y: 0, z: 0 }, 2.2, (dt, age) => {
-      // Bind to the matching projectile once the renderer has it
+    const st = { boundId: null, lost: false, endAge: -1, born: -1, last: new THREE.Vector3(start.x, start.y, start.z), shedT: 0 };
+    const we = this.effect({ x: 0, y: 0, z: 0 }, 2.0, (dt, age) => {
       if (st.boundId === null && !st.lost) {
         const px = start.x + dx * 16 * age, pz = start.z + dz * 16 * age;
         for (const [id, p] of this.getProjectiles() || []) {
@@ -292,151 +566,111 @@ export class KnightHolyVFX {
         st.endAge = age;
         if (st.boundId !== null) this.boundProjectiles.delete(st.boundId);
         const p = st.last;
-        fx.flash(p.x, p.y + 0.3, p.z, C.gold, 2.6, 0.22);
-        fx.sparks(p.x, p.y + 0.3, p.z, 14, C.gold, { speed: 6, gravity: -6, tile: 'star', white: 0.5 });
+        this.impactBurst(p.x, p.y + 0.2, p.z, { color: C.paint, size: 1.7 });
+        this.sparkBurst(p.x, p.y + 0.2, p.z, 12, { dir: f, cone: 1.1, speed: 11, color: C.gold });
       }
       wave.position.copy(st.last);
       this.faceCameraRoll(waveRoll);
-      const inA = clamp01((age - 0.05) / 0.07);
-      const outA = st.endAge < 0 ? 1 : clamp01(1 - (age - st.endAge) / 0.16);
+      const inA = clamp01((age - 0.06) / 0.03);
+      if (inA > 0 && st.born < 0) st.born = age;
+      const outA = st.endAge < 0 ? 1 : 1 - easeIn((age - st.endAge) / 0.1);
       const a = inA * outA;
-      const grow = 0.75 + 0.25 * easeOut((age - 0.05) / 0.12);
-      for (const m of layers) {
-        m.material.opacity = m.userData.base * a;
-        m.scale.y = Math.abs(m.scale.x) * grow;
-      }
-      glow.material.opacity = 0.55 * a;
+      const hotA = st.born < 0 ? 0 : 1 - easeOut((age - st.born) / 0.12);
+      for (const m of layers) m.material.opacity = m.userData.hot ? hotA * a : m.userData.base * a;
 
-      // Floor line stretches behind the wave, then fades after it is gone
+      // Floor line stretches behind the wave, then fades quickly after it is gone
       const len = Math.max(0.1, Math.hypot(st.last.x - lineRoot.position.x, st.last.z - lineRoot.position.z) - 0.4);
       for (const m of [lineBack, line]) {
-        m.scale.set(len, 1.1, 1);
+        m.scale.set(len, 0.5, 1);
         m.position.x = len / 2;
       }
-      const la = inA * (st.endAge < 0 ? 1 : clamp01(1 - (age - st.endAge) / 0.55));
+      const la = inA * (st.endAge < 0 ? 1 : 1 - easeIn((age - st.endAge) / 0.3));
       line.material.opacity = la;
-      lineBack.material.opacity = 0.6 * la;
+      lineBack.material.opacity = 0.7 * la;
 
-      // Shed sparkles and a few white feathers along the blade edge
-      if (a > 0.3) {
-        st.sparkT -= dt;
-        while (st.sparkT <= 0) {
-          st.sparkT += 0.012;
+      // Sparks shear off the blade edge and fall (no floating motes)
+      if (a > 0.3 && st.endAge < 0) {
+        st.shedT -= dt;
+        while (st.shedT <= 0) {
+          st.shedT += 0.035;
           const th = rand(-1.15, 1.15);
-          const fwd = 0.4 * Math.cos(th) - 0.1;
-          const up = 1.4 * Math.sin(th) + 0.3;
-          const sx = st.last.x + dx * fwd, sz = st.last.z + dz * fwd, sy = st.last.y + up;
-          fx.add.spawn({
-            x: sx, y: sy, z: sz, vx: -dx * rand(1, 3), vy: rand(0.3, 1.6), vz: -dz * rand(1, 3),
-            color: Math.random() < 0.4 ? C.white : C.gold, intensity: 1.3, size: rand(0.22, 0.42), sizeEnd: 0.02,
-            life: rand(0.35, 0.65), drag: 2.2, gravity: -1.5, tile: 'star', spin: rand(-4, 4)
+          const fwd = 0.3 * Math.cos(th) - 0.05;
+          const up = 0.95 * Math.sin(th) + 0.15;
+          this.sparkBurst(st.last.x + dx * fwd, st.last.y + up, st.last.z + dz * fwd, 1, {
+            dir: f + Math.PI, cone: 0.6, speed: 7, speedMin: 3, elMin: -0.2, elMax: 0.5, life: 0.3, color: C.gold
           });
-          if (Math.random() < 0.12) {
-            fx.norm.spawn({
-              x: sx, y: sy, z: sz, vx: -dx * rand(0.4, 1.2), vy: rand(0.2, 0.8), vz: -dz * rand(0.4, 1.2),
-              color: '#fffdf4', size: rand(0.22, 0.34), sizeEnd: 0.12, life: rand(0.7, 1.1), alpha: 0.95,
-              drag: 1.6, gravity: -0.8, tile: 'petal', spin: rand(-3, 3)
-            });
-          }
         }
       }
-      if (st.endAge >= 0 && age - st.endAge > 0.6) we.age = we.duration;
+      if (st.endAge >= 0 && age - st.endAge > 0.35) we.age = we.duration;
     });
     we.extra = [wave, lineRoot];
-  }
-
-  // Painted sprite under an additive highlight (light shafts, crosses on bright scenery)
-  spritePair(parent, texKey, bodyColor, glowColor, k = 1, o = {}) {
-    const bodyOpacity = o.bodyOpacity ?? 0.7;
-    const body = this.sprite(parent, texKey, bodyColor, 1, { blend: 'normal', opacity: bodyOpacity, anchorBottom: o.anchorBottom });
-    const glow = this.sprite(parent, texKey, glowColor, k, { anchorBottom: o.anchorBottom });
-    const bodyScale = o.bodyScale ?? 1.25;
-    return { body, glow, set: (sx, sy, a) => {
-      body.scale.set(Math.max(0.001, sx * bodyScale), Math.max(0.001, sy), 1);
-      glow.scale.set(Math.max(0.001, sx), Math.max(0.001, sy), 1);
-      body.material.opacity = bodyOpacity * a;
-      glow.material.opacity = a;
-    }, place: (x, y, z) => {
-      body.position.set(x, y, z);
-      glow.position.set(x, y, z);
-    } };
+    we.hitTest = (x, y, z) => (st.endAge < 0 && st.born >= 0 && Math.hypot(x - st.last.x, z - st.last.z) < 2.4)
+      ? { color: C.paint, spark: C.gold, dir: f, slash: true } : null;
   }
 
   // ------------------------------------------------------------------ 2. Aegis Fortress
   aegis(o) {
-    const fx = this.fx;
-    const e = this.effect(o, 1.25, null, { follow: true });
+    const e = this.effect(o, 0.9, null, { follow: true });
     const R = 3.8;
-    const outer = this.decalPair(e.root, 'circle', C.white, 0.9, C.navy, 0.65, C.blue, 0.85);
+    const outer = this.decalPair(e.root, 'circle', C.white, 0.6, C.navy, 0.7, C.blue, 0.9);
     const inner = this.decalPair(e.root, 'circle', C.white, 0.85, C.outline, 0.55, C.paint, 0.85);
-    const shock = this.decalPair(e.root, 'shock', C.white, 0.9, C.navy, 0.4, C.blue, 0.6);
+    const shock = this.decalPair(e.root, 'shock', C.white, 0.8, C.navy, 0.45, C.blue, 0.6);
     e.groundPairs = [[outer, 0], [inner, 0.004], [shock, 0.008]];
 
-    // Hex barrier dome: painted blue cage + white highlight + faint glassy fill
-    const domeBody = new THREE.Mesh(this.geo.dome, this.mat('hex', C.blue, 1, { blend: 'normal', opacity: 0.75 }));
-    const dome = new THREE.Mesh(this.geo.dome, this.mat('hex', C.sky, 0.85));
-    const shell = new THREE.Mesh(this.geo.dome, this.mat(null, C.blue, 1, { blend: 'normal', opacity: 0.12 }));
+    // Hex barrier dome: painted blue cage + white highlight + glassy fill + white pop flash
+    const shell = new THREE.Mesh(this.geo.dome, this.mat(null, C.blue, 1, { blend: 'normal', opacity: 0.1 }));
+    const domeBody = new THREE.Mesh(this.geo.dome, this.mat('hex', C.blue, 1, { blend: 'normal', opacity: 0.9 }));
+    const dome = new THREE.Mesh(this.geo.dome, this.mat('hex', C.sky, 0.45));
+    const domeHot = new THREE.Mesh(this.geo.dome, this.mat('hex', C.white, 1.3));
     shell.material.side = THREE.FrontSide;
     shell.renderOrder = 15;
     domeBody.renderOrder = 16;
     dome.renderOrder = 17;
-    e.root.add(shell, domeBody, dome);
-    e.groundMeshes = [shell, domeBody, dome];
+    domeHot.renderOrder = 18;
+    const domeParts = [shell, domeBody, dome, domeHot];
+    e.root.add(...domeParts);
+    e.groundMeshes = [...domeParts];
 
-    // Light shards rising round the rim
+    // Light shards spike up round the rim
     const shards = [];
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      const s = this.spritePair(e.root, 'shaft', i % 2 ? C.blue : C.paint, C.white, 1.0, { anchorBottom: true, bodyOpacity: 0.75, bodyScale: 1.6 });
-      s.place(Math.cos(a) * R * 0.92, 0, Math.sin(a) * R * 0.92);
-      s.delay = 0.08 + (i % 5) * 0.02;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      const s = this.spritePair(e.root, 'shaft', i % 2 ? C.blue : C.paint, C.white, 1.0, { anchorBottom: true, bodyOpacity: 0.85, bodyScale: 1.5 });
+      s.place(Math.cos(a) * 1.55, 0, Math.sin(a) * 1.55);
+      s.delay = 0.05 + (i % 5) * 0.012;
       e.groundMeshes.push(s.body, s.glow);
       shards.push(s);
     }
-    const core = this.sprite(e.root, 'flare', C.white, 1.4);
-    core.position.set(0, 1.0, 0.2);
 
-    fx.later(0.08, () => {
-      this.shake(6);
+    this.fx.later(0.05, () => {
       const p = e.root.position;
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2;
-        fx.dustPuff(p.x + Math.cos(a) * 1.1, p.y + 0.05, p.z + Math.sin(a) * 1.1, 1, 1.2);
-      }
+      this.slamImpact(p.x, p.y, p.z, {
+        color: C.blue, groundStar: 2.6, crack: 2.8, glow: C.blue, dust: 12, dustSpeed: 7, debris: 8, sparks: 18,
+        sparkOpts: { color: C.sky, speed: 12, elMin: 0.05, elMax: 0.55 },
+        shake: 7, punch: 1.1, playerId: o.playerId, hitStop: 90, freeze: 70
+      });
     });
-    let moteT = 0;
     e.tick = (dt, age) => {
-      outer.set(1.0 + (R * 2 - 1.0) * easeOut((age - 0.05) / 0.18), env(age, 0.05, 0.04, 0.75, 0.4), -age * 0.5);
-      inner.set(1.8 + 1.6 * easeOut((age - 0.05) / 0.2), env(age, 0.06, 0.05, 0.7, 0.4), age * 1.1);
-      const sk = clamp01((age - 0.07) / 0.28);
-      shock.set(0.5 + R * 2 * easeOut(sk), sk > 0 && sk < 1 ? 1 - sk : 0);
-      const pop = easeOutBack((age - 0.07) / 0.18);
-      const da = env(age, 0.07, 0.04, 0.6, 0.45);
-      for (const m of [shell, domeBody, dome]) m.scale.set(0.4 + 2.0 * pop, 0.3 + 1.9 * pop, 0.4 + 2.0 * pop);
-      const flashK = 1 + 0.8 * Math.max(0, 1 - (age - 0.12) / 0.15);
-      dome.material.opacity = da * flashK;
-      domeBody.material.opacity = 0.75 * da;
-      shell.material.opacity = 0.12 * da;
+      outer.set(3.6 * stamp(age, 0.05, 0.1, 0.25), env(age, 0.05, 0.015, 0.5, 0.25), -age * 0.5);
+      inner.set(1.9 * stamp(age, 0.05, 0.1), env(age, 0.05, 0.015, 0.45, 0.25), age * 1.6);
+      const sk = clamp01((age - 0.05) / 0.18);
+      shock.set(0.8 + R * 2 * easeOut(sk), sk > 0 && sk < 1 ? 0.8 * Math.sqrt(1 - sk) : 0);
+      const pop = easeOutBack((age - 0.05) / 0.09) * 0.62;
+      const da = env(age, 0.05, 0.02, 0.42, 0.18);
+      const swell = 1 + 0.08 * clamp01((age - 0.42) / 0.18);
+      for (const m of domeParts) m.scale.set((0.4 + 2.0 * pop) * swell, (0.3 + 1.9 * pop) * swell, (0.4 + 2.0 * pop) * swell);
+      shell.material.opacity = 0.1 * da;
+      domeBody.material.opacity = 0.9 * da;
+      dome.material.opacity = da;
+      domeHot.material.opacity = env(age, 0.05, 0.01, 0.07, 0.06);
       dome.material.map.offset.x = age * 0.05;
       for (const s of shards) {
-        const k = easeOut((age - s.delay) / 0.14);
-        s.set(0.5, 3.0 * k, env(age, s.delay, 0.04, 0.4, 0.3));
-      }
-      const ca = env(age, 0.06, 0.03, 0.1, 0.2);
-      core.scale.setScalar(0.5 + 2.4 * ca);
-      core.material.opacity = ca;
-      moteT -= dt;
-      if (age > 0.1 && age < 0.8 && moteT <= 0) {
-        moteT = 0.025;
-        const a = rand(0, Math.PI * 2), r = rand(0.6, 2.3);
-        const p = e.root.position;
-        fx.add.spawn({
-          x: p.x + Math.cos(a) * r, y: p.y + rand(0.1, 1.8), z: p.z + Math.sin(a) * r, vy: rand(0.8, 2.0),
-          color: Math.random() < 0.5 ? C.sky : C.gold, intensity: 1.2, size: rand(0.2, 0.36), sizeEnd: 0.02,
-          life: rand(0.5, 0.9), drag: 1.2, tile: 'star', spin: rand(-3, 3)
-        });
+        const k = easeOut((age - s.delay) / 0.06);
+        s.set(0.32, 1.9 * k, env(age, s.delay, 0.01, s.delay + 0.1, 0.14));
       }
     };
+    e.hitTest = (x, y, z, age) => (age < 0.35 && Math.hypot(x - e.root.position.x, z - e.root.position.z) < R + 0.8)
+      ? { color: C.blue, spark: C.sky } : null;
     // Super Armor aura on the caster for as long as the server keeps the buff
     if (o.playerId) {
       const old = this.auras.get(o.playerId);
@@ -460,188 +694,170 @@ export class KnightHolyVFX {
       aura.ring.back.position.y = 0.035;
       aura.ring.body.position.y = 0.04;
       aura.ring.front.position.y = 0.045;
-      aura.t = 0;
     }
     aura.root.position.set(pl.x, this.ground(pl.x, pl.y, pl.z), pl.z);
-    const a = Math.min(1, aura.age / 0.4) * (0.6 + 0.15 * Math.sin(aura.age * 6));
-    aura.ring.set(1.9, a, aura.age * 0.9);
-    aura.t -= dt;
-    if (aura.t <= 0) {
-      aura.t = 0.12;
-      const ang = rand(0, Math.PI * 2);
-      this.fx.add.spawn({
-        x: pl.x + Math.cos(ang) * 0.75, y: pl.y + rand(0.1, 0.5), z: pl.z + Math.sin(ang) * 0.75, vy: rand(1.2, 2),
-        color: C.gold, intensity: 1.1, size: rand(0.16, 0.26), sizeEnd: 0.02, life: 0.6, drag: 1, tile: 'star'
-      });
-    }
+    const a = Math.min(1, aura.age / 0.3) * (0.6 + 0.15 * Math.sin(aura.age * 6));
+    aura.ring.set(1.4, a, aura.age * 0.9);
   }
 
   // ------------------------------------------------------------------ 3. Lionheart Warcry
   lionheart(o) {
-    const fx = this.fx;
-    const e = this.effect(o, 1.5, null, { follow: true });
+    const e = this.effect(o, 1.0, null, { follow: true });
     const R = 4.3;
     const emblem = this.decalPair(e.root, 'sunburst', C.white, 0.5, C.outline, 0.8, C.paint, 0.95);
     const circle = this.decalPair(e.root, 'circle', C.white, 0.9, C.outline, 0.55, C.gold, 0.7);
     e.groundPairs = [[emblem, 0], [circle, 0.004]];
 
-    // Pillar of light dropping from the sky onto the knight
-    const pillar = this.spritePair(e.root, 'shaft', C.paint, C.white, 1.15, { anchorBottom: true, bodyOpacity: 0.6, bodyScale: 1.7 });
+    // Pillar of light slamming down from the sky onto the knight
+    const pillar = this.spritePair(e.root, 'shaft', C.paint, C.white, 1.1, { anchorBottom: true, bodyOpacity: 0.85, bodyScale: 1.5 });
     e.groundMeshes = [pillar.body, pillar.glow];
 
-    // Roar: rings at chest height expanding to the stun radius
-    const rings = [0.12, 0.22, 0.32].map((delay) => {
+    // Roar: thick rings at chest height racing out to the stun radius
+    const rings = [0.09, 0.15, 0.21].map((delay) => {
       const holder = new THREE.Group();
       holder.position.y = 1.0;
       e.root.add(holder);
-      const pair = this.decalPair(holder, 'shock', C.white, 0.9, C.outline, 0.4, C.paint, 0.7);
+      const pair = this.decalPair(holder, 'shock', C.white, 0.8, C.outline, 0.45, C.paint, 0.7);
       pair.delay = delay;
       return pair;
     });
-    const burst = this.sprite(e.root, 'flare', C.white, 1.5);
-    burst.position.set(0, 1.9, 0);
 
-    // Heal crosses rising around the knight
+    // Heal crosses pop up and shoot upward
     const crosses = [];
-    for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI * 2 + rand(-0.2, 0.2);
-      const r = rand(0.5, 1.2);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + rand(-0.2, 0.2);
+      const r = rand(0.45, 0.9);
       const cross = this.spritePair(e.root, 'cross', C.healBody, C.white, 0.55, { bodyOpacity: 0.95, bodyScale: 1 });
-      const outline = this.sprite(e.root, 'cross', C.healDark, 1, { blend: 'normal', opacity: 0.7 });
+      const outline = this.sprite(e.root, 'cross', C.healDark, 1, { blend: 'normal', opacity: 0.75 });
       outline.renderOrder = 18;
-      const start = new THREE.Vector3(Math.cos(a) * r, rand(0.1, 0.9), Math.sin(a) * r);
-      crosses.push({ cross, outline, start, delay: 0.25 + rand(0, 0.35), size: rand(0.34, 0.5) });
+      const start = new THREE.Vector3(Math.cos(a) * r, rand(0.2, 1.0), Math.sin(a) * r);
+      crosses.push({ cross, outline, start, delay: 0.18 + rand(0, 0.2), size: rand(0.26, 0.36) });
     }
 
-    fx.later(0.12, () => {
-      this.shake(5);
+    this.fx.later(0.08, () => {
       const p = e.root.position;
-      fx.sparks(p.x, p.y + 1.2, p.z, 22, C.gold, { speed: 9, gravity: -5, tile: 'star', white: 0.4, elMin: -0.1, elMax: 0.5 });
+      this.slamImpact(p.x, p.y, p.z, {
+        color: C.paint, groundStar: 2.4, crack: 2.6, glow: C.paint, dust: 10, dustSpeed: 7, debris: 6, sparks: 18,
+        sparkOpts: { color: C.gold, speed: 14, elMin: -0.05, elMax: 0.25, gravity: -6 },
+        shake: 6, punch: 1, playerId: o.playerId, hitStop: 70, freeze: 60
+      });
     });
-    let moteT = 0;
     e.tick = (dt, age) => {
-      emblem.set(1.5 + (R * 2 - 1.5) * easeOut((age - 0.1) / 0.22), env(age, 0.1, 0.05, 0.85, 0.5), age * 0.35);
-      circle.set(1.2 + 1.4 * easeOut((age - 0.06) / 0.18), env(age, 0.06, 0.05, 0.9, 0.45), -age * 0.8);
-      // Beam: reaches the ground at ~0.14 s, holds, then thins out
-      const drop = easeIn((age - 0.04) / 0.1);
-      const thin = 1 - 0.6 * clamp01((age - 0.55) / 0.4);
-      pillar.set(1.5 * thin, 11 * drop, env(age, 0.04, 0.05, 0.55, 0.4));
+      const drop = easeIn((age - 0.02) / 0.06);
+      const narrow = age < 0.3 ? 1 : 1 - easeIn((age - 0.3) / 0.22);
+      pillar.set(0.85 * narrow, 7 * drop, env(age, 0.02, 0.02, 0.3, 0.22));
+      emblem.set(3.4 * stamp(age, 0.08, 0.1, 0.3), env(age, 0.08, 0.015, 0.6, 0.3), age * 0.4);
+      circle.set(1.6 * stamp(age, 0.06, 0.1), env(age, 0.06, 0.02, 0.55, 0.3), -age * 0.9);
       for (const r of rings) {
-        const k = clamp01((age - r.delay) / 0.38);
+        const k = clamp01((age - r.delay) / 0.22);
         r.set(0.6 + R * 2 * easeOut(k), k > 0 && k < 1 ? 1 - k : 0);
       }
-      const ba = env(age, 0.11, 0.03, 0.16, 0.25);
-      burst.scale.setScalar(0.6 + 3.0 * ba);
-      burst.material.opacity = ba;
       for (const c of crosses) {
         const t = age - c.delay;
-        const a = env(age, c.delay, 0.1, c.delay + 0.55, 0.35);
-        const y = c.start.y + Math.max(0, t) * 1.5;
+        const a = env(age, c.delay, 0.02, c.delay + 0.3, 0.2);
+        const pop = c.size * (1 + 0.45 * (1 - easeOut(t / 0.08)));
+        const y = c.start.y + Math.max(0, t) * 2.6;
         c.cross.place(c.start.x, y, c.start.z);
         c.outline.position.set(c.start.x, y, c.start.z);
-        c.cross.set(c.size, c.size, a);
-        c.cross.glow.scale.setScalar(c.size * 0.55);
-        c.outline.scale.setScalar(c.size * 1.25);
-        c.outline.material.opacity = 0.7 * a;
-      }
-      moteT -= dt;
-      if (age > 0.12 && age < 0.9 && moteT <= 0) {
-        moteT = 0.02;
-        const a = rand(0, Math.PI * 2), r = rand(0, 0.9);
-        const p = e.root.position;
-        fx.add.spawn({
-          x: p.x + Math.cos(a) * r, y: p.y + rand(0, 2.5), z: p.z + Math.sin(a) * r, vy: rand(1.5, 3.5),
-          color: Math.random() < 0.6 ? C.white : C.gold, intensity: 1.2, size: rand(0.18, 0.34), sizeEnd: 0.02,
-          life: rand(0.4, 0.8), drag: 1, tile: 'star', spin: rand(-3, 3)
-        });
+        c.cross.set(pop, pop, a);
+        c.cross.glow.scale.setScalar(pop * 0.55);
+        c.outline.scale.setScalar(pop * 1.25);
+        c.outline.material.opacity = 0.75 * a;
       }
     };
+    e.hitTest = (x, y, z, age) => (age < 0.45 && Math.hypot(x - e.root.position.x, z - e.root.position.z) < R + 0.8)
+      ? { color: C.paint, spark: C.gold } : null;
   }
 
   // ------------------------------------------------------------------ 4. Chariot Rush
   chariot(o) {
-    const fx = this.fx;
     const f = o.facing || 0;
     const dx = Math.cos(f), dz = Math.sin(f);
 
-    // Launch mark stays where the charge started
-    const mark = this.effect(o, 0.6, null);
+    // Launch blast stays where the charge started
+    const mark = this.effect(o, 0.5, null);
     const startCircle = this.decalPair(mark.root, 'circle', C.white, 0.9, C.navy, 0.6, C.blue, 0.85);
-    const startShock = this.decalPair(mark.root, 'shock', C.white, 0.9, C.navy, 0.35, C.blue, 0.6);
+    const startShock = this.decalPair(mark.root, 'shock', C.white, 1.0, C.navy, 0.45, C.blue, 0.7);
     mark.groundPairs = [[startCircle, 0], [startShock, 0.004]];
     mark.tick = (dt, age) => {
-      startCircle.set(1.0 + 1.4 * easeOut(age / 0.12), env(age, 0, 0.03, 0.25, 0.3), age * 1.5);
-      const k = clamp01(age / 0.3);
-      startShock.set(0.5 + 3.4 * easeOut(k), 1 - k);
+      startCircle.set(1.5 * stamp(age, 0, 0.08), env(age, 0, 0.015, 0.2, 0.2), age * 1.5);
+      const k = clamp01(age / 0.18);
+      startShock.set(0.5 + 2.4 * easeOut(k), k < 1 ? 0.8 * Math.sqrt(1 - k) : 0);
     };
-    fx.dustPuff(o.x - dx * 0.3, o.y + 0.05, o.z - dz * 0.3, 8, 1.3);
+    this.slamImpact(o.x - dx * 0.5, o.y, o.z - dz * 0.5, {
+      color: C.blue, groundStar: 1.9, lift: 0.5, dust: 10, dustSpeed: 7, debris: 4, sparks: 12,
+      sparkOpts: { dir: f + Math.PI, cone: 0.8, speed: 11, color: C.sky, elMin: 0, elMax: 0.5 },
+      shake: 4, punch: 0.6, freeze: 30
+    });
 
     // Shield crest ram + bow wave travel with the knight
-    const e = this.effect(o, 0.78, null, { follow: true });
-    const crestBack = this.quad(e.root, 'crest', C.navy, 1, { blend: 'normal', opacity: 0.7 });
-    const crestBody = this.quad(e.root, 'crest', C.blue, 1, { blend: 'normal', opacity: 0.85 });
-    const crest = this.quad(e.root, 'crest', C.white, 0.6);
-    crestBack.position.set(0, 1.0, 0.94);
-    crestBody.position.set(0, 1.0, 0.96);
-    crest.position.set(0, 1.0, 0.98);
-    const bows = [0.45, 1.25].map((h) => {
+    const e = this.effect(o, 0.6, null, { follow: true });
+    const crestLayers = [
+      [C.navy, 1, 'normal', 0.8, 1.25, 0.84],
+      [C.blue, 1, 'normal', 0.92, 1.15, 0.86],
+      [C.white, 0.55, 'add', 1, 1.15, 0.88],
+      [C.white, 1.6, 'add', 1, 1.22, 0.9]
+    ].map(([col, k, blend, op, s, z]) => {
+      const m = this.quad(e.root, 'crest', col, k, { blend, opacity: op });
+      m.position.set(0, 0.9, z);
+      m.userData.op = op;
+      m.userData.s = s;
+      return m;
+    });
+    const crestHot = crestLayers[3];
+    const bows = [0.5].map((h) => {
       const holder = new THREE.Group();
-      holder.position.set(0, h, 0.2);
+      holder.position.set(0, h, 0.15);
       e.root.add(holder);
       return this.decalPair(holder, 'crescent', C.white, 0.55, C.navy, 0.6, C.blue, 0.85);
     });
-    const shine = this.sprite(e.root, 'flare', C.white, 1.4);
-    shine.position.set(0, 1.05, 1.1);
 
-    // Floor trail + speed streaks left behind in world space
+    // Floor trail + speed lines left behind in world space
     const trailRoot = new THREE.Group();
     trailRoot.position.set(o.x, this.ground(o.x, o.y, o.z) + 0.035, o.z);
     trailRoot.rotation.y = -f;
     this.group.add(trailRoot);
-    const trailBack = this.quad(trailRoot, 'streak', C.blue, 1, { blend: 'normal', opacity: 0.6 });
+    const trailBack = this.quad(trailRoot, 'streak', C.blue, 1, { blend: 'normal', opacity: 0.65 });
     const trail = this.quad(trailRoot, 'streak', C.white, 0.9);
     for (const m of [trailBack, trail]) m.rotation.x = -Math.PI / 2;
     trail.position.y = 0.01;
     const streaks = [];
-    let streakT = 0, endAge = -1;
+    let streakT = 0, ended = false;
     e.extra = [trailRoot];
 
     e.tick = (dt, age) => {
-      const a = env(age, 0, 0.05, 0.5, 0.22);
-      const pulse = 1 + 0.08 * Math.sin(age * 40);
-      crestBack.scale.set(1.8 * pulse, 1.8 * pulse, 1);
-      crestBody.scale.set(1.65 * pulse, 1.65 * pulse, 1);
-      crest.scale.set(1.65 * pulse, 1.65 * pulse, 1);
-      crestBack.material.opacity = 0.7 * a;
-      crestBody.material.opacity = 0.85 * a;
-      crest.material.opacity = a;
-      for (const b of bows) b.set(2.6 + 0.4 * Math.sin(age * 30), a * 0.9);
-      shine.scale.setScalar((1.2 + 0.5 * Math.sin(age * 25)) * a + 0.01);
-      shine.material.opacity = a;
+      const a = env(age, 0, 0.02, 0.42, 0.12);
+      const pulse = 1 + 0.07 * Math.sin(age * 45);
+      for (const m of crestLayers) {
+        m.scale.set(m.userData.s * pulse, m.userData.s * pulse, 1);
+        m.material.opacity = m.userData.op * a;
+      }
+      crestHot.material.opacity = env(age, 0, 0.01, 0.05, 0.08);
+      for (const b of bows) b.set(1.7 + 0.2 * Math.sin(age * 34), a * 0.9);
 
-      // Trail line from the start point to the knight
       const p = e.root.position;
       const len = Math.max(0.1, Math.hypot(p.x - trailRoot.position.x, p.z - trailRoot.position.z));
       for (const m of [trailBack, trail]) {
-        m.scale.set(len, 1.4, 1);
+        m.scale.set(len, 0.7, 1);
         m.position.x = len / 2;
       }
-      const ta = age < 0.55 ? 1 : clamp01(1 - (age - 0.55) / 0.23);
+      const ta = age < 0.42 ? 1 : 1 - easeIn((age - 0.42) / 0.18);
       trail.material.opacity = ta;
-      trailBack.material.opacity = 0.6 * ta;
+      trailBack.material.opacity = 0.65 * ta;
 
-      // Speed streaks at random heights beside the body
+      // Speed lines streaming past the body
       streakT -= dt;
       if (a > 0.5 && streakT <= 0) {
-        streakT = 0.03;
+        streakT = 0.025;
         for (let i = 0; i < 2; i++) {
           const holder = new THREE.Group();
-          const side = (Math.random() < 0.5 ? -1 : 1) * rand(0.35, 0.8);
-          holder.position.set(p.x - dz * side - dx * 0.4, p.y + rand(0.3, 1.7), p.z + dx * side - dz * 0.4);
+          const side = (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.85);
+          holder.position.set(p.x - dz * side - dx * 0.3, p.y + rand(0.25, 1.8), p.z + dx * side - dz * 0.3);
           holder.rotation.y = -f;
           this.group.add(holder);
-          const m = this.quad(holder, 'streak', Math.random() < 0.5 ? C.blue : C.navy, 1, { blend: 'normal', opacity: 0.8 });
-          m.scale.set(rand(1.2, 2.0), 0.16, 1);
+          const m = this.quad(holder, 'needle', Math.random() < 0.4 ? C.white : C.blue, 1, { blend: 'normal', opacity: 0.9 });
+          m.rotation.x = Math.PI / 2 * Math.round(Math.random());
+          m.scale.set(rand(1.1, 1.8), 0.08, 1);
           m.position.x = -m.scale.x / 2;
           streaks.push({ holder, m, age: 0 });
         }
@@ -649,29 +865,32 @@ export class KnightHolyVFX {
       for (let i = streaks.length - 1; i >= 0; i--) {
         const s = streaks[i];
         s.age += dt;
-        s.m.material.opacity = 0.8 * clamp01(1 - s.age / 0.22);
-        if (s.age > 0.22) {
+        s.m.material.opacity = 0.9 * (1 - easeIn(s.age / 0.14));
+        if (s.age > 0.14) {
           this.dispose(s.holder);
           streaks.splice(i, 1);
         }
       }
-      if (age > 0.5 && endAge < 0) {
-        endAge = age;
-        fx.flash(p.x + dx * 0.9, p.y + 1.0, p.z + dz * 0.9, C.sky, 2.2, 0.2);
-        fx.dustPuff(p.x + dx * 0.6, p.y + 0.05, p.z + dz * 0.6, 6, 1.1);
+      if (age > 0.42 && !ended) {
+        ended = true;
+        this.dustRing(p.x + dx * 0.5, p.y, p.z + dz * 0.5, 8, 4);
+        this.sparkBurst(p.x + dx * 0.8, p.y + 0.9, p.z + dz * 0.8, 8, { dir: f, cone: 1.0, speed: 9, color: C.sky });
       }
-      if (age >= 0.77) for (const s of streaks.splice(0)) this.dispose(s.holder);
+      if (age >= 0.59) for (const s of streaks.splice(0)) this.dispose(s.holder);
     };
-    this.shake(3);
+    e.hitTest = (x, y, z, age) => (age < 0.5 && Math.hypot(x - e.root.position.x, z - e.root.position.z) < 3.2)
+      ? { color: C.blue, spark: C.sky, dir: f } : null;
   }
 
   // ------------------------------------------------------------------ frame update
   update(dt, state) {
+    // Impact frames: the knight VFX clock nearly stops for a few frames on contact
+    const edt = performance.now() < this.freezeUntil ? dt * 0.06 : dt;
     const players = new Map();
     if (state?.players) for (const p of state.players) players.set(p.id, p);
     for (let i = this.effects.length - 1; i >= 0; i--) {
       const e = this.effects[i];
-      e.age += dt;
+      e.age += edt;
       if (e.age >= e.duration) {
         this.dispose(e.root);
         if (e.extra) for (const x of e.extra) this.dispose(x);
@@ -691,8 +910,9 @@ export class KnightHolyVFX {
         }
       }
       if (e.groundMeshes) for (const m of e.groundMeshes) m.position.y = e.gy;
-      if (e.tick) e.tick(dt, e.age, pl);
+      if (e.tick) e.tick(edt, e.age, pl);
     }
     for (const [id, aura] of this.auras) this.updateAura(id, aura, players.get(id), dt);
+    this.updateSparks(edt);
   }
 }

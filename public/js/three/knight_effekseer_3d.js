@@ -81,8 +81,8 @@ export class KnightThreeVFX {
   }
 
   // Renderer hands over its particle system and live projectiles for the skill suite
-  attachHoly({ fx, getProjectiles }) {
-    this.holy = new KnightHolyVFX({ scene: this.scene, camera: this.camera, fx, shake: this.shake, floorY: this.floorY, getProjectiles });
+  attachHoly({ fx, getProjectiles, hitStop, punch }) {
+    this.holy = new KnightHolyVFX({ scene: this.scene, camera: this.camera, fx, shake: this.shake, floorY: this.floorY, getProjectiles, hitStop, punch });
   }
 
   loadTextures() {
@@ -122,6 +122,9 @@ export class KnightThreeVFX {
   handleServerFx(fx) {
     const bridge = window.KnightEffekseerVFX;
     if (!bridge || !fx) return false;
+
+    // Hits landing inside a live knight skill get a knight-styled impact (generic hit FX still runs)
+    if (fx.type === 'hit' && this.holy) this.holy.onHit(fx);
 
     const mapped = bridge.resolveServerFxMapping(fx);
     if (mapped && this.holy && HOLY_SKILLS.has(mapped.effectId)) {
