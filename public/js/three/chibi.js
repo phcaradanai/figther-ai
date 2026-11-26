@@ -73,6 +73,10 @@ const SKINNED_HEROES = {
   }
 };
 const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
+// Dev switch for comparing sources: ?handmade=all (or a comma list of clip names)
+// plays the code-made Knight clips in place of the baked Mixamo ones.
+const HANDMADE = typeof location !== 'undefined'
+  ? (new URLSearchParams(location.search).get('handmade') || '').split(',').filter(Boolean) : [];
 const FORCE_STEP = typeof location !== 'undefined' ? (Number(new URLSearchParams(location.search).get('step')) || 0) : 0;
 const skinnedEntries = !SKIP_SKINNED
   ? await Promise.all(Object.entries(SKINNED_HEROES).map(async ([id, spec]) => {
@@ -87,7 +91,7 @@ const skinnedEntries = !SKIP_SKINNED
           .then(data => [name, data])
           .catch(error => { console.warn(`Baked clip ${name} unavailable for ${id}:`, error); return null; })))
       ]);
-      const bakedClips = Object.fromEntries(baked.filter(Boolean));
+      const bakedClips = Object.fromEntries(baked.filter(entry => entry && !HANDMADE.includes('all') && !HANDMADE.includes(entry[0])));
       return [id, { spec, scene: gltf.scene, gearScene: gearGltf?.scene || null, animations: gltf.animations || [], bakedClips }];
     } catch (error) {
       console.warn(`Skinned model unavailable for ${id}:`, error);
