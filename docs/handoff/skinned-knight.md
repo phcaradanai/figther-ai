@@ -13,6 +13,16 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
   `tools/rig/` scripts, output `public/assets/models/hero-test-adventurer.glb` (1.9 MB,
   26k tris, 1K JPEG textures, 15-joint skin). Posed renders with the game's own knight
   poses looked clean (no tearing at shoulders/elbows/hips/knees).
+- **Skinned model loader** (`public/js/three/chibi.js`, behind `?skinned=1`): loads
+  `SKINNED_HEROES` (currently `knight` → `public/assets/models/hero-test-adventurer.glb`,
+  `hipHeight: 0.8`, `fused: ['weapon','trinket','helmet']`), rebuilds identity-rest
+  `THREE.Bone`s under `body > rigScale(s = hipHeight / 0.62)`, rebinds `SkinnedMesh`es
+  in attached bind mode with cloned materials + skeleton disposal, skips fused rigid slots
+  and wraps non-fused slots in `1/s` unscaled groups, skips `SkinnedMesh` in
+  `Builder.bake()` while keeping materials, and falls back to procedural `buildRig` when
+  `gear.armor !== heroId`. Verified live in browser (idle, basic attacks, Q/E/R/F skills
+  + Super Armor emissive tint, My Item 3D preview, mixed-armor fallback, and default
+  non-skinned mode).
 - Blender MCP connects once Blender's window is open (the add-on auto-starts its server),
   but all AI generators are off. The user generates models themselves on
   https://hy3d.tencent.ai/ and hands over GLBs. Source test files: `D:\3D-Models\*.glb`
@@ -21,13 +31,11 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
 
 ## Not done (next steps, in order)
 
-1. **Load the skinned model in the game** behind `?skinned=1` (design below). Test with
-   `hero-test-adventurer.glb` mapped to `knight`.
-2. When the user delivers the real knight (`art/source/knight/body.glb` + helmet/sword/
+1. When the user delivers the real knight (`art/source/knight/body.glb` + helmet/sword/
    shield GLBs; prompts were given in chat: A-pose, no weapon/helmet/cape), run the
    pipeline on it, attach sword/shield to `handR`/`handL` and the helmet to `head`, build
    a skinned cape on its own bone(s), then make skinned the default for the knight.
-3. Later: author better knight animations (Blender actions exported into the GLB and
+2. Later: author better knight animations (Blender actions exported into the GLB and
    preferred over the code clips by name), then the other 9 heroes.
 
 ## Pipeline (Blender 5.2, headless; `blender = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"`)
@@ -54,7 +62,7 @@ blender -b <work2.blend> --python tools/rig/rig_export.py -- public/assets/model
 - `rig_pose_test.py` converts chibi.js pose tables (three.js Euler XYZ, model axes) to
   Blender pose bones; `hipHeight` is the model's pelvis height (adventurer 0.80).
 
-## Game loader design (not written yet)
+## Game loader design (implemented behind `?skinned=1`)
 
 Exported bones carry Blender's rest orientations, but chibi.js clips set absolute joint
 quaternions assuming an **identity rest** in model axes, plus `hips.position = (0, hipsY, 0)`
