@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
-import { LoopOnce } from 'three';
+import { LoopOnce, Vector3 } from 'three';
 
 // Load the actual GLBs in Node while stubbing browser-only image decoding.
 const assetOrigin = 'http://knight-animation.test';
@@ -49,6 +49,32 @@ test('skinned Knight uses separate gaits and preserves gait phase across a sprin
   assert.equal(knight.currentName, 'run');
   const runPhase = knight.current.time / knight.current.getClip().duration;
   assert.ok(runPhase >= walkPhase && runPhase - walkPhase < 0.1);
+});
+
+test('Knight keeps its ankles under its body through ground and air poses', t => {
+  const left = new Vector3();
+  const right = new Vector3();
+  const sequences = [
+    ['idle', {}, 120, 0.40],
+    ['walk', { vz: 5.4 }, 64, 0.40],
+    ['sprint', { vz: 7.5, isSprinting: true }, 64, 0.40],
+    ['dodge', { vx: 10, isRolling: true }, 24, 0.46],
+    ['rise', { grounded: false, vy: 8 }, 28, 0.40],
+    ['fall', { grounded: false, vy: -3 }, 28, 0.40]
+  ];
+  for (const [name, state, frames, limit] of sequences) {
+    const knight = new ChibiView(base);
+    t.after(() => knight.dispose());
+    advance(knight, {}, 30);
+    let widest = 0;
+    for (let i = 0; i < frames; i++) {
+      advance(knight, state, 1);
+      knight.root.worldToLocal(knight.R.footL.getWorldPosition(left));
+      knight.root.worldToLocal(knight.R.footR.getWorldPosition(right));
+      widest = Math.max(widest, Math.abs(left.x - right.x));
+    }
+    assert.ok(widest <= limit, `${name} ankle spread ${widest.toFixed(3)} exceeded ${limit}`);
+  }
 });
 
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {

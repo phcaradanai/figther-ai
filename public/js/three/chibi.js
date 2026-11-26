@@ -29,6 +29,7 @@ const SKINNED_HEROES = {
     gearUrl: '/assets/models/knight-gear.glb',
     hipHeight: 0.78,
     alignArms: true,
+    narrowLegRest: true,
     painterly: true,
     stepFps: 0,
     headScale: 1.10,
@@ -1110,6 +1111,16 @@ function buildSkinnedRig(b, heroId, gear, model) {
     b.skeletons.push(skeleton);
   }
 
+  // The sculpt's open bind pose places the ankles wider than the hips.
+  // Keep the original inverse binds so the weighted boots and greaves follow
+  // the corrected resting axes. Leave the hip pivots and the knee bend intact.
+  if (spec.narrowLegRest) {
+    for (const side of ['L', 'R']) {
+      R['shin' + side].position.x *= 0.30;
+      R['foot' + side].position.x *= 0.10;
+    }
+  }
+
   // Optional ToS chibi-heroic head proportion boost applied post-bind (scales head + helmet together)
   if (spec.headScale && spec.headScale !== 1 && R.head) {
     R.head.scale.setScalar(spec.headScale);
@@ -1882,7 +1893,7 @@ const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:atta
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
-const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'footL', 'footR'];
+const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
 const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', 'attack1', 'attack2', 'attack3', 'heavy', 'sweep']);
 const easeInOut = (x) => x * x * (3 - 2 * x);
@@ -2266,6 +2277,16 @@ export class ChibiView {
     if (lean) { R.torso.rotateX(-lean); R.head.rotateX(-lean * 0.6); }
     const planted = this.currentName === 'idle' || this.currentName === 'guard';
     if (this.skinnedKnight && pl.grounded && KNIGHT_FLOOR_CLIPS.has(this.currentName)) {
+      if (this.squash > 0 && (planted || this.currentName === 'walk' || this.currentName === 'run')) {
+        const load = Math.sin(this.squash * Math.PI * 0.5);
+        R.hips.position.y -= 0.041 * load;
+        R.legL.rotateX(-0.24 * load);
+        R.legR.rotateX(-0.24 * load);
+        R.shinL.rotateX(0.39 * load);
+        R.shinR.rotateX(0.39 * load);
+        R.torso.rotateX(0.13 * load);
+        R.head.rotateX(-0.09 * load);
+      }
       // Level a standing boot but keep the authored heel strike and toe-off in motion.
       if (planted) {
         for (const [leg, shin, foot] of [[R.legL, R.shinL, R.footL], [R.legR, R.shinR, R.footR]]) {
@@ -2454,8 +2475,8 @@ export class ChibiView {
     this.wasGrounded = grounded;
     this.squash = Math.max(0, this.squash - dt * 6);
     this.stretch = Math.max(0, this.stretch - dt * 5);
-    const sq = Math.sin(this.squash * Math.PI * 0.5) * (this.skinnedKnight ? 0.09 : 0.22)
-      - Math.sin(this.stretch * Math.PI * 0.5) * (this.skinnedKnight ? 0.045 : 0.14);
+    const sq = this.skinnedKnight ? 0
+      : Math.sin(this.squash * Math.PI * 0.5) * 0.22 - Math.sin(this.stretch * Math.PI * 0.5) * 0.14;
     this.R.body.scale.set(1 + sq * 0.8, 1 - sq, 1 + sq * 0.8);
 
     // Spring-driven cape / scarf / flag with torso-pitch compensation so the cape
