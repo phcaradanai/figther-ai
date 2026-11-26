@@ -49,11 +49,20 @@ window.startArenaGame = function (renderer) {
   class SoundFX {
     constructor() {
       this.ctx = null;
+      this.out = null;
+      this.level = 1;
     }
     init() {
       if (!this.ctx) {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) this.ctx = new AudioCtx();
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+          // Everything goes through one compressor so a room full of hits cannot clip.
+          this.out = this.ctx.createDynamicsCompressor();
+          this.out.threshold.value = -16;
+          this.out.ratio.value = 6;
+          this.out.connect(this.ctx.destination);
+        }
       }
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume();
@@ -68,10 +77,10 @@ window.startArenaGame = function (renderer) {
         osc.type = type;
         osc.frequency.setValueAtTime(freq, now);
         osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
-        gain.gain.setValueAtTime(vol, now);
+        gain.gain.setValueAtTime(vol * this.level, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
         osc.start(now);
         osc.stop(now + duration);
       } catch (e) {}
@@ -100,11 +109,11 @@ window.startArenaGame = function (renderer) {
         filter.frequency.exponentialRampToValueAtTime(Math.max(40, f1), now + duration);
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(0.0001, now);
-        gain.gain.exponentialRampToValueAtTime(vol, now + Math.min(0.025, duration * 0.3));
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * this.level), now + Math.min(0.025, duration * 0.3));
         gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
         source.connect(filter);
         filter.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.out);
         source.start(now, Math.random() * 0.5);
         source.stop(now + duration + 0.02);
       } catch (e) {}
@@ -140,13 +149,16 @@ window.startArenaGame = function (renderer) {
     }
     playUi(kind) {
       this.init();
+      this.level = 1;
       if (kind === 'click') this.tone(540, 760, 0.06, 'triangle', 0.05);
       else if (kind === 'equip') this.tone(420, 880, 0.14, 'sine', 0.08);
       else if (kind === 'buy') this.tone(520, 1040, 0.2, 'triangle', 0.09);
       else if (kind === 'warn') this.tone(240, 150, 0.12, 'sawtooth', 0.06);
     }
-    playFx(type, fx) {
+    // Quieter with distance from the local player, so a fight across the arena is a murmur.
+    playFx(type, fx, level = 1) {
       this.init();
+      this.level = level;
       switch (type) {
         case 'slash':
           if (fx?.weaponType === 'broadsword') {
@@ -208,7 +220,12 @@ window.startArenaGame = function (renderer) {
 
   const sfx = new SoundFX();
   // The 3D renderer may hold a hit until the blade lands; it calls this at that moment.
-  if (typeof renderer.releaseHits === 'function') renderer.onHit = fx => sfx.playFx('hit', fx);
+  const hearing = fx => {
+    const me = currentGameState?.players?.find(p => p.id === localClientId);
+    if (!me || typeof fx?.x !== 'number') return 1;
+    return Math.max(0.2, Math.min(1, 1 - (Math.hypot(fx.x - me.x, fx.z - me.z) - 5) / 22));
+  };
+  if (typeof renderer.releaseHits === 'function') renderer.onHit = fx => sfx.playFx('hit', fx, hearing(fx));
 
   // --------------------------------------------------------------------------
   // CLIENT STATE, CATALOG OWNERSHIP & INTERPOLATION BUFFER
@@ -1366,7 +1383,7 @@ window.startArenaGame = function (renderer) {
       // The 3D renderer shows a Knight's hit on the blade's contact frame, so it
       // plays the hit sound itself (renderer.onHit) at that moment.
       state.fx.forEach(f => {
-        if (!(f.type === 'hit' && renderer.onHit)) sfx.playFx(f.type, f);
+        if (!(f.type === 'hit' && renderer.onHit)) sfx.playFx(f.type, f, hearing(f));
       });
     }
 

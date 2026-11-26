@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { LoopOnce, Vector3 } from 'three';
 import { loadChibiViews } from '../tools/rig/load-chibi.mjs';
+import { swingFor } from '../public/js/three/knight_holy_vfx.js';
 
 const { ChibiView } = await loadChibiViews();
 const gear = { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' };
@@ -135,6 +136,19 @@ test('Knight holds a hit until the blade lands, and never swallows it', t => {
   knight.holdForContact(replaced);
   knight.queueBladeAccent({ type: 'slash' }, () => {}, () => {});
   assert.deepEqual(released, [late, replaced]);
+});
+
+test('a Knight impact only goes to hits from the Knight that swung', () => {
+  const swings = new Map([['knight1', { at: 1000, x: 2, z: 0, facing: 0, step: 1, fin: false }]]);
+  const hit = { x: 3, z: 0.5, attackerId: 'knight1' };
+  assert.equal(swingFor(swings, hit, 1200), swings.get('knight1'));
+  assert.equal(swingFor(swings, { ...hit, attackerId: 'ninja' }, 1200), null, 'a hit from someone else nearby');
+  assert.equal(swingFor(swings, { ...hit, attackerId: undefined }, 1200), null, 'a hit with no attacker');
+  assert.equal(swingFor(swings, hit, 1600), null, 'a swing that ended long ago');
+  assert.equal(swingFor(swings, { ...hit, x: 9 }, 1200), null, 'a hit far from the swing');
+  // A second Knight does not overwrite the first one's swing.
+  swings.set('knight2', { at: 1100, x: -4, z: 0, facing: Math.PI, step: 3, fin: true });
+  assert.equal(swingFor(swings, hit, 1200).step, 1);
 });
 
 test('Knight keeps its ankles under its body through ground and air poses', t => {

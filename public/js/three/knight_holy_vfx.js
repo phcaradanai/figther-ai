@@ -57,6 +57,14 @@ function stamp(age, t0, dur, over = 0.35) {
 }
 const rand = (a, b) => a + Math.random() * (b - a);
 
+// The Knight swing a hit belongs to: the same attacker, close by, within half a second.
+// A hit from anyone else (a bot, another hero) near a Knight's swing is not this swing's.
+export function swingFor(swings, fx, now) {
+  const swing = fx.attackerId ? swings.get(fx.attackerId) : null;
+  if (!swing || now - swing.at >= 500) return null;
+  return Math.hypot(fx.x - swing.x, fx.z - swing.z) < 3.4 ? swing : null;
+}
+
 const MAX_SPARKS = 480;
 const _cam = new THREE.Vector3();
 const _d = new THREE.Vector3();
@@ -106,7 +114,7 @@ export class KnightHolyVFX {
     this.sparkMesh.count = 0;
     this.group.add(this.sparkMesh);
     this.sparks = [];
-    this.lastSlash = null;
+    this.swings = new Map();
   }
 
   // ------------------------------------------------------------------ building blocks
@@ -444,8 +452,8 @@ export class KnightHolyVFX {
       return true;
     }
     // A plain combo strike: the victim shows the blow, not just the generic flash.
-    const swing = this.lastSlash;
-    if (swing && performance.now() - swing.at < 500 && Math.hypot(fx.x - swing.x, fx.z - swing.z) < 3.4) {
+    const swing = swingFor(this.swings, fx, performance.now());
+    if (swing) {
       this.basicHit(fx, swing);
       return true;
     }
@@ -507,7 +515,7 @@ export class KnightHolyVFX {
     const y = (o.y || 0) + 1.0;
     const z = (o.z || 0) + dz * 1.15;
     const isFin = !!o.isFinisher;
-    this.lastSlash = { at: performance.now(), x: o.x || 0, z: o.z || 0, facing: f, step: o.comboStep || 1, fin: isFin };
+    if (o.playerId) this.swings.set(o.playerId, { at: performance.now(), x: o.x || 0, z: o.z || 0, facing: f, step: o.comboStep || 1, fin: isFin });
     this.sparkBurst(x, y, z, isFin ? 10 : 5, {
       dir: f, cone: 0.75, speedMin: 4.5, speed: isFin ? 10 : 7.5,
       color: C.gold, white: 0.45, lifeMin: 0.12, life: 0.22, width: 0.065, gravity: -12
