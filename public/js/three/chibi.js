@@ -11,6 +11,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
+import { buildKnightLocomotion } from './knight_motion.js';
 
 const gltfLoader = new GLTFLoader();
 
@@ -1295,7 +1296,7 @@ const _q = new THREE.Quaternion();
 const _e = new THREE.Euler();
 
 // keys: [time, pose, easeIntoThisKey?]
-function makeClip(name, keys) {
+function makeClip(name, keys, joints = JOINTS) {
   const samples = [];
   for (let i = 0; i < keys.length; i++) {
     const [t, p, ease = 'io'] = keys[i];
@@ -1306,7 +1307,7 @@ function makeClip(name, keys) {
         const u = s / 4;
         const k = f(u);
         const mix = {};
-        for (const j of JOINTS) {
+        for (const j of joints) {
           const a = p0[j] || [0, 0, 0];
           const bb = p[j] || [0, 0, 0];
           mix[j] = [a[0] + (bb[0] - a[0]) * k, a[1] + (bb[1] - a[1]) * k, a[2] + (bb[2] - a[2]) * k];
@@ -1314,6 +1315,11 @@ function makeClip(name, keys) {
         const ha = p0.hipsY ?? HIPS_Y;
         const hb = p.hipsY ?? HIPS_Y;
         mix.hipsY = ha + (hb - ha) * k;
+        if (p0.hipsOffset || p.hipsOffset) {
+          const a = p0.hipsOffset || [0, 0, 0];
+          const b = p.hipsOffset || [0, 0, 0];
+          mix.hipsOffset = a.map((value, i) => value + (b[i] - value) * k);
+        }
         samples.push([t0 + (t - t0) * u, mix]);
       }
     }
@@ -1321,7 +1327,7 @@ function makeClip(name, keys) {
   }
   const times = samples.map(s => s[0]);
   const tracks = [];
-  for (const j of JOINTS) {
+  for (const j of joints) {
     const vals = [];
     for (const [, p] of samples) {
       const e = p[j] || [0, 0, 0];
@@ -1331,12 +1337,18 @@ function makeClip(name, keys) {
     tracks.push(new THREE.QuaternionKeyframeTrack(`${j}.quaternion`, times, vals));
   }
   const pos = [];
-  for (const [, p] of samples) pos.push(0, p.hipsY ?? HIPS_Y, 0);
+  for (const [, p] of samples) {
+    const [x, y, z] = p.hipsOffset || [0, 0, 0];
+    pos.push(x, (p.hipsY ?? HIPS_Y) + y, z);
+  }
   tracks.push(new THREE.VectorKeyframeTrack('hips.position', times, pos));
   return new THREE.AnimationClip(name, times[times.length - 1], tracks);
 }
 
-function buildClips(style) {
+const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
+const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
+
+function buildClips(style, skinnedKnight = false) {
   const base = pose(STANCE, READY[style]);
   const P = (...l) => pose(base, ...l);
   const clips = {};
@@ -1562,6 +1574,13 @@ function buildClips(style) {
   } else if (style === 'shield') {
     const crouchWide = { legL: [-0.55, 0, 0.16], shinL: [0.75, 0, 0], legR: [0.45, 0, -0.16], shinR: [0.6, 0, 0], hipsY: 0.5 };
     const deepLunge = { legL: [-0.92, 0, 0.12], shinL: [1.02, 0, 0], legR: [0.76, 0, -0.12], shinR: [0.32, 0, 0], hipsY: 0.43 };
+    if (skinnedKnight) {
+      Object.assign(crouchWide, { hips: [0.10, -0.12, 0.07], hipsOffset: [-0.045, 0, -0.08], hipsY: 0.535 });
+      Object.assign(deepLunge, {
+        hips: [0.12, 0.19, -0.08], hipsOffset: [0.07, 0, 0.12], hipsY: 0.49,
+        footL: [-0.20, 0, -0.10], footR: [0.20, 0, 0.10]
+      });
+    }
     const tucked = { armL: [0.10, 0, 0.28], foreL: [-1.25, 0, 0] };
     // 1: ToS M Swordsman Double Slash (high shoulder coil -> explosive diagonal cleave)
     const sweepAntic = P(crouchWide, { torso: [0.14, -0.82, 0], head: [-0.06, 0.58, 0], armR: [-1.95, 0, -1.22], foreR: [-0.42, 0, 0] });
@@ -1583,6 +1602,35 @@ function buildClips(style) {
     clips.attack3 = makeClip('attack3', [[0, base], [0.05, smashGather, 'out'], [0.11, smashAntic, 'out'], [0.19, smashHit, 'in'], [0.42, smashHold, 'io'], [0.64, base, 'io']]);
     // Heavy: Murmilo Shield Drive — deep pull, explosive shield slam, elastic settle
     clips.heavy = makeClip('heavy', [[0, base], [0.15, pose(bashAntic, { hipsY: 0.46, foreL: [-2.1, 0, 0], armR: [0.45, 0, -0.72] }), 'out'], [0.24, pose(bashHit, { armL: [-1.46, 0, -0.14], torso: [0.44, -0.56, 0], armR: [0.58, 0, -0.78] }), 'out'], [0.46, pose(bashHold, { armR: [0.52, 0, -0.76] }), 'io'], [0.68, base, 'io']]);
+    if (skinnedKnight) {
+      const recoil = (p, left) => pose(p, {
+        hipsOffset: [left ? -0.045 : 0.045, 0, 0.065], hipsY: 0.52,
+        armR: [p.armR[0] + 0.24, 0, p.armR[2]],
+        foreR: [-0.28, 0, 0], handR: [0.14, 0, left ? -0.13 : 0.13]
+      });
+      clips.attack1 = makeKnightClip('attack1', [
+        [0, base], [0.055, pose(sweepAntic, { handR: [-0.18, 0, -0.12] }), 'out'],
+        [0.119, pose(sweepHit, { handR: [0.14, 0, 0.19] }), 'in'],
+        [0.174, sweepHold, 'out'], [0.257, recoil(sweepHold, false), 'out'], [0.40, base]
+      ]);
+      clips.attack2 = makeKnightClip('attack2', [
+        [0, pose(base, { torso: [0.13, 0.36, 0] })], [0.052, pose(bashAntic, { hips: [0.08, 0.24, -0.07], handR: [-0.13, 0, 0.12] }), 'out'],
+        [0.116, pose(bashHit, { hips: [0.13, -0.21, 0.08], hipsOffset: [-0.07, 0, 0.10], handR: [0.14, 0, -0.16] }), 'in'],
+        [0.171, bashHold, 'out'], [0.248, recoil(bashHold, true), 'out'], [0.40, base]
+      ]);
+      clips.attack3 = makeKnightClip('attack3', [
+        [0, base], [0.048, smashGather, 'out'], [0.108, pose(smashAntic, { handR: [-0.20, 0, 0] }), 'out'],
+        [0.181, pose(smashHit, { handR: [0.17, 0, 0] }), 'in'],
+        [0.235, smashHold, 'out'], [0.345, recoil(smashHold, false), 'out'], [0.54, base]
+      ]);
+      clips.heavy = makeKnightClip('heavy', [
+        [0, base], [0.12, pose(bashAntic, { hipsY: 0.49, foreL: [-1.86, 0, 0], armR: [0.45, 0, -0.53] }), 'out'],
+        [0.22, pose(bashHit, { hips: [0.19, -0.24, 0.06], armL: [-1.45, 0, -0.12], torso: [0.48, -0.55, 0], armR: [0.58, 0, -0.53] }), 'in'],
+        [0.29, pose(bashHold, { armL: [-1.38, 0, -0.12], armR: [0.51, 0, -0.48] }), 'out'],
+        [0.40, pose(recoil(bashHold, true), { armL: [-1.06, 0, 0.13], foreL: [-0.53, 0, 0], armR: [0.40, 0, -0.46] }), 'out'],
+        [0.58, base]
+      ]);
+    }
     // Skills: Excalibur Wave wide sweeping cleave
     clips.sweep = strikeHold('sweep', pose(sweepAntic, { torso: [0.22, -0.96, 0], armR: [-1.52, 0, -1.36], hipsY: 0.47 }), pose(sweepHit, { torso: [0.46, 0.92, 0], armR: [-1.14, 0, 0.78] }), pose(sweepHold, { torso: [0.44, 0.96, 0] }), [0.11, 0.19, 0.50, 0.72]);
     A.a1 = null;
@@ -1773,9 +1821,23 @@ function buildClips(style) {
 }
 
 const CLIP_CACHE = new Map();
-function clipsFor(style) {
-  if (!CLIP_CACHE.has(style)) CLIP_CACHE.set(style, buildClips(style));
-  return CLIP_CACHE.get(style);
+function clipsFor(style, skinnedKnight) {
+  const key = skinnedKnight ? 'skinnedKnight' : style;
+  if (!CLIP_CACHE.has(key)) {
+    const clips = buildClips(style, skinnedKnight);
+    if (skinnedKnight) {
+      Object.assign(clips, buildKnightLocomotion(makeKnightClip, pose(STANCE, READY.shield), pose));
+      // Every action must own the wrist tracks so crossfades can reset them.
+      for (const clip of Object.values(clips)) {
+        if (clip.tracks.some(track => track.name === 'handR.quaternion')) continue;
+        for (const joint of ['handL', 'handR']) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack(`${joint}.quaternion`, [0], [0, 0, 0, 1]));
+        }
+      }
+    }
+    CLIP_CACHE.set(key, clips);
+  }
+  return CLIP_CACHE.get(key);
 }
 
 const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead']);
@@ -1788,6 +1850,7 @@ const STYLE_COMMIT = {
   pyro: { attack1: 0.28, attack2: 0.28, attack3: 0.5, heavy: 0.66 },
   twingun: { attack1: 0.16, attack2: 0.16, attack3: 0.4, heavy: 0.44, spin: 0.9 }
 };
+const KNIGHT_COMMIT = { attack1: 0.24, attack2: 0.24, attack3: 0.34, heavy: 0.40, roll: 0.32 };
 // Twin-gun shots timed on the clip: [clip time, 'R' | 'L' | 'B' (both), power (1 big, 2 ground blast)]
 const SHOTS = {
   'twingun:attack1': [[0.05, 'R']],
@@ -1810,13 +1873,18 @@ const _qb = new THREE.Quaternion();
 const _vz = new THREE.Vector3(0, 0, 1);
 const _vd = new THREE.Vector3();
 const _vp = new THREE.Vector3();
+const _inverseBody = new THREE.Matrix4();
+const _shoeToBody = new THREE.Matrix4();
+// Heel and toe on the rest sole, in the Knight GLB's model units relative to the ankle.
+const KNIGHT_SOLE_Z = [-0.071, 0.195];
 // Whole-body spins done in code: [start, duration, turns], keyed by clip or style:clip
 const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:attack3': [0.08, 0.2, 1], 'twingun:spin': [0.06, 0.56, 2] };
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'footL', 'footR'];
-const LOCOMOTION = new Set(['idle', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
+const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
+const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', 'attack1', 'attack2', 'attack3', 'heavy', 'sweep']);
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
 function lerpAngle(a, b, t) {
@@ -1970,6 +2038,7 @@ export class ChibiView {
     const skinned = SKINNED_MODELS[pl.heroId];
     // Keep skinned model even when all gear/armor is knocked off (never revert to procedural chibi!)
     const useSkinned = !!(skinned && (!gear.armor || gear.armor === pl.heroId));
+    this.skinnedKnight = useSkinned && pl.heroId === 'knight';
     this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
@@ -1985,9 +2054,9 @@ export class ChibiView {
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
     this.mixer = new THREE.AnimationMixer(this.root);
     this.actions = {};
-    for (const [name, clip] of Object.entries(clipsFor(this.style))) {
+    for (const [name, clip] of Object.entries(clipsFor(this.style, this.skinnedKnight))) {
       const a = this.mixer.clipAction(clip);
-      if (ONE_SHOT.has(name)) {
+      if (ONE_SHOT.has(name) || (this.skinnedKnight && (name === 'jump' || name === 'fall'))) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
       }
@@ -2040,7 +2109,11 @@ export class ChibiView {
       }
       return;
     }
+    const previousGait = this.skinnedKnight && (this.currentName === 'walk' || this.currentName === 'run');
+    const gaitPhase = previousGait && (name === 'walk' || name === 'run')
+      ? this.current.time / this.current.getClip().duration : 0;
     next.reset();
+    next.time = next.getClip().duration * gaitPhase;
     next.setEffectiveTimeScale(1);
     next.setEffectiveWeight(1);
     next.play();
@@ -2055,7 +2128,7 @@ export class ChibiView {
     this.currentName = name;
     this.clipStart = this.time;
     this.stepForce = true;
-    const commit = STYLE_COMMIT[this.style]?.[name] ?? COMMITTED[name];
+    const commit = (this.skinnedKnight ? KNIGHT_COMMIT[name] : undefined) ?? STYLE_COMMIT[this.style]?.[name] ?? COMMITTED[name];
     this.commitUntil = commit ? this.time + commit : 0;
   }
 
@@ -2110,6 +2183,7 @@ export class ChibiView {
     }
     if (st === 'heavy') return { name: 'heavy', key: 'heavy', fade: 0.06 };
     if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
+    if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
     if (pl.guarding || st === 'guard') return { name: 'guard', key: 'guard', fade: 0.1 };
     if (pl.isFlying) return { name: 'fly', key: 'fly', fade: 0.2 };
     if (pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
@@ -2117,8 +2191,13 @@ export class ChibiView {
       if (pl.grounded && (this.style === 'gun' || this.style === 'twingun' || this.style === 'dual')) return { name: 'roll', key: `roll${this.dashCount}`, fade: 0.04 };
       return { name: 'dash', key: 'dash', fade: 0.08 };
     }
-    if (!pl.grounded) return (pl.vy || 0) > 0 ? { name: 'jump', key: 'jump', fade: 0.12 } : { name: 'fall', key: 'fall', fade: 0.2 };
-    if (speed > 0.8) return { name: 'run', key: 'run', fade: 0.14 };
+    if (!pl.grounded) return (pl.vy || 0) > 0
+      ? { name: 'jump', key: this.skinnedKnight ? `jump${pl.jumpCount || 0}` : 'jump', fade: this.skinnedKnight ? 0.075 : 0.12 }
+      : { name: 'fall', key: 'fall', fade: this.skinnedKnight ? 0.095 : 0.2 };
+    if (speed > 0.8) {
+      if (this.skinnedKnight && !pl.isSprinting) return { name: 'walk', key: 'walk', fade: 0.13 };
+      return { name: 'run', key: 'run', fade: 0.14 };
+    }
     return { name: 'idle', key: 'idle', fade: 0.2 };
   }
 
@@ -2185,23 +2264,33 @@ export class ChibiView {
     if (kl) { R.armL.rotateX(-0.45 * kl * ks); R.foreL.rotateX(-0.35 * kl * ks); }
     const lean = 0.12 * Math.max(kr, kl) + 0.45 * Math.sin(this.hitLean * Math.PI * 0.5);
     if (lean) { R.torso.rotateX(-lean); R.head.rotateX(-lean * 0.6); }
-    // Firmly ground both boot soles flat on the floor during grounded idle & guard stances
-    // (0.0mm float/sink and 0° pitch/roll regardless of knee flex or crossfade!)
-    if (R.restFootY && pl.grounded && this.style === 'shield' && (this.currentName === 'idle' || this.currentName === 'guard')) {
-      for (const [leg, shin, foot] of [[R.legL, R.shinL, R.footL], [R.legR, R.shinR, R.footR]]) {
-        _qa.copy(R.hips.quaternion).multiply(leg.quaternion).multiply(shin.quaternion);
-        _e.setFromQuaternion(_qa, 'YXZ');
-        _qb.setFromAxisAngle(_vy, _e.y);
-        foot.quaternion.copy(_qa).invert().multiply(_qb);
+    const planted = this.currentName === 'idle' || this.currentName === 'guard';
+    if (this.skinnedKnight && pl.grounded && KNIGHT_FLOOR_CLIPS.has(this.currentName)) {
+      // Level a standing boot but keep the authored heel strike and toe-off in motion.
+      if (planted) {
+        for (const [leg, shin, foot] of [[R.legL, R.shinL, R.footL], [R.legR, R.shinR, R.footR]]) {
+          _qa.copy(R.hips.quaternion).multiply(leg.quaternion).multiply(shin.quaternion);
+          _e.setFromQuaternion(_qa, 'YXZ');
+          _qb.setFromAxisAngle(_vy, _e.y);
+          foot.quaternion.slerp(_qa.invert().multiply(_qb), this.current.getEffectiveWeight());
+        }
       }
-      R.body.updateMatrixWorld(true);
-      R.footL.getWorldPosition(_vp);
-      R.body.worldToLocal(_vp);
-      const yL = _vp.y;
-      R.footR.getWorldPosition(_vp);
-      R.body.worldToLocal(_vp);
-      const minY = Math.min(yL, _vp.y);
-      R.hips.position.y += (R.restFootY - minY) / (R.rigScale || 1);
+      R.footL.updateWorldMatrix(true, false);
+      R.footR.updateWorldMatrix(true, false);
+      _inverseBody.copy(R.body.matrixWorld).invert();
+      const s = R.rigScale;
+      let soleY = Infinity;
+      for (const foot of [R.footL, R.footR]) {
+        _shoeToBody.multiplyMatrices(_inverseBody, foot.matrixWorld);
+        for (const z of KNIGHT_SOLE_Z) {
+          _vp.set(0, -R.restFootY / s, z / s).applyMatrix4(_shoeToBody);
+          soleY = Math.min(soleY, _vp.y);
+        }
+      }
+      // Pull the lowest sole down only in the walking cycle or a standing pose.
+      // A sprint, hop or attack may deliberately leave the ground.
+      const settle = planted ? Infinity : this.currentName === 'walk' ? 0.07 : 0;
+      R.hips.position.y += Math.max(-settle, -soleY) / s;
     }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)
     if (this.style === 'pyro' && R.staff) {
@@ -2238,20 +2327,21 @@ export class ChibiView {
     const trigger = `${want.name}|${want.key}`;
     const committed = this.time < this.commitUntil && LOCOMOTION.has(want.name) && want.name !== this.currentName;
     if (trigger !== this.triggerKey && !committed) {
-      const restart = ONE_SHOT.has(want.name);
+      const restart = ONE_SHOT.has(want.name) || (this.skinnedKnight && want.name === 'jump');
       this.play(want.name, want.fade, restart);
       this.triggerKey = trigger;
     }
-    if (this.currentName === 'run') {
+    if (this.currentName === 'run' || this.currentName === 'walk') {
       const hero = window.GAME_DATA?.HEROES?.[pl.heroId];
-      this.current.setEffectiveTimeScale(Math.max(0.65, Math.min(1.9, speed / (hero?.speed || 5.4))));
+      const nominal = (hero?.speed || 5.4) * (this.skinnedKnight && this.currentName === 'run' ? 1.38 : 1);
+      this.current.setEffectiveTimeScale(Math.max(this.skinnedKnight ? 0.38 : 0.65, Math.min(1.9, speed / nominal)));
     }
 
     // Hit-stop / frozen freeze the pose; ToS stepped animation quantizes skeleton
     // updates to stepFps (e.g. 15 FPS) while snapping instantly on new actions.
     const frozen = pl.buffs?.frozen || pl.state === 'frozen';
     const paused = now < this.hitStopUntil || frozen;
-    const clipTime = this.time - this.clipStart;
+    const clipTime = this.skinnedKnight ? this.current.time : this.time - this.clipStart;
     const trailWin = SWORD_TRAIL_WINDOWS[this.currentName];
     const inSlash = !!(trailWin && clipTime >= trailWin[0] && clipTime <= trailWin[1]);
     // Step at 15 FPS for ToS 2D punch on idle/locomotion/holds; run smooth during active blade swings for crisp arc trails
@@ -2280,7 +2370,9 @@ export class ChibiView {
       this.applyLayers(pl, poseDt, paused);
     }
     if (this.swordTrail) {
-      this.swordTrail.update(paused ? 0 : dt, inSlash && !paused, this.root.parent);
+      const swinging = this.skinnedKnight && trailWin
+        ? this.current.time >= trailWin[0] && this.current.time <= trailWin[1] : inSlash;
+      this.swordTrail.update(paused ? 0 : dt, swinging && !paused, this.root.parent);
     }
 
     // Timed gun shots (twin gunner): fire each scheduled shot as the clip passes it
@@ -2342,8 +2434,8 @@ export class ChibiView {
       this.lastDustClip = this.current;
     }
 
-    // Footstep dust on run contacts
-    if (this.currentName === 'run' && env.fx) {
+    // Footstep dust at the first contact of each half stride.
+    if ((this.currentName === 'run' || this.currentName === 'walk') && env.fx) {
       const phase = (this.current.time / this.current.getClip().duration) % 1;
       if ((this.lastRunPhase < 0.02 && phase >= 0.02) || (this.lastRunPhase < 0.52 && phase >= 0.52)) {
         env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 1, 0.5);
@@ -2362,7 +2454,8 @@ export class ChibiView {
     this.wasGrounded = grounded;
     this.squash = Math.max(0, this.squash - dt * 6);
     this.stretch = Math.max(0, this.stretch - dt * 5);
-    const sq = Math.sin(this.squash * Math.PI * 0.5) * 0.22 - Math.sin(this.stretch * Math.PI * 0.5) * 0.14;
+    const sq = Math.sin(this.squash * Math.PI * 0.5) * (this.skinnedKnight ? 0.09 : 0.22)
+      - Math.sin(this.stretch * Math.PI * 0.5) * (this.skinnedKnight ? 0.045 : 0.14);
     this.R.body.scale.set(1 + sq * 0.8, 1 - sq, 1 + sq * 0.8);
 
     // Spring-driven cape / scarf / flag with torso-pitch compensation so the cape
