@@ -1182,6 +1182,7 @@ class GameRoom {
     }
 
     this.emitFx('hit', victim.x, victim.y + 1.1, victim.z, {
+      attackerId: attacker?.id,
       damage: finalDmg,
       guardBreak,
       text: forceHurt && otg ? 'OTG!' : undefined,

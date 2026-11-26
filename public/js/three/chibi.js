@@ -1941,20 +1941,27 @@ class SwordTrail {
   constructor(mountNode, spec) {
     this.mount = mountNode;
     this.localBase = new THREE.Vector3(...spec.base);
-    this.localTip = new THREE.Vector3(...spec.tip);
-    this.maxSamples = 22;
-    this.life = 0.19;
+    // The ribbon reaches past the steel so the crescent reads wider than the blade.
+    const tip = new THREE.Vector3(...spec.tip);
+    const along = tip.clone().sub(this.localBase);
+    this.localBase.addScaledVector(along, -0.12);
+    this.localTip = tip.clone().addScaledVector(along, 0.34);
+    this.maxSamples = 40;
+    this.life = 0.3;
     this.samples = [];
     this.prevBase = new THREE.Vector3();
     this.prevTip = new THREE.Vector3();
     this.hasPrev = false;
 
-    const verts = new Float32Array(this.maxSamples * 2 * 3);
-    const colors = new Float32Array(this.maxSamples * 2 * 4);
+    // Three vertices per sample: the blade root (clear), a saturated body and a white edge.
+    const rows = 3;
+    const verts = new Float32Array(this.maxSamples * rows * 3);
+    const colors = new Float32Array(this.maxSamples * rows * 4);
     const indices = [];
     for (let i = 0; i < this.maxSamples - 1; i++) {
-      const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
-      indices.push(a, b, c, b, d, c);
+      const a = i * rows, b = a + rows;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+      indices.push(a + 1, a + 2, b + 1, a + 2, b + 2, b + 1);
     }
     this.geo = new THREE.BufferGeometry();
     this.geo.setAttribute('position', new THREE.BufferAttribute(verts, 3).setUsage(THREE.DynamicDrawUsage));
@@ -1962,8 +1969,8 @@ class SwordTrail {
     this.geo.setIndex(indices);
     this.geo.setDrawRange(0, 0);
 
-    // Normal blending with per-vertex RGBA alpha reads crisply on bright ToS floors
-    // and on transparent My Item preview canvases (where AdditiveBlending loses alpha).
+    // Normal blending with per-vertex RGBA alpha: the saturated body keeps the arc readable
+    // on bright floors, and it still works on transparent My Item preview canvases.
     this.mat = new THREE.MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
@@ -2003,8 +2010,8 @@ class SwordTrail {
       // Subdivide fast swings along a curved blade arc so the ribbon stays silky smooth even on stepped frames
       if (this.hasPrev) {
         const dist = this._t.distanceTo(this.prevTip);
-        if (dist > 0.14) {
-          const steps = Math.min(3, Math.ceil(dist / 0.25));
+        if (dist > 0.12) {
+          const steps = Math.min(6, Math.ceil(dist / 0.18));
           const len = this._t.distanceTo(this._b);
           for (let k = 1; k < steps; k++) {
             const u = k / steps;
@@ -2039,18 +2046,22 @@ class SwordTrail {
     for (let i = 0; i < n; i++) {
       const s = this.samples[i];
       const u = i / (n - 1);
-      const fade = Math.max(0, 1 - s.age / this.life) * Math.pow(u, 1.5);
-      const vi = i * 6;
-      const ci = i * 8;
+      const fade = Math.pow(Math.max(0, 1 - s.age / this.life), 1.4) * Math.pow(u, 1.2);
+      const vi = i * 9;
+      const ci = i * 12;
       pos[vi] = s.b.x; pos[vi + 1] = s.b.y; pos[vi + 2] = s.b.z;
-      pos[vi + 3] = s.t.x; pos[vi + 4] = s.t.y; pos[vi + 5] = s.t.z;
-      // Feathered warm amber inner edge -> crisp luminous cream-gold ToS crescent blade edge
-      col[ci] = 1.05; col[ci + 1] = 0.68; col[ci + 2] = 0.18; col[ci + 3] = 0.08 * fade;
-      col[ci + 4] = 1.38; col[ci + 5] = 1.18; col[ci + 6] = 0.62; col[ci + 7] = 0.92 * fade;
+      pos[vi + 3] = s.b.x + (s.t.x - s.b.x) * 0.5;
+      pos[vi + 4] = s.b.y + (s.t.y - s.b.y) * 0.5;
+      pos[vi + 5] = s.b.z + (s.t.z - s.b.z) * 0.5;
+      pos[vi + 6] = s.t.x; pos[vi + 7] = s.t.y; pos[vi + 8] = s.t.z;
+      // Clear root, azure body, white-hot edge.
+      col[ci] = 0.22; col[ci + 1] = 0.5; col[ci + 2] = 0.98; col[ci + 3] = 0;
+      col[ci + 4] = 0.2; col[ci + 5] = 0.55; col[ci + 6] = 1.0; col[ci + 7] = 0.82 * fade;
+      col[ci + 8] = 0.94; col[ci + 9] = 0.99; col[ci + 10] = 1.0; col[ci + 11] = 1.0 * fade;
     }
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.color.needsUpdate = true;
-    this.geo.setDrawRange(0, (n - 1) * 6);
+    this.geo.setDrawRange(0, (n - 1) * 12);
   }
 
   dispose() {
@@ -2356,9 +2367,18 @@ export class ChibiView {
     return hit >= 3 ? 'airSpike' : hit === 2 ? 'airCut' : 'airRise';
   }
 
-  queueBladeAccent(event, emit) {
+  // `release` gets any hits held for this swing when it never reaches its contact frame.
+  queueBladeAccent(event, emit, release) {
     if (!this.skinnedKnight || !this.swordTrail) return false;
-    this.bladeAccent = { event, emit, queued: this.time, expires: this.time + 0.42 };
+    this.bladeAccent = { event, emit, release, queued: this.time, expires: this.time + 0.42, held: [] };
+    return true;
+  }
+
+  // The server resolves a hit the moment a swing starts. Showing it on the blade's
+  // contact frame keeps the flash, number and flinch in step with the steel.
+  holdForContact(fx) {
+    if (!this.bladeAccent) return false;
+    this.bladeAccent.held.push(fx);
     return true;
   }
 
@@ -2371,9 +2391,10 @@ export class ChibiView {
     const contact = KNIGHT_SWINGS.has(this.currentName) ? KNIGHT_BLADE_CONTACT[this.currentName] : undefined;
     if (this.time >= pending.expires) {
       this.bladeAccent = null;
+      pending.release?.(pending.held);
     } else if (contact !== undefined && this.clipStart >= pending.queued - 0.1 && this.current.time >= contact) {
       this.bladeAccent = null;
-      pending.emit(pending.event);
+      pending.emit(pending.event, pending.held);
     }
   }
 

@@ -701,8 +701,10 @@ export class FxSystem {
     const shake = this.ctx.shake;
     switch (fx.type) {
       case 'hit': {
-        this.flash(x, y, z, col, fx.damage >= 18 ? 1.9 : 1.3);
-        this.sparks(x, y, z, fx.damage >= 18 ? 20 : 12, col, { speed: 9 });
+        if (!fx._knightHit) {
+          this.flash(x, y, z, col, fx.damage >= 18 ? 1.9 : 1.3);
+          this.sparks(x, y, z, fx.damage >= 18 ? 20 : 12, col, { speed: 9 });
+        }
         if (fx.damage) this.text(x, y + 0.5, z, String(fx.damage), fx.guardBreak ? '#fde047' : '#ffb15c', 'dmg');
         if (fx.text) this.text(x, y + 0.8, z, fx.text, col, 'info');
         shake(fx.damage >= 18 ? 6 : 2.5);

@@ -106,6 +106,7 @@ export class KnightHolyVFX {
     this.sparkMesh.count = 0;
     this.group.add(this.sparkMesh);
     this.sparks = [];
+    this.lastSlash = null;
   }
 
   // ------------------------------------------------------------------ building blocks
@@ -442,7 +443,48 @@ export class KnightHolyVFX {
       this.shake(3);
       return true;
     }
+    // A plain combo strike: the victim shows the blow, not just the generic flash.
+    const swing = this.lastSlash;
+    if (swing && performance.now() - swing.at < 500 && Math.hypot(fx.x - swing.x, fx.z - swing.z) < 3.4) {
+      this.basicHit(fx, swing);
+      return true;
+    }
     return false;
+  }
+
+  // One bright needle across the victim, like a blade mark that stays a heartbeat.
+  hitLine(x, y, z, angle, length, color = C.gold) {
+    const e = this.effect({ x, y, z }, 0.15, null);
+    const body = this.sprite(e.root, 'needle', color, 1, { blend: 'normal', opacity: 0.95 });
+    const hot = this.sprite(e.root, 'needle', C.white, 1.8);
+    body.material.rotation = hot.material.rotation = angle;
+    e.tick = (dt, age) => {
+      const g = easeOut(age / 0.045);
+      const a = age < 0.06 ? 1 : 1 - easeIn((age - 0.06) / 0.09);
+      body.scale.set(Math.max(0.001, length * g), 0.2, 1);
+      hot.scale.set(Math.max(0.001, length * 0.92 * g), 0.09, 1);
+      body.material.opacity = 0.95 * a;
+      hot.material.opacity = a;
+    };
+  }
+
+  // Combo contact on a victim. Hit 1 cuts diagonally, hit 2 (the shield bash) is a
+  // short punch, and the finisher is a heavy cross-cut with a floor mark.
+  basicHit(fx, swing) {
+    const big = swing.fin;
+    const bash = !big && swing.step % 2 === 0;
+    fx._knightHit = true; // the generic red flash would only muddy this
+    this.impactBurst(fx.x, fx.y, fx.z, { color: big ? C.paint : C.gold, size: big ? 3.4 : bash ? 2.6 : 2.2, life: big ? 0.2 : 0.15 });
+    if (big) this.crossSlash(fx.x, fx.y, fx.z, C.paint);
+    else this.hitLine(fx.x, fx.y, fx.z, bash ? 0.12 : (swing.step % 4 === 1 ? -0.62 : 0.62), bash ? 2.2 : 3.4);
+    this.sparkBurst(fx.x, fx.y, fx.z, big ? 18 : 10, {
+      dir: swing.facing, cone: 0.7, speedMin: 6, speed: big ? 17 : 12, color: C.gold, white: 0.5
+    });
+    if (big) {
+      this.groundStar(fx.x, fx.y - 1.0, fx.z, 1.5);
+      this.dustRing(fx.x, fx.y - 1.0, fx.z, 5, 4);
+    }
+    this.freeze(big ? 60 : 30);
   }
 
   spawn(effectId, o) {
@@ -465,6 +507,7 @@ export class KnightHolyVFX {
     const y = (o.y || 0) + 1.0;
     const z = (o.z || 0) + dz * 1.15;
     const isFin = !!o.isFinisher;
+    this.lastSlash = { at: performance.now(), x: o.x || 0, z: o.z || 0, facing: f, step: o.comboStep || 1, fin: isFin };
     this.sparkBurst(x, y, z, isFin ? 10 : 5, {
       dir: f, cone: 0.75, speedMin: 4.5, speed: isFin ? 10 : 7.5,
       color: C.gold, white: 0.45, lifeMin: 0.12, life: 0.22, width: 0.065, gravity: -12
