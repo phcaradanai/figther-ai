@@ -1085,6 +1085,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
     const cloneMat = (m) => {
       const c = spec.painterly ? makeToSMaterial(m) : m.clone();
       if (spec.painterly) c.userData.keepUnmerged = true;
+      if (isCapeMesh) c.side = THREE.DoubleSide;
       // Subtle visual cue when armor is knocked off, while keeping the skinned model
       if (armorStripped && !isCapeMesh) c.color.multiplyScalar(0.84);
       b.materials.push(c);

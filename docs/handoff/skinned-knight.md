@@ -27,15 +27,17 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
     shadow split-tone (`tosWarmTint`), and delicate warm-brown Fresnel ink contour
     (`onBeforeCompile`, 0 extra draw calls); skips heavy PBR/IBL/normal lookups while preserving
     emissive hit-flash/Super Armor tints and opacity.
-  - **Anatomical pronated gauntlet weapon grip & zero-clip split `KnightCape`** (`hero-knight.glb`
-    13.1k tris = `Body` 11.5k + `KnightCape` 1.6k sharing 1 baked albedo texture; `knight-gear.glb`
-    5.8k tris): both open A-pose hands curled along a smooth circular arc into clenched fists, with
-    `handR` pronated `+82°` across the wrist cuff so the 4 fingers wrap cleanly around the leather
-    handle tunnel and `KnightSword` rotated 90° around its blade axis so the crossguard and cutting
-    edge align vertically with the forearm/knuckle plane (`swordMount: { p: [0.029, -0.090, 0.006], rx: 0.38 }`,
-    `swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] }`); `KnightCape` cleanly split at the collar
-    (`z=1.13`) with monotonic `torso -> cape1 -> cape2 -> cape3` weights, physical back clearance,
-    torso-pitch compensation in `chibi.js`, and visibility toggled by `gear.trinket === heroId`.
+  - **Anatomical pronated gauntlet weapon grip & intact zero-clip split `KnightCape`** (`hero-knight.glb`
+    13.3k tris = `Body` 11.5k + intact un-decimated `KnightCape` 1.84k sharing 1 baked albedo texture;
+    `knight-gear.glb` 5.8k tris): both open A-pose hands curled along a smooth circular arc into clenched
+    fists, with `handR` pronated `+82°` across the wrist cuff so the 4 fingers wrap cleanly around the
+    leather handle tunnel and `KnightSword` rotated 90° around its blade axis so the crossguard and
+    cutting edge align vertically with the forearm/knuckle plane (`swordMount: { p: [0.029, -0.090, 0.006], rx: 0.38 }`,
+    `swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] }`); `KnightCape` cleanly split via albedo-color
+    + geometry face-BFS with morphological gap closing, smooth 2D local back-of-body clearance diffused
+    across neighbors (zero side notches, zero step creases), monotonic `torso -> cape1 -> cape2 -> cape3`
+    weights, `THREE.DoubleSide` material + torso-pitch compensation in `chibi.js`, and visibility toggled
+    by `gear.trinket === heroId`.
   - **Stripped-gear continuity**: `useSkinned = !!(skinned && (!gear.armor || gear.armor === pl.heroId))`
     so dropping armor, helmet, and cape keeps the skinned anime Knight model (never reverts to old
     procedural geometry).
