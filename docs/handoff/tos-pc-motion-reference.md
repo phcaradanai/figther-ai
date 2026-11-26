@@ -1,0 +1,21 @@
+# Tree of Savior PC motion reference
+
+Source is the player-provided recording `20261126-1446-22.6897071.mp4`, supplied on 2026-11-26. It runs for 55.15 seconds at 1314 × 776 and was captured at 30 fps. Timestamps are relative to the start of the clip. The field footage covers one sword-equipped character with no visible input overlay. The class, action names and game animation rate are unverified.
+
+## Observations from the recording
+
+| Time | Visible sequence | What to check in our game |
+| --- | --- | --- |
+| 03.27–04.17 | The character runs toward screen right, faces the camera near 03.47, then heads left. A bent supporting leg and uneven arm positions remain readable through the change in facing. | Check a turn while moving at gameplay zoom. Allow the support foot to pivot or release as direction changes. Let the next step catch the new route. |
+| 13.23–13.93 | The run pose at 13.23 gives way to an upright, shorter step around 13.33–13.43. The sword comes up around 13.53, passes in front with a bright arc at 13.83, and continues through by 13.93. | Compare run → brake → attack as a single sequence. Check whether the initial swing carries the stance from the last step and whether the pose can flow into its recovery. |
+| 27.70–28.10 and 28.23–28.57 | The sword leads a visible upper-body wind-up with the feet staying in the same small area. Bright cyan-white arcs are visible at 28.03 and 28.50. By the next sampled poses, at 28.10 and 28.57, the conspicuous arcs have faded while the weapon is still finishing the motion. | Align the first visible trail with the blade's sweep. Keep the bright part short enough to preserve the silhouette and let the weapon continue through the swing. These are empty-space swings, so damage timing needs a separate target test. |
+| 38.60–39.80 | During the ready hold the feet stay under the character and the sword remains low. Around 39.50 the stance dips, then by 39.60 the torso leans and the back leg is already pushing away. | Measure the first visible pose change and the first supporting step when leaving idle. Review pose and rendered travel together. |
+| 42.80–43.47 | The character changes posture and flashes pale around 42.87. A bright core and directional streaks are visible by 42.93. The silhouette is clear again by 43.13, while the wake remains behind. The character is back in a run before the wake has fully decayed. | For fast movement, tie the burst to the first visible push and allow the lingering effect to decay independently of recovery. Keep the path and the reappearance of the silhouette legible. |
+| 48.73–49.43 | In the air the knees are gathered and the arms remain asymmetric. As the character descends, one leg reaches toward the surface. Around 49.23–49.30 the stance lowers and the leading foot reaches the ground area, then the torso and feet turn into the next movement. The exact contact frame is obscured by the camera angle. | Compare takeoff, the last airborne frame, the loading step and the next step as one action. Check that the landing pose reflects incoming velocity and that locomotion can pick up on the next foot. |
+| 53.27–54.33 | Forward motion resolves into an offset ready stance around 53.53. The feet draw closer around 53.93 and the body is in a quieter idle by 54.20. | Treat the temporary wider stance as part of catching weight. Check that normal idle returns after the catch step. |
+
+## How to use this reference
+
+Two distances matter when reviewing an animated step. Compare the moving actor with a fixed scene landmark to see whether the boot travels in the world. Then compare the boot against the hips to see how the stride transfers weight. The clip camera follows the player, so screen coordinates alone do not measure foot contact or acceleration.
+
+Use the windows above with the [character motion standard](motion-standard.md). Keep the recorded reference times descriptive. The clip has no synchronized inputs, combat event log, or terrain transform, so it cannot establish input latency, exact foot-lock behavior, hit frames, or the rigging technique. Mark those events in our own replay and compare their order and visual continuity at the gameplay camera. The recording is useful for the shared behavior, and the various heroes can keep their own stance width, gait, attack poses and effects.

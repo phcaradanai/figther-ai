@@ -16,6 +16,8 @@ Capture uninterrupted at a stable frame rate with default camera and zoom. Find 
 
 Public references used for the initial visual review include Maggi's description of why a fixed quarter view makes timing easier to read, and PC footage at [07:29 for running](https://www.youtube.com/watch?v=MS8QT0_KlfE&t=449s) and [11:59 for combat](https://www.youtube.com/watch?v=MS8QT0_KlfE&t=719s). Use the clips to study readability and sequencing. Compare input latency, braking and landing on a controlled recording where each input is known. [IMC's art-direction interview](https://treeofsavior.com/page/news/view.php?n=337)
 
+The [player-provided PC recording analysis](tos-pc-motion-reference.md) timestamps start, turn, brake, landing, sword trails and the dash wake on one character. Use those sequences as the visual reference during the live replay.
+
 ## What each hero should share
 
 | Layer | Shared contract | Per-hero authoring |
