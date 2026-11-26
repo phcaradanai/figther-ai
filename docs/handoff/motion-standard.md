@@ -157,3 +157,23 @@ The Knight now uses these baked clips, chosen by the player after comparison:
 `fix` turns the left wrist so the shield faces forward (Mixamo holds its shield on the forearm, so on the Knight's hand mount it faced sideways). It also turns the right wrist and forearm just enough to keep the blade 0.3 from the helmet's centre, and each frame starts from the previous frame's correction. Blade-through-helmet frames fell from 11 to 1 (Slash) and from 22 to 0 (the long idle). During strikes both boots are grounded in two passes, so pulling one boot down no longer sinks the other. The hand-made ToS clips stay in `knight_motion.js` and `knight_attacks.js`, and the baked clips override them by name. Remove a clip from `bakedClips` to fall back to the hand-made one.
 
 Sheath sword, strafe and the other attacks are not used: the game has no sheathed or strafing state, and the remaining attacks are covered.
+
+## Combat feel pass (2026-11-27)
+
+Checked in the live game at the gameplay camera, slowed down with `public/dev/combat_capture.js` (see below), not only in the lab.
+
+| Piece | Where | What it does |
+| --- | --- | --- |
+| Blade trail | `SwordTrail` in `chibi.js` | A ribbon 12 % longer behind the hilt and 34 % past the tip, 0.3 s life, three vertices per sample: clear root, azure body, white edge. The azure body keeps the arc readable on pale floors. Normal blending, so it still works on the transparent My Item preview |
+| Contact-synced hits | `holdForContact` / `releaseHits` in `chibi.js`, `renderer3d.js`; `attackerId` on the server's `hit` fx | The server resolves a hit when the swing starts, 0.13 s before the blade lands. The client now holds the hit's flash, number, flinch and sound until the attacker's blade accent fires, and releases them if the swing never reaches contact (0.42 s) |
+| Combo impact | `basicHit` in `knight_holy_vfx.js` | A spiked impact star, a blade-mark needle (hit 1 diagonal, hit 2 short, finisher cross-cut with a floor star and dust) and sparks along the swing. It sets `fx._knightHit`, which mutes the generic red flash in `fx.js` |
+| Footfall dust | `kickUp` in `knight_footwork.js` | A small pale puff where a boot lands above ~3.5 u/s |
+| Turn in place | `idleExtra` in `chibi.js` | Measured against the yaw the feet last stood at (`stanceYaw`), and only after 0.15 s still, so a direction key no longer flashes the turn pose at run start |
+| Shield stabiliser | `steadyShield` in `chibi.js`, wrist solve in `bake-mixamo.mjs` | Each baked clip kept its own forearm/wrist twist split, so a crossfade spun the shield up to 120° off the front. The bake solves the wrist twice (frame 0 starts from the settled answer) and keeps the crest upright. At runtime the shield is pulled back once it strays past ~23°, weighted by the baked clips' share of the pose. Worst shield error over combo, run and guard hand-overs fell from 119° to 19° |
+| Sounds | `SoundFX` in `game_client.js` | Noise-based sword swoosh (light and finisher), a hit made of a thump, a crack and two metal partials, and a shield clank for block and parry. Each call is a few percent off pitch |
+
+Tools:
+
+- `public/dev/combat_capture.js` — in the console of `/?renderer=3d`: `const a = await import('/dev/combat_capture.js'); a.setup({ scale: 0.12 })`, then `await a.shoot({ keys: [['KeyJ', 40]] })` draws a contact sheet of the live game over the page. `scale` slows only the client clock, so keep key holds short. `a.fx('hit', { attackerId: a.me().pl.id }, 1.9)` replays a server event in front of the Knight.
+- `node tools/rig/seam-audit.mjs` — plays scripted input through `ChibiView` and lists one-frame bone pops across clip hand-overs. Remaining known pops are the left arm at attack 1 → 2 (the shield bash starts in three frames) and the first frames of some hand-made skills; they are cuts, not slides.
+- `?handmade=all` (or a comma list of clip names) on any page plays the hand-made Knight clips in place of the baked ones.
