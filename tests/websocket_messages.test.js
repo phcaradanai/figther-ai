@@ -986,6 +986,19 @@ test('simultaneous melee swings clash with zero damage and Just Guard charges sk
   assert.ok(p2.player(parried).skillGauges.helmet >= preCharge + 7);
 });
 
+test('a hit fx names its attacker so the client can show it on the blade', { timeout: 8000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.9, z: 0 }]);
+  await Promise.all([
+    attacker.observe(p => p.grounded && !p.buffs.invuln),
+    defender.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+  const id = attacker.player(await attacker.observe(p => p.grounded)).id;
+  const seen = defender.observe((p, m) => m.fx.some(f => f.type === 'hit' && f.attackerId === id));
+  attacker.send({ type: 'attack', phase: 'press' });
+  attacker.send({ type: 'attack', phase: 'release' });
+  await seen;
+});
+
 test('a jump allows three basic hits and the third spikes the target', { timeout: 12000 }, async t => {
   const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.9, z: 0 }]);
   await Promise.all([
