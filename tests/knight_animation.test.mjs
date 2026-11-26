@@ -138,6 +138,28 @@ test('Knight holds a hit until the blade lands, and never swallows it', t => {
   assert.deepEqual(released, [late, replaced]);
 });
 
+test('a swing that is cut short hands its held hits back at once', t => {
+  const parry = { type: 'parry', text: 'JUST GUARD!' };
+  for (const state of ['hurt', 'knockdown', 'skill', 'dead']) {
+    const knight = new ChibiView(base);
+    t.after(() => knight.dispose());
+    const released = [];
+    advance(knight, {}, 20);
+    knight.queueBladeAccent({ type: 'slash' }, () => {}, held => released.push(...held));
+    knight.holdForContact(parry);
+    advance(knight, { state }, 2);
+    assert.deepEqual(released, [parry], `${state} should release within two frames, not at the 0.42 s expiry`);
+  }
+
+  // A view that is rebuilt or removed mid-swing releases them too.
+  const gone = new ChibiView(base);
+  const handed = [];
+  gone.queueBladeAccent({ type: 'slash' }, () => {}, held => handed.push(...held));
+  gone.holdForContact(parry);
+  gone.dispose();
+  assert.deepEqual(handed, [parry]);
+});
+
 test('a victim keeps its pose until the blade lands, then flinches', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());

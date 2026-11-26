@@ -1412,6 +1412,8 @@ const BAKED_SHIELD_CLIPS = new Set(Object.keys(SKINNED_MODELS.knight?.bakedClips
 const _shieldRoot = new THREE.Quaternion();
 const _shieldNow = new THREE.Quaternion();
 const _shieldParent = new THREE.Quaternion();
+// Server states that replace a basic swing before its blade lands.
+const CUTS_A_SWING = new Set(['hurt', 'knockdown', 'dead', 'frozen', 'skill', 'heavy']);
 const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airCut', 'airSpike']);
 const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
 const KNIGHT_BLADE_CONTACT = Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.contact]));
@@ -2421,9 +2423,16 @@ export class ChibiView {
   // Emit on the blade contact of the swing that started with the server event,
   // on the ground or in the air. A swing already under way belongs to an
   // earlier press.
-  updateBladeAccent() {
+  updateBladeAccent(pl) {
     const pending = this.bladeAccent;
     if (!pending) return;
+    // A swing cut short (hit mid-swing, parried, a skill or heavy pressed over it, dead)
+    // never reaches contact: hand its held hits back now, not when the swing expires.
+    if (pl && CUTS_A_SWING.has(pl.state)) {
+      this.bladeAccent = null;
+      pending.release?.(pending.held);
+      return;
+    }
     const contact = KNIGHT_SWINGS.has(this.currentName) ? KNIGHT_BLADE_CONTACT[this.currentName] : undefined;
     if (this.time >= pending.expires) {
       this.bladeAccent = null;
@@ -2673,7 +2682,7 @@ export class ChibiView {
         ? this.current.time >= trailWin[0] && this.current.time <= trailWin[1] : inSlash;
       this.swordTrail.update(paused ? 0 : dt, swinging && !paused, this.root.parent);
     }
-    if (!paused) this.updateBladeAccent();
+    if (!paused) this.updateBladeAccent(pl);
 
     // Timed gun shots (twin gunner): fire each scheduled shot as the clip passes it
     const shots = SHOTS[`${this.style}:${this.currentName}`];
@@ -2827,6 +2836,9 @@ export class ChibiView {
   }
 
   dispose() {
+    // A rebuilt or removed view must not swallow hits it was holding for its blade.
+    this.bladeAccent?.release?.(this.bladeAccent.held);
+    this.bladeAccent = null;
     this.swordTrail?.dispose();
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);
