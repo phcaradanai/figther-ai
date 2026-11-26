@@ -28,6 +28,8 @@ const SKINNED_HEROES = {
     gearUrl: '/assets/models/knight-gear.glb',
     hipHeight: 0.78,
     alignArms: true,
+    painterly: true,
+    stepFps: 15,
     fused: ['trinket'],
     helmetMesh: 'KnightHelmet',
     swordMesh: 'KnightSword',
@@ -43,6 +45,7 @@ const SKINNED_HEROES = {
   }
 };
 const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
+const SKIP_STEP = typeof location !== 'undefined' && new URLSearchParams(location.search).get('step') === '0';
 const skinnedEntries = !SKIP_SKINNED
   ? await Promise.all(Object.entries(SKINNED_HEROES).map(async ([id, spec]) => {
     try {
@@ -80,7 +83,7 @@ export const SKILL_ANIM = {
 };
 
 function mergeKind(mat) {
-  if (mat.transparent || mat.userData.baseIntensity !== undefined) return null;
+  if (mat.transparent || mat.map || mat.userData.keepUnmerged || mat.userData.baseIntensity !== undefined) return null;
   if (mat.isMeshToonMaterial) return mat.side === THREE.DoubleSide ? 'toon2' : 'toon';
   if (mat.isMeshBasicMaterial) return 'basic';
   return null;
@@ -108,6 +111,41 @@ function bakeGeo(src, matrix, color) {
 }
 
 const RAMP = makeToonRamp();
+const TOS_RAMP = (() => {
+  // High-key 4-band watercolor ramp for baked hand-painted Tree of Savior textures
+  const bands = new Uint8Array([122, 196, 240, 255]);
+  const data = new Uint8Array(bands.length * 4);
+  for (let i = 0; i < bands.length; i++) {
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = bands[i];
+    data[i * 4 + 3] = 255;
+  }
+  const tex = new THREE.DataTexture(data, bands.length, 1);
+  tex.minFilter = THREE.NearestFilter;
+  tex.magFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+})();
+
+function makeToSMaterial(srcMat) {
+  const m = new THREE.MeshToonMaterial({
+    map: srcMat?.map || null,
+    color: srcMat?.color ? srcMat.color.clone() : new THREE.Color('#ffffff'),
+    gradientMap: TOS_RAMP,
+    side: srcMat?.side ?? THREE.FrontSide
+  });
+  m.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <opaque_fragment>',
+      `float tosRim = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+       float tosInk = smoothstep(0.68, 0.88, tosRim);
+       outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.28, 0.21, 0.19), tosInk * 0.65);
+       #include <opaque_fragment>`
+    );
+  };
+  m.customProgramCacheKey = () => 'tos-painterly-toon-v1';
+  return m;
+}
 const SKIN = '#fde3cf';
 const OUTLINE_COLOR = '#2b1b16';
 
@@ -187,14 +225,16 @@ class Builder {
   glbPart(parent, scene, name, opts = {}) {
     const piece = scene?.getObjectByName(name);
     if (!piece?.isMesh) return null;
-    const key = `glb|${piece.material.uuid}`;
+    const { painterly, ...partOpts } = opts;
+    const key = `glb|${painterly ? 'tos|' : ''}${piece.material.uuid}`;
     let material = this.cache.get(key);
     if (!material) {
-      material = piece.material.clone();
+      material = painterly ? makeToSMaterial(piece.material) : piece.material.clone();
+      if (painterly) material.userData.keepUnmerged = true;
       this.cache.set(key, material);
       this.materials.push(material);
     }
-    return this.part(parent, piece.geometry, material, { outline: 0, ...opts });
+    return this.part(parent, piece.geometry, material, { outline: 0, ...partOpts });
   }
   toon(color, opts = {}) {
     const key = `t${color}|${opts.side || 0}`;
@@ -1026,15 +1066,16 @@ function buildSkinnedRig(b, heroId, gear, model) {
     mesh.quaternion.identity();
     mesh.scale.set(1, 1, 1);
     body.add(mesh);
+    const cloneMat = (m) => {
+      const c = spec.painterly ? makeToSMaterial(m) : m.clone();
+      if (spec.painterly) c.userData.keepUnmerged = true;
+      b.materials.push(c);
+      return c;
+    };
     if (Array.isArray(mesh.material)) {
-      mesh.material = mesh.material.map(m => {
-        const clonedMat = m.clone();
-        b.materials.push(clonedMat);
-        return clonedMat;
-      });
+      mesh.material = mesh.material.map(cloneMat);
     } else if (mesh.material) {
-      mesh.material = mesh.material.clone();
-      b.materials.push(mesh.material);
+      mesh.material = cloneMat(mesh.material);
     }
     mesh.castShadow = true;
     mesh.frustumCulled = false;
@@ -1059,7 +1100,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
   };
   if (!fused.has('helmet') && gear.helmet) {
     if (gear.helmet === heroId && spec.helmetMesh && gearScene) {
-      b.glbPart(unscaled(R.head), gearScene, spec.helmetMesh);
+      b.glbPart(unscaled(R.head), gearScene, spec.helmetMesh, { painterly: !!spec.painterly });
     } else if (HELMETS[gear.helmet]) {
       const hWrap = unscaled(R.head);
       if (spec.otherHelmetScale) hWrap.scale.multiplyScalar(spec.otherHelmetScale);
@@ -1073,10 +1114,10 @@ function buildSkinnedRig(b, heroId, gear, model) {
         const sm = spec.swordMount || { p: [0, -0.03, 0], tilt: 0.35 };
         const w = mount(unscaled(R.handR), sm.tilt);
         w.position.set(sm.p[0], sm.p[1], sm.p[2]);
-        b.glbPart(w, gearScene, spec.swordMesh);
+        b.glbPart(w, gearScene, spec.swordMesh, { painterly: !!spec.painterly });
       }
       if (spec.shieldMesh) {
-        b.glbPart(unscaled(R.handL), gearScene, spec.shieldMesh);
+        b.glbPart(unscaled(R.handL), gearScene, spec.shieldMesh, { painterly: !!spec.painterly });
       }
     } else if (WEAPONS[gear.weapon]) {
       WEAPONS[gear.weapon](b, { R: unscaled(R.handR), L: unscaled(R.handL), foreL: unscaled(R.foreL) });
@@ -1110,16 +1151,16 @@ export function buildGearItem(slot, heroId) {
     if (gearScene && (skinned.spec.swordMesh || skinned.spec.shieldMesh)) {
       if (skinned.spec.swordMesh) {
         const w = mount(hR, skinned.spec.swordMount?.tilt ?? 0.35);
-        b.glbPart(w, gearScene, skinned.spec.swordMesh);
+        b.glbPart(w, gearScene, skinned.spec.swordMesh, { painterly: !!skinned.spec.painterly });
       }
-      if (skinned.spec.shieldMesh) b.glbPart(hL, gearScene, skinned.spec.shieldMesh);
+      if (skinned.spec.shieldMesh) b.glbPart(hL, gearScene, skinned.spec.shieldMesh, { painterly: !!skinned.spec.painterly });
     } else {
       WEAPONS[heroId]?.(b, { R: hR, L: hL, foreL: fL });
     }
     g.rotation.set(-0.9, 0, 0.5);
   } else if (slot === 'helmet') {
     if (gearScene && skinned.spec.helmetMesh) {
-      b.glbPart(g, gearScene, skinned.spec.helmetMesh, { p: [0, -0.22, 0] });
+      b.glbPart(g, gearScene, skinned.spec.helmetMesh, { p: [0, -0.22, 0], painterly: !!skinned.spec.painterly });
     } else {
       HELMETS[heroId]?.(b, g, new THREE.Vector3(0, -0.15, 0));
     }
@@ -1640,10 +1681,14 @@ export class ChibiView {
     this.b = new Builder();
     const gear = pl.gear || {};
     const skinned = SKINNED_MODELS[pl.heroId];
-    this.R = skinned && gear.armor === pl.heroId
+    const useSkinned = !!(skinned && gear.armor === pl.heroId);
+    this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
     this.b.bake(this.R.root);
+    this.stepFps = useSkinned && !SKIP_STEP ? (skinned.spec.stepFps || 0) : 0;
+    this.stepAcc = 0;
+    this.stepForce = true;
     this.root = this.R.root;
     this.R.staff = this.root.getObjectByName('staff') || null;
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
@@ -1716,6 +1761,7 @@ export class ChibiView {
     this.current = next;
     this.currentName = name;
     this.clipStart = this.time;
+    this.stepForce = true;
     const commit = STYLE_COMMIT[this.style]?.[name] ?? COMMITTED[name];
     this.commitUntil = commit ? this.time + commit : 0;
   }
@@ -1784,6 +1830,7 @@ export class ChibiView {
   onHit(strong) {
     this.flashT = 1;
     this.hitLean = strong ? 1 : 0.7;
+    this.stepForce = true;
     this.hitStopUntil = performance.now() + (strong ? 110 : 75);
     if (this.currentName === 'hurt') this.play('hurt', 0, true);
   }
@@ -1886,13 +1933,29 @@ export class ChibiView {
       this.current.setEffectiveTimeScale(Math.max(0.65, Math.min(1.9, speed / (hero?.speed || 5.4))));
     }
 
-    // Hit-stop / frozen freeze the pose
+    // Hit-stop / frozen freeze the pose; ToS stepped animation quantizes skeleton
+    // updates to stepFps (e.g. 15 FPS) while snapping instantly on new actions.
     const frozen = pl.buffs?.frozen || pl.state === 'frozen';
     const paused = now < this.hitStopUntil || frozen;
-    this.restorePure();
-    this.mixer.update(paused ? 0 : dt);
-    this.savePure();
-    this.applyLayers(pl, dt, paused);
+    const stepDt = this.stepFps > 0 ? 1 / this.stepFps : 0;
+    let poseDt = dt;
+    let doPose = true;
+    if (stepDt > 0) {
+      this.stepAcc += dt;
+      if (this.stepForce || this.stepAcc >= stepDt) {
+        poseDt = this.stepForce ? Math.min(this.stepAcc, stepDt) : Math.floor(this.stepAcc / stepDt) * stepDt;
+        this.stepAcc = this.stepForce ? 0 : this.stepAcc - poseDt;
+        this.stepForce = false;
+      } else {
+        doPose = false;
+      }
+    }
+    if (doPose) {
+      this.restorePure();
+      this.mixer.update(paused ? 0 : poseDt);
+      this.savePure();
+      this.applyLayers(pl, poseDt, paused);
+    }
 
     // Timed gun shots (twin gunner): fire each scheduled shot as the clip passes it
     const shots = SHOTS[`${this.style}:${this.currentName}`];
@@ -1976,12 +2039,14 @@ export class ChibiView {
     const sq = Math.sin(this.squash * Math.PI * 0.5) * 0.22 - Math.sin(this.stretch * Math.PI * 0.5) * 0.14;
     this.R.body.scale.set(1 + sq * 0.8, 1 - sq, 1 + sq * 0.8);
 
-    // Spring-driven cape / scarf / flag
+    // Spring-driven cape / scarf / flag (quantized on stepped characters to match limb cadence)
     const capeTarget = 0.12 + Math.min(1.1, speed * 0.13) + (grounded ? 0 : 0.35) + Math.sin(this.time * 7) * 0.04 * Math.min(1, speed);
     this.capeVel += (capeTarget - this.capeAng) * 60 * dt;
     this.capeVel *= Math.exp(-dt * 7);
     this.capeAng += this.capeVel * dt;
-    for (const c of this.R.extras.capes) c.rotation.x = this.capeAng * (c.userData.capeScale ?? 1);
+    if (doPose) {
+      for (const c of this.R.extras.capes) c.rotation.x = this.capeAng * (c.userData.capeScale ?? 1);
+    }
     for (let i = 0; i < this.R.extras.orbiters.length; i++) {
       const o = this.R.extras.orbiters[i];
       o.position.y += (0.72 + Math.sin(this.time * 2.4 + i) * 0.07 - o.position.y) * Math.min(1, dt * 10);

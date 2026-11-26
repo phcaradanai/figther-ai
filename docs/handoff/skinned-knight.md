@@ -13,26 +13,30 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
   `tools/rig/` scripts, output `public/assets/models/hero-test-adventurer.glb` (1.9 MB,
   26k tris, 1K JPEG textures, 15-joint skin). Posed renders with the game's own knight
   poses looked clean (no tearing at shoulders/elbows/hips/knees).
-- **Skinned knight shipped as default** (`public/assets/models/hero-knight.glb` 2.26 MB,
-  26k tris, 18-joint rig; `public/assets/models/knight-gear.glb` 1.09 MB: `KnightHelmet`,
-  `KnightSword`, `KnightShield`; `public/js/three/chibi.js`):
-  - A-pose arm rest-orientation alignment (`alignArms: true`) in `buildSkinnedRig` so
-    existing `chibi.js` straight-down clips drive 49° A-pose arms cleanly without shoulder
-    offset or elbow drift.
-  - Skinned 3-bone cape chain (`cape1` → `cape2` → `cape3`, topologically isolated from
-    legs/arms via BFS + two-pass bone-heat binding so there is zero leg/elbow spiking)
-    driven by `ChibiView`'s cape spring (`capeScale: 0.35 / 0.35 / 0.25`).
-  - Modular gear attachments via `Builder.glbPart()` (`KnightHelmet` on `head`,
-    `KnightSword` on `handR`, `KnightShield` on `handL`, plus `buildGearItem` dropped loot
-    on the floor); supports dropping/picking up helmet, mixing other heroes' helmets
-    (`otherHelmetScale: 0.56`), and procedural fallback when `gear.armor !== heroId`.
-  - Pass `?skinned=0` to disable skinned heroes for A/B comparison.
-  - Added `RoomEnvironment` PMREM IBL in `public/js/three/renderer3d.js` (`0.72`) and
-    `public/js/three/preview3d.js` (`0.85`) so metallic PBR steel and gold gleam brightly
-    instead of rendering dark.
-  - Verified live in browser at default `/` (idle, guard, basic attacks, Q/E/R/F skills +
-    Super Armor emissive, helmet drop & pickup, My Item 3D turntable, mixed Samurai helmet,
-    Ninja armor fallback + Reset Set, 0 console/network errors).
+- **Tree of Savior Quasi-3D / Hand-Painted Knight shipped as default**
+  (`public/assets/models/hero-knight.glb` **1.23 MB**, 13k tris, 18-joint rig, 1 albedo
+  texture; `public/assets/models/knight-gear.glb` **0.50 MB**, 5.8k tris total:
+  `KnightHelmet` 2.2k, `KnightSword` 1.8k, `KnightShield` 1.8k, 3 albedo textures;
+  `public/js/three/chibi.js`):
+  - **Blender Cycles painterly bake**: bakes symmetric 360° storybook sky dome + metallic
+    highlights + normal-map micro-details + warm-indigo AO directly into a single albedo
+    texture per mesh, stripping `normalMap` and `metallicRoughnessMap` (12 textures → 4,
+    total download 3.35 MB → 1.73 MB, tris 40k → 18.8k, ~3× lower GPU VRAM).
+  - **ToS Painterly Toon shader (`painterly: true`)**: lightweight `MeshToonMaterial` with
+    high-key 4-band watercolor ramp (`TOS_RAMP`) and a 0-extra-draw-call warm-ink Fresnel
+    contour (`onBeforeCompile`); skips heavy PBR/IBL/normal lookups while preserving
+    emissive hit-flash/Super Armor tints and opacity.
+  - **Stepped 15 FPS animation (`stepFps: 15`)**: quantizes skeleton & cape pose updates
+    to 15 FPS for snappy 2D/ToS/Guilty-Gear feel (with zero-latency snap on new actions
+    and `onHit`, while root movement & VFX stay smooth 60+ FPS; `?step=0` disables).
+  - **A-pose arm alignment (`alignArms: true`)** + **3-bone skinned cape** (`cape1..cape3`,
+    topologically isolated from legs/arms via BFS + two-pass bone-heat binding).
+  - **Modular gear** via `Builder.glbPart()` (`KnightHelmet`, `KnightSword`, `KnightShield`,
+    plus dropped loot in `buildGearItem`), mixed helmet scaling (`otherHelmetScale: 0.56`),
+    and procedural fallback when `gear.armor !== heroId` (`?skinned=0` disables skinned).
+  - Verified live in browser at default `/` (idle, guard, attacks, Q/E/R/F skills + Super
+    Armor emissive, helmet drop & pickup, My Item 3D turntable, mixed helmet & fallback,
+    0 console/network/WebGL errors).
 - Blender MCP connects once Blender's window is open (the add-on auto-starts its server),
   but all AI generators are off. The user generates models themselves on
   https://hy3d.tencent.ai/ and hands over GLBs. Source files: `D:\3D-Models\*.glb` and
