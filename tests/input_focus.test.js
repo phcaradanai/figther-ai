@@ -232,3 +232,21 @@ test('existing skill hotkeys still cast and only transferable gear can be droppe
   client.rightClickSkill('armor');
   assert.deepEqual(client.packets.slice(8), [{ type: 'drop_gear', slot: 'armor' }]);
 });
+
+test('modular window hotkeys toggle pop-ups without blocking combat keys or firing while typing', async () => {
+  const client = await createClient();
+  client.keyDown('KeyB');
+  client.keyUp('KeyB');
+  client.keyDown('KeyH');
+  client.keyUp('KeyH');
+  client.keyDown('KeyM');
+  client.keyUp('KeyM');
+  // Combat movement and attacks continue working while modular windows are open in HQ.
+  client.keyDown('KeyW');
+  client.tick();
+  assert.equal(client.input().mz, -1);
+  client.keyDown('KeyJ');
+  assert.deepEqual(client.packets.at(-1), { type: 'attack', phase: 'press', isDash: false });
+  client.keyUp('KeyW');
+  client.keyUp('KeyJ');
+});

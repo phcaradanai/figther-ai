@@ -285,6 +285,54 @@ test('held ranged fire can switch enemies and homing gear only fires on confirma
   assert.ok(local(cast).cooldowns.helmet > 0);
 });
 
+test('Mix & Match equip_gear validates inputs and equips cross-hero gear with skill cast support', { timeout: 10000 }, async t => {
+  const server = await startServer(t);
+  const client = await server.connect();
+  client.send({ type: 'join_room', roomId: 'MIX-MATCH', heroId: 'knight', mapId: 'sky_temple' });
+  const { clientId } = await client.waitFor(msg => msg.type === 'joined');
+  const local = msg => msg.players.find(p => p.id === clientId);
+  await client.waitFor(msg => msg.type === 'state' && local(msg).grounded);
+
+  // Invalid slot or prototype hero names must be ignored safely
+  for (const bad of [
+    { type: 'equip_gear', slot: 'boots', heroId: 'ninja' },
+    { type: 'equip_gear', slot: 'helmet', heroId: '__proto__' },
+    { type: 'equip_gear', slot: 'armor', heroId: ['witch'] }
+  ]) {
+    client.send(bad);
+    await client.barrier();
+  }
+  const unchanged = await client.waitFor(msg => msg.type === 'state' && local(msg).heroId === 'knight');
+  assert.deepEqual(local(unchanged).gear, { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' });
+
+  // Equip Cyborg trinket (jetpack flight) + Striker passive helmet + Samurai weapon on Knight
+  client.send({ type: 'equip_gear', slot: 'trinket', heroId: 'cyborg' });
+  client.send({ type: 'equip_gear', slot: 'helmet', heroId: 'striker' });
+  client.send({ type: 'equip_gear', slot: 'weapon', heroId: 'samurai' });
+  const mixed = await client.waitFor(msg => msg.type === 'state' &&
+    local(msg).gear.trinket === 'cyborg' &&
+    local(msg).gear.helmet === 'striker' &&
+    local(msg).gear.weapon === 'samurai');
+  assert.equal(local(mixed).heroId, 'knight');
+  assert.equal(local(mixed).skillGauges.helmet, null); // Striker helmet is passive
+  assert.equal(local(mixed).skillGauges.trinket, 100);
+  assert.equal(typeof local(mixed).swapCooldownMs, 'number');
+
+  // Cast mixed Cyborg trinket skill as Knight
+  client.send({ type: 'skill', slot: 'trinket' });
+  const flying = await client.waitFor(msg => msg.type === 'state' && local(msg).animSkillId === 'cyborg_trinket');
+  assert.equal(local(flying).isFlying, true);
+
+  // Mixed non-weapon gear persists when swapping heroes
+  client.send({ type: 'swap_hero', heroId: 'mage' });
+  const swapped = await client.waitFor(msg => msg.type === 'state' && local(msg).heroId === 'mage');
+  assert.equal(local(swapped).gear.weapon, 'mage');
+  assert.equal(local(swapped).gear.trinket, 'cyborg');
+  assert.equal(local(swapped).gear.helmet, 'striker');
+  assert.ok(local(swapped).swapCooldownMs > 0);
+  server.assertRunning();
+});
+
 test('null, primitive, array and malformed JSON packets leave the server running', { timeout: 10000 }, async t => {
   const server = await startServer(t);
   const client = await server.connect();
