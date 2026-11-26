@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LOST SAGA 3D ARENA - LAN Multiplayer</title>
+  <title>LOST SAGA 3D HQ - Bright Arcade LAN Arena</title>
   <link rel="stylesheet" href="/css/style.css" />
   <script type="importmap">
     {
@@ -15,182 +15,422 @@
   </script>
 </head>
 <body>
-  <!-- 3D game canvas and Effekseer overlay -->
+  <!-- 3D HQ / Arena Live Canvas & Effekseer Overlay (Open center to run & combo!) -->
   <canvas id="gameCanvas"></canvas>
   <canvas id="effekseerCanvas"></canvas>
 
+  <!-- Toast Notification Stack -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
   <!-- ==================================================================== -->
-  <!-- TOP HUD BAR: ROOM INFO, LAN IP, MAP SWITCH, BOT CONTROLS & CAMERA    -->
+  <!-- TOP HQ BAR: BRAND, LAN INFO, MODULAR WINDOW LAUNCHERS & ARENA TOOLS  -->
   <!-- ==================================================================== -->
-  <header id="topHud" class="hud-panel">
+  <header id="topHud" class="glossy-bar">
     <div class="hud-left">
-      <div class="brand-badge">⚔️ LOST SAGA 3D</div>
-      <div class="room-pill" id="hudRoomInfo">ห้อง: LAN-1</div>
-      <div class="lan-pill" id="hudLanUrl" title="คลิกเพื่อคัดลอกลิงก์ LAN ให้เพื่อนเข้าเล่น">
-        📡 LAN: กำลังตรวจสอบ...
+      <div class="brand-badge">
+        <span class="brand-crest">⚔️</span>
+        <span>LOST SAGA <small>HQ</small></span>
+      </div>
+      <div class="info-pill room-pill" id="hudRoomInfo">ห้อง: LAN-1 (FFA)</div>
+      <button type="button" class="info-pill lan-pill" id="hudLanUrl" title="คลิกเพื่อคัดลอกลิงก์ LAN ให้เพื่อนเข้าเล่น">
+        📡 LAN: กำลังเชื่อมต่อ...
+      </button>
+      <div class="info-pill peso-pill" id="hudPesoBalance" title="เหรียญ LAN Peso สำหรับซื้อถาวรหรือต่ออายุไอเทมในร้านค้า">
+        🪙 30,000 P
       </div>
     </div>
 
-    <div class="hud-center">
-      <button class="hud-btn" id="btnAddBot" title="เพิ่มบอท AI เข้าสนาม">+ เพิ่ม AI Bot</button>
-      <button class="hud-btn" id="btnClearBots" title="ลบบอททั้งหมด">ล้าง Bot</button>
-      <select id="selectMapInGame" class="hud-select" aria-label="เปลี่ยนสนามประลอง"></select>
-    </div>
+    <!-- Modular Pop-up Window Launchers (HQ / Plaza Dock) -->
+    <nav class="hud-nav" aria-label="เมนูหน้าต่าง HQ">
+      <button type="button" class="arcade-btn btn-sky" id="btnOpenInventory" data-window="winInventory" title="เปิดคลังเก็บของแต่งตัว Mix & Match (ปุ่ม B)">
+        <span class="btn-icon">🎒</span>
+        <span>คลังเก็บของ</span>
+        <kbd class="btn-kbd">B</kbd>
+      </button>
+      <button type="button" class="arcade-btn btn-amber" id="btnOpenShop" data-window="winShop" title="เปิดร้านค้าฮีโร่และอุปกรณ์ (ปุ่ม H)">
+        <span class="btn-icon">🛒</span>
+        <span>ร้านค้า</span>
+        <kbd class="btn-kbd">H</kbd>
+      </button>
+      <button type="button" class="arcade-btn btn-emerald" id="btnOpenLobby" data-window="winBattleList" title="เปิดรายชื่อห้องประลอง & ตั้งค่า LAN (ปุ่ม M)">
+        <span class="btn-icon">⚔️</span>
+        <span>รายชื่อห้อง</span>
+        <kbd class="btn-kbd">M</kbd>
+      </button>
+    </nav>
 
+    <!-- Quick Arena / Practice Controls -->
     <div class="hud-right">
-      <button class="hud-btn accent" id="btnOpenLobby">ตั้งค่าห้อง / ดูสกิลฮีโร่</button>
+      <button type="button" class="arcade-btn btn-soft btn-sm" id="btnAddBot" title="เพิ่มบอท AI เข้ามาซ้อมคอมโบ">+ AI Bot</button>
+      <button type="button" class="arcade-btn btn-rose btn-sm" id="btnClearBots" title="ลบบอททั้งหมดออก">ล้าง Bot</button>
+      <select id="selectMapInGame" class="glossy-select" aria-label="เปลี่ยนสนามประลอง"></select>
+      <button type="button" class="arcade-btn btn-soft btn-sm" id="btnToggleSideHud" title="ซ่อน/แสดงตารางคะแนนและรายงานสังหาร">📊</button>
     </div>
   </header>
 
   <!-- ==================================================================== -->
-  <!-- LEFT HUD: LIVE SCOREBOARD                                            -->
+  <!-- LEFT HUD: BRIGHT GLOSSY SCOREBOARD                                   -->
   <!-- ==================================================================== -->
   <aside id="leftHud">
-    <div class="glass-box scoreboard-box">
-      <div class="box-title">🏆 อันดับนักสู้ (LAN Score)</div>
-      <div id="scoreboardList"></div>
+    <div class="glossy-panel scoreboard-box">
+      <div class="panel-header-strip strip-sky">
+        <span>🏆 อันดับนักสู้ (LAN)</span>
+      </div>
+      <div id="scoreboardList" class="panel-body-compact"></div>
     </div>
   </aside>
 
   <!-- ==================================================================== -->
-  <!-- RIGHT HUD: KILL FEED & RING-OUT ANNOUNCER                            -->
+  <!-- RIGHT HUD: BRIGHT GLOSSY KILL FEED & CONTROLS HINT                   -->
   <!-- ==================================================================== -->
   <aside id="rightHud">
-    <div class="glass-box killfeed-box">
-      <div class="box-title">⚡ รายงานการสังหาร & ตกเหว</div>
-      <div id="killFeedList"></div>
+    <div class="glossy-panel killfeed-box">
+      <div class="panel-header-strip strip-amber">
+        <span>⚡ รายงานการต่อสู้</span>
+      </div>
+      <div id="killFeedList" class="panel-body-compact"></div>
+    </div>
+    <div class="glossy-panel quick-keys-box">
+      <div class="quick-keys-row">
+        <span><kbd>WASD</kbd> เดิน</span>
+        <span><kbd>J</kbd> ตี/เล็ง</span>
+        <span><kbd>K</kbd> หนัก</span>
+        <span><kbd>L</kbd> กัน</span>
+        <span><kbd>Space</kbd> โดด</span>
+        <span><kbd>G</kbd> เก็บ</span>
+      </div>
     </div>
   </aside>
 
   <!-- ==================================================================== -->
-  <!-- BOTTOM HUD: PLAYER STATUS, 4 MODULAR GEAR SKILL SLOTS & 10-HERO SWAP -->
+  <!-- BOTTOM-CENTER FOCUS HUD: HP + 4 REAL-TIME GEAR SKILLS + 10 HERO SWAP -->
   <!-- ==================================================================== -->
   <footer id="bottomHud">
-    <!-- Active Hero Portrait & HP + Gear Integrity -->
-    <div class="player-status-card glass-box">
-      <div class="hero-avatar-badge" id="hudHeroBadge">1</div>
-      <div class="status-info">
-        <div class="status-name-row">
-          <span id="hudHeroName">อัศวินเกราะเหล็ก</span>
-          <span id="hudHeroRole" class="role-tag">Melee / Tank</span>
+    <!-- Unified Bottom-Center Combat Console -->
+    <section class="hud-combat-console glossy-panel" aria-label="สถานะนักสู้และสกิลเกียร์">
+      <!-- Active Hero Portrait + Rarity & Hotkey Badges -->
+      <div class="hud-hero-well">
+        <div class="hero-avatar-frame" id="hudHeroFrame" data-rarity="normal">
+          <span class="corner-keycap" id="hudHeroKey">1</span>
+          <span class="rarity-badge rarity-normal" id="hudHeroRarity">N</span>
+          <div class="hero-avatar-badge" id="hudHeroBadge">1</div>
         </div>
-        <div class="hp-bar-outer">
-          <div class="hp-bar-inner" id="hudHpBar" style="width: 100%;"></div>
-          <span class="hp-text" id="hudHpText">125 / 125 HP</span>
+        <button type="button" class="mini-mix-btn" id="btnQuickMix" title="เปิดคลังแต่งตัว Mix & Match ทันที (B)">
+          ✨ แต่งตัว
+        </button>
+      </div>
+
+      <!-- Center Stack: HP/Mobility Bars directly above 4 Real-Time Gear Skills -->
+      <div class="hud-combat-core">
+        <div class="hud-vitals-header">
+          <div class="hud-hero-identity">
+            <span id="hudHeroName" class="hud-hero-name">อัศวินเกราะเหล็ก</span>
+            <span id="hudHeroRole" class="hud-role-chip">Melee / Tank</span>
+          </div>
+          <div class="hud-swap-pill ready" id="hudSwapStatus">⚡ สลับฮีโร่พร้อม</div>
         </div>
-        <div class="hp-bar-outer mobility-bar-outer">
-          <div class="mobility-bar-inner" id="hudMobilityBar" style="width: 100%;"></div>
+
+        <!-- Glossy HP & Mobility Gauges -->
+        <div class="hud-bars-row">
+          <div class="hp-bar-outer" title="พลังชีวิต (HP)">
+            <div class="hp-bar-inner" id="hudHpBar" style="width: 100%;"></div>
+            <span class="hp-text" id="hudHpText">125 / 125 HP</span>
+          </div>
+          <div class="hp-bar-outer mobility-bar-outer" title="เกจพุ่งตัว / บิน (Mobility)">
+            <div class="mobility-bar-inner" id="hudMobilityBar" style="width: 100%;"></div>
+            <span class="mobility-text" id="hudMobilityText">⚡ 100%</span>
+          </div>
+        </div>
+
+        <!-- 4 Modular Gear Skill Icon Slots (Q Weapon, E Armor, R Helmet, F Trinket) -->
+        <div class="skills-dock" id="skillsDock">
+          <button type="button" class="skill-card ready" data-slot="weapon" id="skillBtn_weapon">
+            <div class="skill-icon-stage">
+              <img class="skill-gear-img" id="skillImg_weapon" src="/assets/tos/weapon/knight.png" alt="อาวุธ" />
+              <div class="skill-cd-curtain" id="skillCurtain_weapon" style="height: 0%;"></div>
+              <div class="skill-cd-center" id="skillCenter_weapon"></div>
+              <span class="skill-hotkey" id="skillKey_weapon">Q</span>
+              <span class="rarity-badge rarity-rare skill-rarity-badge" id="skillBadge_weapon">R</span>
+              <span class="skill-mix-pill" id="skillMix_weapon" hidden>MIX</span>
+            </div>
+            <div class="skill-meta">
+              <div class="skill-name" id="skillName_weapon">คลื่นดาบเอ็กซ์คาลิเบอร์</div>
+              <div class="skill-gear-owner" id="skillOwner_weapon">อาวุธ · อัศวิน</div>
+              <div class="skill-charge-row">
+                <progress id="skillGauge_weapon" max="100" value="100" aria-label="เกจอาวุธ"></progress>
+                <span id="skillCharge_weapon">พร้อม</span>
+              </div>
+            </div>
+          </button>
+
+          <button type="button" class="skill-card ready" data-slot="armor" id="skillBtn_armor">
+            <div class="skill-icon-stage">
+              <img class="skill-gear-img" id="skillImg_armor" src="/assets/tos/armor/knight.png" alt="ชุดเกราะ" />
+              <div class="skill-cd-curtain" id="skillCurtain_armor" style="height: 0%;"></div>
+              <div class="skill-cd-center" id="skillCenter_armor"></div>
+              <span class="skill-hotkey" id="skillKey_armor">E</span>
+              <span class="rarity-badge rarity-normal skill-rarity-badge" id="skillBadge_armor">N</span>
+              <span class="skill-mix-pill" id="skillMix_armor" hidden>MIX</span>
+            </div>
+            <div class="skill-meta">
+              <div class="skill-name" id="skillName_armor">ปราการศักดิ์สิทธิ์</div>
+              <div class="skill-gear-owner" id="skillOwner_armor">สวนกลับตอนโดนตี</div>
+              <div class="skill-charge-row">
+                <progress id="skillGauge_armor" max="100" value="100" aria-label="เกจชุดเกราะ"></progress>
+                <span id="skillCharge_armor">พร้อม</span>
+              </div>
+            </div>
+          </button>
+
+          <button type="button" class="skill-card ready" data-slot="helmet" id="skillBtn_helmet">
+            <div class="skill-icon-stage">
+              <img class="skill-gear-img" id="skillImg_helmet" src="/assets/tos/helmet/knight.png" alt="หมวก" />
+              <div class="skill-cd-curtain" id="skillCurtain_helmet" style="height: 0%;"></div>
+              <div class="skill-cd-center" id="skillCenter_helmet"></div>
+              <span class="skill-hotkey" id="skillKey_helmet">R</span>
+              <span class="rarity-badge rarity-normal skill-rarity-badge" id="skillBadge_helmet">N</span>
+              <span class="skill-mix-pill" id="skillMix_helmet" hidden>MIX</span>
+            </div>
+            <div class="skill-meta">
+              <div class="skill-name" id="skillName_helmet">คำรามราชสีห์</div>
+              <div class="skill-gear-owner" id="skillOwner_helmet">หมวก · อัศวิน</div>
+              <div class="skill-charge-row">
+                <progress id="skillGauge_helmet" max="100" value="100" aria-label="เกจหมวก"></progress>
+                <span id="skillCharge_helmet">พร้อม</span>
+              </div>
+            </div>
+          </button>
+
+          <button type="button" class="skill-card ready" data-slot="trinket" id="skillBtn_trinket">
+            <div class="skill-icon-stage">
+              <img class="skill-gear-img" id="skillImg_trinket" src="/assets/tos/trinket/knight.png" alt="ผ้าคลุม/ประดับ" />
+              <div class="skill-cd-curtain" id="skillCurtain_trinket" style="height: 0%;"></div>
+              <div class="skill-cd-center" id="skillCenter_trinket"></div>
+              <span class="skill-hotkey" id="skillKey_trinket">F</span>
+              <span class="rarity-badge rarity-normal skill-rarity-badge" id="skillBadge_trinket">N</span>
+              <span class="skill-mix-pill" id="skillMix_trinket" hidden>MIX</span>
+            </div>
+            <div class="skill-meta">
+              <div class="skill-name" id="skillName_trinket">พุ่งชนโล่ราชรถ</div>
+              <div class="skill-gear-owner" id="skillOwner_trinket">ผ้าคลุม · อัศวิน</div>
+              <div class="skill-charge-row">
+                <progress id="skillGauge_trinket" max="100" value="100" aria-label="เกจผ้าคลุม"></progress>
+                <span id="skillCharge_trinket">พร้อม</span>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 4 Modular Gear Skill Buttons (Weapon Q, Armor E, Helmet R, Trinket F) -->
-    <div class="skills-dock glass-box" id="skillsDock">
-      <button class="skill-card" data-slot="weapon" id="skillBtn_weapon">
-        <div class="skill-hotkey" id="skillKey_weapon">Q · อาวุธ</div>
-        <div class="skill-name" id="skillName_weapon">คลื่นดาบเอ็กซ์คาลิเบอร์</div>
-        <div class="skill-gear-owner" id="skillOwner_weapon">อัศวินเกราะเหล็ก</div>
-        <div class="skill-charge-row">
-          <progress id="skillGauge_weapon" max="100" value="100" aria-label="เกจอาวุธ"></progress>
-          <span id="skillCharge_weapon">พร้อม</span>
-        </div>
-      </button>
-
-      <button class="skill-card" data-slot="armor" id="skillBtn_armor">
-        <div class="skill-hotkey" id="skillKey_armor">E · ชุดเกราะ</div>
-        <div class="skill-name" id="skillName_armor">ปราการศักดิ์สิทธิ์</div>
-        <div class="skill-gear-owner" id="skillOwner_armor">กดใช้ตอนโดนตีได้!</div>
-        <div class="skill-charge-row">
-          <progress id="skillGauge_armor" max="100" value="100" aria-label="เกจชุดเกราะ"></progress>
-          <span id="skillCharge_armor">พร้อม</span>
-        </div>
-      </button>
-
-      <button class="skill-card" data-slot="helmet" id="skillBtn_helmet">
-        <div class="skill-hotkey" id="skillKey_helmet">R · หมวก</div>
-        <div class="skill-name" id="skillName_helmet">คำรามราชสีห์</div>
-        <div class="skill-gear-owner" id="skillOwner_helmet">อัศวินเกราะเหล็ก</div>
-        <div class="skill-charge-row">
-          <progress id="skillGauge_helmet" max="100" value="100" aria-label="เกจหมวก"></progress>
-          <span id="skillCharge_helmet">พร้อม</span>
-        </div>
-      </button>
-
-      <button class="skill-card" data-slot="trinket" id="skillBtn_trinket">
-        <div class="skill-hotkey" id="skillKey_trinket">F · เครื่องประดับ</div>
-        <div class="skill-name" id="skillName_trinket">พุ่งชนโล่ราชรถ</div>
-        <div class="skill-gear-owner" id="skillOwner_trinket">อัศวินเกราะเหล็ก</div>
-        <div class="skill-charge-row">
-          <progress id="skillGauge_trinket" max="100" value="100" aria-label="เกจเครื่องประดับ"></progress>
-          <span id="skillCharge_trinket">พร้อม</span>
-        </div>
-      </button>
-    </div>
-
-    <!-- 10-Hero Hot-Swap Bar (Keys 1 to 0) -->
-    <div class="hero-swap-bar glass-box" id="heroSwapBar">
+    <!-- 10-Hero Instant Hot-Swap Dock (Keys 1 to 0) -->
+    <div class="hero-swap-bar glossy-panel" id="heroSwapBar" aria-label="แถบสลับฮีโร่ด่วน 10 ตัว">
       <!-- Populated dynamically from GAME_DATA.HERO_LIST -->
     </div>
   </footer>
 
   <!-- ==================================================================== -->
-  <!-- LAN LOBBY & 10 HEROES SKILL ENCYCLOPEDIA MODAL                       -->
+  <!-- MODULAR DRAGGABLE POP-UP WINDOWS LAYER (Windows-style over live HQ)  -->
   <!-- ==================================================================== -->
-  <div id="lobbyModal" class="modal-backdrop">
-    <div class="lobby-container">
-      <div class="lobby-header">
-        <div>
-          <h1>⚔️ LOST SAGA 3D ARENA LAN</h1>
-          <p class="subtitle">เกมแอ็กชันตะลุมบอน 3D ผ่าน LAN • 10 ฮีโร่ เกียร์ 40 ชิ้น • ตีเกราะหลุดและขโมยสกิล</p>
+  <div id="windowsLayer" class="windows-layer">
+
+    <!-- WINDOW 1: MY ITEM (คลังเก็บของ · Mix & Match Grid + Live 3D Preview) -->
+    <section id="winInventory" class="arcade-window win-inventory hidden" data-win-id="winInventory" style="left: 28px; top: 72px;">
+      <div class="window-titlebar theme-sky" data-drag-handle="winInventory">
+        <div class="window-title">
+          <span class="win-icon">🎒</span>
+          <span>คลังเก็บของ (My Item · Mix &amp; Match 3D)</span>
         </div>
-        <div class="lan-box" id="lobbyLanBox">
-          <div class="lan-box-title">📡 ลิงก์เชื่อมต่อ LAN (ให้เพื่อนในวง Wi-Fi/LAN เปิดในเบราว์เซอร์):</div>
-          <div id="lobbyLanUrls" class="lan-urls">กำลังโหลด IP...</div>
+        <div class="window-controls">
+          <button type="button" class="win-ctrl-btn win-min" data-minimize="winInventory" title="ย่อ/ขยายหน้าต่าง">—</button>
+          <button type="button" class="win-ctrl-btn win-close" data-close="winInventory" title="ปิดหน้าต่าง">✕</button>
         </div>
       </div>
 
-      <div class="lobby-grid">
-        <!-- Left Column: Player & Room Config -->
-        <div class="lobby-col config-col">
-          <h3>1. ตั้งค่านักสู้ & ห้อง LAN</h3>
-          <label class="field-label">ชื่อในเกม (Player Name)</label>
-          <input type="text" id="inputPlayerName" class="text-input" value="นักสู้ LAN" maxlength="16" />
-
-          <label class="field-label">เลือกห้อง LAN หรือตั้งชื่อห้องใหม่</label>
-          <div class="room-list" id="lobbyRoomList"></div>
-
-          <div class="inline-row">
-            <input type="text" id="inputRoomId" class="text-input" value="LAN-1" placeholder="รหัสห้อง เช่น LAN-1" />
-            <select id="selectGameMode" class="text-input">
-              <option value="ffa">🔥 ตะลุมบอน (Free-For-All)</option>
-              <option value="team">🛡️ แบ่งทีม (Blue vs Red)</option>
-            </select>
+      <div class="window-body inventory-split">
+        <!-- Left Panel: Category Tabs + Rarity Filter + Scrollable Icon Grid -->
+        <div class="inv-left">
+          <div class="inv-tabs" id="invCategoryTabs" role="tablist">
+            <button type="button" class="glossy-tab active" data-cat="hero">👤 ฮีโร่</button>
+            <button type="button" class="glossy-tab" data-cat="weapon">⚔️ อาวุธ</button>
+            <button type="button" class="glossy-tab" data-cat="armor">🛡️ ชุด</button>
+            <button type="button" class="glossy-tab" data-cat="helmet">🪖 หมวก</button>
+            <button type="button" class="glossy-tab" data-cat="trinket">🧣 ผ้าคลุม</button>
           </div>
 
-          <label class="field-label" for="selectArenaMap">เลือกสนามประลอง (ระวังตกขอบสนาม)</label>
-          <select id="selectArenaMap" class="text-input" aria-describedby="arenaMapDescription"></select>
-          <p id="arenaMapDescription" class="arena-map-description"></p>
-          <p class="arena-map-description">
-            <kbd>WASD</kbd> เดิน · <kbd>J</kbd> โจมตี · <kbd>K</kbd> โจมตีหนัก<br />
-            สายยิงกด <kbd>J</kbd> ค้างเพื่อเล็ง ใช้ลูกศรเปลี่ยนเป้า แล้วปล่อยเพื่อยิง<br />
-            <kbd>G</kbd> เก็บหรือสลับเกียร์ · คลิกขวาที่ช่องเกียร์เพื่อถอด
-          </p>
+          <div class="inv-filter-row" id="invRarityFilters">
+            <button type="button" class="filter-chip active" data-rarity="all">ทั้งหมด</button>
+            <button type="button" class="filter-chip chip-normal" data-rarity="normal">● Normal</button>
+            <button type="button" class="filter-chip chip-rare" data-rarity="rare">● Rare</button>
+            <button type="button" class="filter-chip chip-unique" data-rarity="unique">● Unique</button>
+            <button type="button" class="filter-chip chip-epic" data-rarity="epic">● Epic</button>
+          </div>
 
-          <p id="rendererError" class="renderer-error" role="alert" hidden>เปิดสนาม 3D ไม่สำเร็จ โปรดเปิด WebGL 2 ในเบราว์เซอร์แล้วโหลดหน้าใหม่</p>
-          <button id="btnJoinBattle" class="btn-primary-join" disabled>🚀 เข้าสู่สนามประลองทันที!</button>
+          <div class="item-grid" id="invItemGrid">
+            <!-- Populated dynamically with glossy color-coded cards -->
+          </div>
+
+          <!-- Selected Item Info Strip -->
+          <div class="inv-item-inspector" id="invItemInspector">
+            <div class="inspector-empty">คลิกฮีโร่หรืออุปกรณ์ด้านบนเพื่อแต่งตัวและดูผลบนโมเดล 3D ทันที</div>
+          </div>
         </div>
 
-        <!-- Right Column: 10 Heroes & 40 Skills Showcase -->
-        <div class="lobby-col heroes-col">
-          <h3>2. เลือกฮีโร่เริ่มต้น (สลับได้ครบทั้ง 10 ตัวในสนามด้วยปุ่ม 1 - 0!)</h3>
-          <div class="hero-grid" id="lobbyHeroGrid"></div>
+        <!-- Right Panel: Live Interactive 3D Character Preview & Equipped Summary -->
+        <div class="inv-right">
+          <div class="preview-stage-card">
+            <div class="preview-stage-top">
+              <div class="preview-hero-title">
+                <span id="previewHeroName">อัศวินเกราะเหล็ก</span>
+                <span class="rarity-badge rarity-normal" id="previewHeroRarity">Normal</span>
+              </div>
+              <span class="preview-drag-hint">🖱️ ลากหมุน 360°</span>
+            </div>
 
-          <!-- Selected Hero Detailed 4-Gear Skills Preview -->
-          <div class="hero-detail-card" id="lobbyHeroDetail"></div>
+            <div class="preview-canvas-wrap">
+              <canvas id="inventoryPreviewCanvas"></canvas>
+              <div class="preview-pose-bar">
+                <button type="button" class="pose-btn active" data-pose="idle">ยืน</button>
+                <button type="button" class="pose-btn" data-pose="attack">โจมตี</button>
+                <button type="button" class="pose-btn" data-pose="heavy">ท่าหนัก</button>
+                <button type="button" class="pose-btn" data-pose="skill">สกิล</button>
+              </div>
+            </div>
+
+            <div class="preview-stats-bar" id="previewStatsBar">
+              <span>❤️ HP 125</span>
+              <span>⚡ SPD 5.4</span>
+              <span>🦘 2-Jump</span>
+            </div>
+
+            <!-- 4 Active Equipped Gear Slots Summary -->
+            <div class="equipped-slots-grid" id="invEquippedStrip">
+              <!-- Populated dynamically for weapon/armor/helmet/trinket -->
+            </div>
+
+            <div class="preview-actions">
+              <button type="button" class="arcade-btn btn-purple btn-sm" id="btnRandomMix">🎲 สุ่ม Mix &amp; Match</button>
+              <button type="button" class="arcade-btn btn-soft btn-sm" id="btnResetSet">🔄 ชุดประจำฮีโร่</button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- WINDOW 2: BATTLE LIST & LAN ROOM CONFIG (รายชื่อห้องประลอง) -->
+    <section id="winBattleList" class="arcade-window win-battle hidden" data-win-id="winBattleList" style="left: 256px; top: 72px;">
+      <div class="window-titlebar theme-emerald" data-drag-handle="winBattleList">
+        <div class="window-title">
+          <span class="win-icon">⚔️</span>
+          <span>รายชื่อห้องประลอง (Battle List &amp; LAN)</span>
+        </div>
+        <div class="window-controls">
+          <button type="button" class="win-ctrl-btn win-refresh" id="btnRefreshRooms" title="รีเฟรชรายชื่อห้อง">↻</button>
+          <button type="button" class="win-ctrl-btn win-min" data-minimize="winBattleList" title="ย่อ/ขยายหน้าต่าง">—</button>
+          <button type="button" class="win-ctrl-btn win-close" data-close="winBattleList" title="ปิดหน้าต่าง">✕</button>
+        </div>
+      </div>
+
+      <div class="window-body battle-split">
+        <!-- Left: Active Rooms & LAN Connection -->
+        <div class="battle-left">
+          <div class="lan-banner-card">
+            <div class="lan-banner-title">📡 ลิงก์ LAN สำหรับเพื่อนในวง Wi-Fi เดียวกัน</div>
+            <div id="lobbyLanUrls" class="lan-urls">กำลังโหลด IP...</div>
+          </div>
+
+          <div class="section-heading">
+            <span>🏟️ ห้องประลองที่เปิดอยู่</span>
+            <span class="section-hint">คลิกเพื่อเลือกห้อง</span>
+          </div>
+          <div class="room-list" id="lobbyRoomList"></div>
+
+          <div class="controls-card">
+            <div class="controls-card-title">🎮 คู่มือปุ่มควบคุม (ซ้อมคอมโบใน HQ ได้เลย!)</div>
+            <div class="controls-grid">
+              <span><kbd>WASD</kbd> เคลื่อนที่</span>
+              <span><kbd>Shift</kbd> วิ่งเร็ว · ดับเบิลแท็บ แดช</span>
+              <span><kbd>J</kbd> โจมตี / ค้างเล็งสายยิง</span>
+              <span><kbd>K</kbd> โจมตีหนักทะลวงการ์ด</span>
+              <span><kbd>L</kbd> ตั้งการ์ด / Perfect Guard</span>
+              <span><kbd>Space</kbd> กระโดด / บิน</span>
+              <span><kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd><kbd>F</kbd> สกิลเกียร์ 4 ช่อง</span>
+              <span><kbd>1</kbd>-<kbd>0</kbd> สลับฮีโร่ 10 ตัวทันที</span>
+              <span><kbd>G</kbd> เก็บเกียร์ · คลิกขวาช่องเกียร์เพื่อถอด</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Fighter Setup, Map Picker & Join Button -->
+        <div class="battle-right">
+          <div class="section-heading"><span>🛡️ ตั้งค่านักสู้ &amp; สร้าง/เข้าห้อง</span></div>
+
+          <label class="field-label" for="inputPlayerName">ชื่อนักสู้ (Player Name)</label>
+          <input type="text" id="inputPlayerName" class="glossy-input" value="นักสู้ LAN" maxlength="16" />
+
+          <div class="inline-row">
+            <div class="field-group">
+              <label class="field-label" for="inputRoomId">รหัสห้อง</label>
+              <input type="text" id="inputRoomId" class="glossy-input" value="LAN-1" placeholder="เช่น LAN-1" />
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="selectGameMode">โหมดการเล่น</label>
+              <select id="selectGameMode" class="glossy-input">
+                <option value="ffa">🔥 ตะลุมบอน (FFA)</option>
+                <option value="team">🛡️ แบ่งทีม (Blue vs Red)</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="field-label" for="selectArenaMap">เลือกสนามประลอง (Arena Map)</label>
+          <select id="selectArenaMap" class="glossy-input" aria-describedby="arenaMapDescription"></select>
+          <p id="arenaMapDescription" class="arena-map-description"></p>
+
+          <p id="rendererError" class="renderer-error" role="alert" hidden>
+            เปิดสนาม 3D ไม่สำเร็จ โปรดเปิด WebGL 2 ในเบราว์เซอร์แล้วโหลดหน้าใหม่
+          </p>
+
+          <button type="button" id="btnJoinBattle" class="arcade-btn btn-emerald btn-join-big" disabled>
+            🚀 เข้าสู่ห้องประลองทันที!
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- WINDOW 3: HERO & GEAR SHOP (ร้านค้า · สีแบ่งเกรดชัดเจน) -->
+    <section id="winShop" class="arcade-window win-shop hidden" data-win-id="winShop" style="left: 110px; top: 94px;">
+      <div class="window-titlebar theme-amber" data-drag-handle="winShop">
+        <div class="window-title">
+          <span class="win-icon">🛒</span>
+          <span>ร้านค้าฮีโร่ &amp; อุปกรณ์ (Lost Saga Shop)</span>
+        </div>
+        <div class="window-controls">
+          <span class="titlebar-peso" id="shopPesoBalance">🪙 30,000 P</span>
+          <button type="button" class="win-ctrl-btn win-bonus" id="btnClaimBonus" title="รับโบนัสเหรียญ LAN ฟรี +10,000 P">+10k P</button>
+          <button type="button" class="win-ctrl-btn win-min" data-minimize="winShop" title="ย่อ/ขยายหน้าต่าง">—</button>
+          <button type="button" class="win-ctrl-btn win-close" data-close="winShop" title="ปิดหน้าต่าง">✕</button>
+        </div>
+      </div>
+
+      <div class="window-body shop-body">
+        <div class="inv-tabs" id="shopCategoryTabs" role="tablist">
+          <button type="button" class="glossy-tab active" data-shop-cat="featured">🔥 แนะนำ</button>
+          <button type="button" class="glossy-tab" data-shop-cat="hero">👤 ฮีโร่</button>
+          <button type="button" class="glossy-tab" data-shop-cat="weapon">⚔️ อาวุธ</button>
+          <button type="button" class="glossy-tab" data-shop-cat="armor">🛡️ ชุด</button>
+          <button type="button" class="glossy-tab" data-shop-cat="helmet">🪖 หมวก</button>
+          <button type="button" class="glossy-tab" data-shop-cat="trinket">🧣 ผ้าคลุม</button>
+        </div>
+
+        <div class="shop-grid" id="shopItemGrid">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
   </div>
+
+  <!-- Legacy compatibility anchor (non-blocking) -->
+  <div id="lobbyModal" class="hidden" aria-hidden="true"></div>
 
   <script src="/vendor/effekseer/effekseer.min.js" onerror="window.__effekseerOptionalMissing = true"></script>
   <script src="/js/effekseer_knight_bridge.js"></script>
@@ -198,11 +438,17 @@
   <script src="/js/game_client.js"></script>
   <script type="module">
     try {
-      const { ThreeRenderer } = await import('/js/three/renderer3d.js');
+      const [{ ThreeRenderer }, { CharacterPreview3D }] = await Promise.all([
+        import('/js/three/renderer3d.js'),
+        import('/js/three/preview3d.js')
+      ]);
+      window.createCharacterPreview3D = (canvas) => new CharacterPreview3D(canvas);
       window.startArenaGame(new ThreeRenderer(document.getElementById('gameCanvas')));
     } catch (error) {
       console.error('Could not start the 3D arena:', error);
-      document.getElementById('rendererError').hidden = false;
+      const errEl = document.getElementById('rendererError');
+      if (errEl) errEl.hidden = false;
+      document.getElementById('winBattleList')?.classList.remove('hidden');
     }
   </script>
 </body>

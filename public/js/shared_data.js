@@ -15,7 +15,21 @@
     weapon: { th: 'อาวุธ', en: 'Weapon', key: 'Q' },
     armor:  { th: 'ชุดเกราะ', en: 'Armor', key: 'E' },
     helmet: { th: 'หมวก', en: 'Helmet', key: 'R' },
-    trinket:{ th: 'เครื่องประดับ', en: 'Trinket', key: 'F' }
+    trinket:{ th: 'ผ้าคลุม/ประดับ', en: 'Trinket', key: 'F' }
+  };
+
+  const RARITY_TIERS = {
+    normal: { id: 'normal', code: 'N', labelTh: 'ปกติ',  labelEn: 'Normal', color: '#15803d', bg: '#22c55e', border: '#16a34a', softBg: '#dcfce7' },
+    rare:   { id: 'rare',   code: 'R', labelTh: 'หายาก', labelEn: 'Rare',   color: '#a16207', bg: '#facc15', border: '#eab308', softBg: '#fef9c3' },
+    unique: { id: 'unique', code: 'U', labelTh: 'พิเศษ', labelEn: 'Unique', color: '#b91c1c', bg: '#ef4444', border: '#dc2626', softBg: '#fee2e2' },
+    epic:   { id: 'epic',   code: 'E', labelTh: 'ตำนาน', labelEn: 'Epic',   color: '#6d28d9', bg: '#a855f7', border: '#7c3aed', softBg: '#f3e8ff' }
+  };
+
+  const ITEM_STATUS_BADGES = {
+    perm:    { id: 'perm',    labelTh: 'ถาวร',    labelEn: 'Permanent', bg: '#16a34a', color: '#ffffff' },
+    rent:    { id: 'rent',    labelTh: 'เช่า 7วัน', labelEn: 'Rental',    bg: '#f59e0b', color: '#ffffff' },
+    expired: { id: 'expired', labelTh: 'หมดอายุ',  labelEn: 'Expired',   bg: '#dc2626', color: '#ffffff' },
+    event:   { id: 'event',   labelTh: 'ลิมิเต็ด',  labelEn: 'Limited',   bg: '#9333ea', color: '#ffffff' }
   };
 
   // --------------------------------------------------------------------------
@@ -947,14 +961,60 @@
 
   const HERO_LIST = Object.values(HEROES);
 
+  // Assign color-coded rarity tiers, catalog prices, and initial status tags
+  // across all 10 heroes and 40 gear pieces (Green/Yellow/Red/Purple badges).
+  const HERO_CATALOG_META = {
+    knight:  { rarity: 'normal', defaultStatus: 'perm',  shopPrice: 4500 },
+    cowboy:  { rarity: 'normal', defaultStatus: 'perm',  shopPrice: 4500 },
+    viking:  { rarity: 'normal', defaultStatus: 'rent',  shopPrice: 5200 },
+    ninja:   { rarity: 'rare',   defaultStatus: 'perm',  shopPrice: 7500 },
+    mage:    { rarity: 'rare',   defaultStatus: 'perm',  shopPrice: 7500 },
+    striker: { rarity: 'rare',   defaultStatus: 'rent',  shopPrice: 8200 },
+    samurai: { rarity: 'unique', defaultStatus: 'perm',  shopPrice: 11500 },
+    witch:   { rarity: 'unique', defaultStatus: 'rent',  shopPrice: 11500 },
+    cyborg:  { rarity: 'epic',   defaultStatus: 'perm',  shopPrice: 15000 },
+    reaper:  { rarity: 'epic',   defaultStatus: 'event', shopPrice: 15500 }
+  };
+
+  const GEAR_STATUS_OVERRIDES = {
+    viking_helmet: 'expired',
+    witch_trinket: 'expired',
+    cowboy_trinket: 'rent',
+    ninja_armor: 'rent',
+    mage_helmet: 'rent',
+    samurai_trinket: 'event',
+    cyborg_trinket: 'event',
+    reaper_weapon: 'event'
+  };
+
+  const GEAR_RARITY_OVERRIDES = {
+    knight_weapon: 'rare',
+    cowboy_trinket: 'rare',
+    viking_weapon: 'rare',
+    ninja_weapon: 'unique',
+    mage_weapon: 'unique',
+    striker_helmet: 'unique',
+    samurai_weapon: 'epic',
+    witch_weapon: 'epic',
+    cyborg_trinket: 'epic',
+    reaper_weapon: 'epic'
+  };
+
   // Build lookup dictionary of all 40 skills by skillId
   const SKILLS_BY_ID = {};
   HERO_LIST.forEach(hero => {
+    const meta = HERO_CATALOG_META[hero.id] || { rarity: 'normal', defaultStatus: 'perm', shopPrice: 5000 };
+    hero.rarity = meta.rarity;
+    hero.defaultStatus = meta.defaultStatus;
+    hero.shopPrice = meta.shopPrice;
     GEAR_SLOTS.forEach(slot => {
       const sk = hero.skills[slot];
       if (sk) {
         sk.type ??= sk.usableWhileHit ? 'counter' : 'active';
         if (sk.type !== 'passive') sk.gaugeCost ??= 100;
+        sk.rarity = GEAR_RARITY_OVERRIDES[sk.id] || meta.rarity;
+        sk.defaultStatus = GEAR_STATUS_OVERRIDES[sk.id] || meta.defaultStatus;
+        sk.shopPrice = Math.round(meta.shopPrice * (slot === 'weapon' ? 0.55 : 0.4));
         SKILLS_BY_ID[sk.id] = sk;
       }
     });
@@ -1175,6 +1235,8 @@
     RANGED_AIM_HOLD_MS: 220,
     GEAR_SLOTS,
     GEAR_SLOT_LABELS,
+    RARITY_TIERS,
+    ITEM_STATUS_BADGES,
     HEROES,
     HERO_LIST,
     SKILLS_BY_ID,

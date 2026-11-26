@@ -644,6 +644,43 @@ class GameRoom {
     return true;
   }
 
+  // Mix & Match gear swap from My Item inventory (supports all 4 gear slots)
+  equipGear(player, slot, gearHeroId) {
+    const now = Date.now();
+    if (player.state === 'dead') return false;
+    if (!GAME_DATA.GEAR_SLOTS.includes(slot) || !GAME_DATA.HEROES[gearHeroId]) return false;
+    if (player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen') {
+      this.emitFx('text', player.x, player.y + 1.8, player.z, { text: 'เปลี่ยนเกียร์ขณะถูกโจมตีไม่ได้!', color: '#f87171' });
+      return false;
+    }
+    if (player.gear[slot] === gearHeroId) return false;
+
+    const prevSkill = this.equippedSkill(player, slot);
+    const prevGauge = player.skillGauges[slot];
+    if (prevSkill && prevGauge) rechargeSkillGauge(prevGauge, prevSkill, now);
+    const carriedCharge = prevGauge ? Math.min(100, prevGauge.charge) : 50;
+
+    player.gear[slot] = gearHeroId;
+    player.skillGauges[slot] = {
+      charge: carriedCharge,
+      updatedAt: now,
+      nextUseAt: prevGauge ? Math.max(0, prevGauge.nextUseAt) : 0
+    };
+    if (slot !== 'weapon') {
+      if (gearHeroId === player.heroId) player.acquiredGear.delete(slot);
+      else player.acquiredGear.add(slot);
+    }
+    if (player.targeting?.slot === slot) this.clearTargeting(player);
+
+    const gearHero = GAME_DATA.HEROES[gearHeroId];
+    const slotLabel = GAME_DATA.GEAR_SLOT_LABELS[slot]?.th || slot;
+    this.emitFx('pickup', player.x, player.y + 1.5, player.z, {
+      text: `เปลี่ยน [${slotLabel}] ${gearHero.nameTh}!`,
+      color: gearHero.accentColor || '#4ade80'
+    });
+    return true;
+  }
+
   stripOneGear(victim) {
     const slot = ['helmet', 'trinket', 'armor'].find(slot => victim.gear[slot] !== null);
     if (!slot || !this.dropGear(victim, slot, true)) return false;
@@ -2916,6 +2953,7 @@ class GameRoom {
         gear: p.gear,
         skillGauges,
         cooldowns,
+        swapCooldownMs: Math.max(0, 1500 - (now - (p.lastSwapTime || 0))),
         buffs: {
           invuln: now < p.invulnUntil,
           superArmor: now < p.superArmorUntil,
@@ -3030,6 +3068,8 @@ function isValidClientMessage(msg) {
       return GAME_DATA.GEAR_SLOTS.includes(msg.slot);
     case 'drop_gear':
       return msg.slot !== 'weapon' && GAME_DATA.GEAR_SLOTS.includes(msg.slot);
+    case 'equip_gear':
+      return GAME_DATA.GEAR_SLOTS.includes(msg.slot) && isId(msg.heroId, GAME_DATA.HEROES);
     case 'swap_hero':
       return isId(msg.heroId, GAME_DATA.HEROES);
     case 'add_bot':
@@ -3176,6 +3216,10 @@ wss.on('connection', (ws) => {
       }
       case 'drop_gear': {
         currentRoom.dropGear(currentPlayer, msg.slot);
+        break;
+      }
+      case 'equip_gear': {
+        currentRoom.equipGear(currentPlayer, msg.slot, msg.heroId);
         break;
       }
       case 'add_bot': {
