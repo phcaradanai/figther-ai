@@ -23,6 +23,16 @@ window.startArenaGame = function (renderer) {
     if (el && el.style) el.style[prop] = value;
   }
 
+  function setVar(el, name, value) {
+    if (el && el.style && typeof el.style.setProperty === 'function') el.style.setProperty(name, String(value));
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? '').replace(/[&<>"']/g, ch => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+  }
+
   function queryAll(selector, root = document) {
     return typeof root?.querySelectorAll === 'function' ? Array.from(root.querySelectorAll(selector)) : [];
   }
@@ -217,6 +227,12 @@ window.startArenaGame = function (renderer) {
   const shopItemGrid = document.getElementById('shopItemGrid');
   const leftHud = document.getElementById('leftHud');
   const rightHud = document.getElementById('rightHud');
+  const trainingTray = document.getElementById('trainingTray');
+  const btnTrainingTools = document.getElementById('btnTrainingTools');
+  const heroCarouselPrev = document.getElementById('heroCarouselPrev');
+  const heroCarouselNext = document.getElementById('heroCarouselNext');
+  const minimapCanvas = document.getElementById('minimapCanvas');
+  const minimapLabel = document.getElementById('minimapLabel');
 
   // Populate arena map selects
   for (const select of [selectArenaMap, selectMapInGame]) {
@@ -459,7 +475,6 @@ window.startArenaGame = function (renderer) {
   document.getElementById('btnOpenInventory')?.addEventListener('click', () => toggleWindow('winInventory'));
   document.getElementById('btnOpenShop')?.addEventListener('click', () => toggleWindow('winShop'));
   document.getElementById('btnOpenLobby')?.addEventListener('click', () => toggleWindow('winBattleList'));
-  document.getElementById('btnQuickMix')?.addEventListener('click', () => openWindow('winInventory'));
   document.getElementById('btnRefreshRooms')?.addEventListener('click', () => {
     refreshLanInfo();
     showToast('อัปเดตรายชื่อห้อง LAN แล้ว', 'success');
@@ -468,6 +483,15 @@ window.startArenaGame = function (renderer) {
   document.getElementById('btnToggleSideHud')?.addEventListener('click', () => {
     leftHud?.classList.toggle('hidden');
     rightHud?.classList.toggle('hidden');
+  });
+
+  // TRAINING tab: opens the practice tools tray (bots, map, LAN link)
+  btnTrainingTools?.addEventListener('click', () => {
+    if (!trainingTray) return;
+    trainingTray.hidden = !trainingTray.hidden;
+    btnTrainingTools.classList.toggle('is-open', !trainingTray.hidden);
+    btnTrainingTools.setAttribute?.('aria-expanded', String(!trainingTray.hidden));
+    sfx.playUi('click');
   });
 
   document.getElementById('btnClaimBonus')?.addEventListener('click', () => {
@@ -485,8 +509,28 @@ window.startArenaGame = function (renderer) {
   }
 
   // --------------------------------------------------------------------------
-  // BUILD 10-HERO QUICK HOT-SWAP BAR (Bottom-Center Dock, Keys 1..0)
+  // 10-HERO HOT-SWAP CAROUSEL (Bottom-Center, 5 portraits visible, Keys 1..0)
   // --------------------------------------------------------------------------
+  const CAROUSEL_VISIBLE = 5;
+  const carouselMaxStart = Math.max(0, GAME_DATA.HERO_LIST.length - CAROUSEL_VISIBLE);
+  let carouselStart = 0;
+  let carouselHeroId = null;
+
+  function setCarouselStart(start) {
+    carouselStart = Math.max(0, Math.min(carouselMaxStart, start));
+    setVar(heroSwapBar, '--carousel-start', carouselStart);
+    if (heroCarouselPrev) heroCarouselPrev.disabled = carouselStart <= 0;
+    if (heroCarouselNext) heroCarouselNext.disabled = carouselStart >= carouselMaxStart;
+  }
+
+  // Page so the given hero's portrait is on screen (only when it is off screen)
+  function revealHeroInCarousel(heroId) {
+    const idx = GAME_DATA.HERO_LIST.findIndex(h => h.id === heroId);
+    if (idx < 0) return;
+    if (idx < carouselStart) setCarouselStart(idx);
+    else if (idx >= carouselStart + CAROUSEL_VISIBLE) setCarouselStart(idx - CAROUSEL_VISIBLE + 1);
+  }
+
   function initHeroSwapBar() {
     heroSwapBar.innerHTML = '';
 
@@ -499,11 +543,12 @@ window.startArenaGame = function (renderer) {
       swapBtn.className = `swap-hero-btn ${hero.id === selectedHeroId ? 'active' : ''}`;
       swapBtn.dataset.heroId = hero.id;
       swapBtn.title = `[${hotkeyLabel}] ${hero.nameTh} (${hero.nameEn}) · ${RARITY_TIERS[rarity]?.labelEn || 'Normal'}`;
+      setVar(swapBtn, '--hero-color', hero.color || '#2b6cff');
+      setVar(swapBtn, '--hero-accent', hero.accentColor || '#8fd0ff');
       swapBtn.innerHTML = `
+        <img class="swap-hero-icon" src="/assets/tos/head/${hero.id}.png" alt="${hero.nameTh}" />
         <span class="swap-key">${hotkeyLabel}</span>
-        <img class="swap-hero-icon" src="/assets/tos/head/${hero.id}.png" alt="" />
         <span class="swap-rarity-dot ${rarity}"></span>
-        <span>${hero.nameTh}</span>
         <span class="swap-cd-overlay"></span>
       `;
       swapBtn.addEventListener('click', () => {
@@ -511,8 +556,202 @@ window.startArenaGame = function (renderer) {
       });
       heroSwapBar.appendChild(swapBtn);
     });
+
+    heroCarouselPrev?.addEventListener('click', () => setCarouselStart(carouselStart - 1));
+    heroCarouselNext?.addEventListener('click', () => setCarouselStart(carouselStart + 1));
+    setCarouselStart(0);
+    revealHeroInCarousel(selectedHeroId);
   }
   initHeroSwapBar();
+
+  // --------------------------------------------------------------------------
+  // TOP-RIGHT MINIMAP (turned with the camera: up on the minimap = up on screen)
+  // --------------------------------------------------------------------------
+  const minimap = {
+    ctx: typeof minimapCanvas?.getContext === 'function' ? minimapCanvas.getContext('2d') : null,
+    mapId: null,
+    cssSize: 0,
+    dpr: 1,
+    base: null,
+    axes: null,
+    toScreen: null
+  };
+
+  function minimapAxes() {
+    // World XZ directions of screen-right and screen-down, taken from the renderer's camera mapping
+    const right = renderer.transformInputByCamera?.(1, 0) || { mx: 1, mz: 0 };
+    const down = renderer.transformInputByCamera?.(0, 1) || { mx: 0, mz: 1 };
+    const rl = Math.hypot(right.mx, right.mz) || 1;
+    const dl = Math.hypot(down.mx, down.mz) || 1;
+    return { rx: right.mx / rl, rz: right.mz / rl, dx: down.mx / dl, dz: down.mz / dl };
+  }
+
+  function buildMinimapBase(map) {
+    const cssSize = minimapCanvas.clientWidth || 168;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    minimapCanvas.width = Math.round(cssSize * dpr);
+    minimapCanvas.height = Math.round(cssSize * dpr);
+
+    const axes = minimapAxes();
+    const project = (x, z) => ({ u: x * axes.rx + z * axes.rz, v: x * axes.dx + z * axes.dz });
+    const rects = [...(map.platforms || [])];
+    if (map.lava) rects.push(map.lava);
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+    for (const r of rects) {
+      for (const [cx, cz] of [[r.x, r.z], [r.x + r.w, r.z], [r.x + r.w, r.z + r.d], [r.x, r.z + r.d]]) {
+        const p = project(cx, cz);
+        minU = Math.min(minU, p.u); maxU = Math.max(maxU, p.u);
+        minV = Math.min(minV, p.v); maxV = Math.max(maxV, p.v);
+      }
+    }
+    if (!Number.isFinite(minU)) { minU = -20; maxU = 20; minV = -20; maxV = 20; }
+    const pad = 10;
+    const scale = (cssSize - pad * 2) / Math.max(maxU - minU, maxV - minV, 1);
+    const offU = (cssSize - (maxU - minU) * scale) / 2;
+    const offV = (cssSize - (maxV - minV) * scale) / 2;
+    const toScreen = (x, z) => {
+      const p = project(x, z);
+      return { sx: offU + (p.u - minU) * scale, sy: offV + (p.v - minV) * scale };
+    };
+
+    const base = document.createElement('canvas');
+    base.width = minimapCanvas.width;
+    base.height = minimapCanvas.height;
+    const g = base.getContext('2d');
+    g.scale(dpr, dpr);
+
+    // Backdrop: deep blue with a faint scan grid
+    const bg = g.createRadialGradient(cssSize / 2, cssSize / 2, 8, cssSize / 2, cssSize / 2, cssSize * 0.72);
+    bg.addColorStop(0, 'rgba(18, 52, 120, 0.85)');
+    bg.addColorStop(1, 'rgba(4, 14, 40, 0.92)');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, cssSize, cssSize);
+    g.strokeStyle = 'rgba(120, 190, 255, 0.08)';
+    g.lineWidth = 1;
+    for (let i = 12; i < cssSize; i += 12) {
+      g.beginPath(); g.moveTo(i + 0.5, 0); g.lineTo(i + 0.5, cssSize); g.stroke();
+      g.beginPath(); g.moveTo(0, i + 0.5); g.lineTo(cssSize, i + 0.5); g.stroke();
+    }
+
+    const quad = (r) => {
+      const pts = [[r.x, r.z], [r.x + r.w, r.z], [r.x + r.w, r.z + r.d], [r.x, r.z + r.d]].map(([cx, cz]) => toScreen(cx, cz));
+      g.beginPath();
+      pts.forEach((p, i) => (i ? g.lineTo(p.sx, p.sy) : g.moveTo(p.sx, p.sy)));
+      g.closePath();
+    };
+
+    if (map.lava) {
+      quad(map.lava);
+      g.fillStyle = 'rgba(255, 110, 40, 0.38)';
+      g.fill();
+      g.strokeStyle = 'rgba(255, 160, 90, 0.7)';
+      g.stroke();
+    }
+    // Lower platforms first so raised ones draw on top, brighter
+    for (const pl of [...(map.platforms || [])].sort((a, b) => (a.y || 0) - (b.y || 0))) {
+      quad(pl);
+      const raised = (pl.y || 0) > 0.3;
+      g.fillStyle = raised ? 'rgba(120, 205, 255, 0.4)' : 'rgba(60, 140, 255, 0.3)';
+      g.fill();
+      g.strokeStyle = raised ? 'rgba(190, 240, 255, 0.9)' : 'rgba(130, 210, 255, 0.75)';
+      g.lineWidth = 1.2;
+      g.stroke();
+    }
+    for (const pillar of map.pillars || []) {
+      const p = toScreen(pillar.x, pillar.z);
+      g.beginPath();
+      g.arc(p.sx, p.sy, Math.max(1.5, pillar.r * scale), 0, Math.PI * 2);
+      g.fillStyle = 'rgba(6, 20, 52, 0.9)';
+      g.fill();
+      g.strokeStyle = 'rgba(130, 210, 255, 0.6)';
+      g.lineWidth = 1;
+      g.stroke();
+    }
+    for (const jumpPad of map.jumpPads || []) {
+      const p = toScreen(jumpPad.x, jumpPad.z);
+      g.beginPath();
+      g.arc(p.sx, p.sy, Math.max(2, jumpPad.r * scale), 0, Math.PI * 2);
+      g.fillStyle = 'rgba(110, 255, 220, 0.55)';
+      g.fill();
+    }
+
+    Object.assign(minimap, { mapId: map.id, cssSize, dpr, base, axes, toScreen });
+    if (minimapLabel) minimapLabel.textContent = (map.nameTh || map.nameEn || '').split(' (')[0];
+  }
+
+  function drawMinimap(state, me) {
+    if (!minimap.ctx || !state) return;
+    const map = GAME_DATA.MAPS[state.mapId];
+    if (!map) return;
+    if (minimap.mapId !== map.id || minimap.cssSize !== (minimapCanvas.clientWidth || 168)) {
+      buildMinimapBase(map);
+    }
+    const ctx = minimap.ctx;
+    const size = minimap.cssSize;
+    const clampPt = (p) => ({ sx: Math.max(4, Math.min(size - 4, p.sx)), sy: Math.max(4, Math.min(size - 4, p.sy)) });
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    ctx.drawImage(minimap.base, 0, 0);
+    ctx.setTransform(minimap.dpr, 0, 0, minimap.dpr, 0, 0);
+
+    // Dropped gear: small gold diamonds
+    ctx.fillStyle = '#ffd54a';
+    for (const gear of state.droppedGears || []) {
+      const p = clampPt(minimap.toScreen(gear.x, gear.z));
+      ctx.beginPath();
+      ctx.moveTo(p.sx, p.sy - 3.2); ctx.lineTo(p.sx + 3.2, p.sy);
+      ctx.lineTo(p.sx, p.sy + 3.2); ctx.lineTo(p.sx - 3.2, p.sy);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Other fighters: red = enemy, blue = teammate (stealthed enemies stay hidden)
+    for (const p of state.players) {
+      if (me && p.id === me.id) continue;
+      if (p.state === 'dead' || p.hp <= 0) continue;
+      const ally = state.mode === 'team' && me && p.team && p.team === me.team;
+      if (!ally && p.buffs?.stealth) continue;
+      const pt = clampPt(minimap.toScreen(p.x, p.z));
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = ally ? '#4cc3ff' : '#ff4d5e';
+      ctx.fill();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.stroke();
+    }
+
+    // You: green square with a gold core and a facing cone
+    if (me && me.state !== 'dead') {
+      const pt = clampPt(minimap.toScreen(me.x, me.z));
+      const ax = minimap.axes;
+      const fx = Math.cos(me.facing || 0), fz = Math.sin(me.facing || 0);
+      const ang = Math.atan2(fx * ax.dx + fz * ax.dz, fx * ax.rx + fz * ax.rz);
+      const cone = ctx.createRadialGradient(pt.sx, pt.sy, 2, pt.sx, pt.sy, 22);
+      cone.addColorStop(0, 'rgba(120, 255, 170, 0.5)');
+      cone.addColorStop(1, 'rgba(120, 255, 170, 0)');
+      ctx.beginPath();
+      ctx.moveTo(pt.sx, pt.sy);
+      ctx.arc(pt.sx, pt.sy, 22, ang - 0.5, ang + 0.5);
+      ctx.closePath();
+      ctx.fillStyle = cone;
+      ctx.fill();
+
+      ctx.shadowColor = 'rgba(60, 255, 140, 0.9)';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#19c45c';
+      ctx.fillRect(pt.sx - 5, pt.sy - 5, 10, 10);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = '#d8ffe6';
+      ctx.strokeRect(pt.sx - 5, pt.sy - 5, 10, 10);
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffe14a';
+      ctx.fill();
+    }
+  }
 
   // --------------------------------------------------------------------------
   // MY ITEM: MIX & MATCH GRID + INSPECTOR + EQUIPPED SUMMARY
@@ -927,7 +1166,7 @@ window.startArenaGame = function (renderer) {
         updateRoomListUI(msg.rooms || []);
       } else if (msg.type === 'joined') {
         localClientId = msg.clientId;
-        hudRoomInfo.textContent = `ห้อง: ${msg.roomId} (${msg.mode === 'team' ? 'Team' : 'FFA'})`;
+        hudRoomInfo.textContent = `ห้อง ${msg.roomId} · ${msg.mode === 'team' ? 'Team' : 'FFA'}`;
         selectMapInGame.value = msg.mapId;
       } else if (msg.type === 'state') {
         handleServerState(msg);
@@ -1096,27 +1335,12 @@ window.startArenaGame = function (renderer) {
       }
 
       const hero = GAME_DATA.HEROES[me.heroId] || GAME_DATA.HEROES.knight;
-      const heroIdx = GAME_DATA.HERO_LIST.findIndex(h => h.id === hero.id);
-      const heroKeyLabel = heroIdx === 9 ? '0' : String(Math.max(1, heroIdx + 1));
-      const heroRarity = RARITY_TIERS[hero.rarity || 'normal'] || RARITY_TIERS.normal;
 
-      // Active Hero Portrait + Corner Hotkey + Color-Coded Rarity Badge
-      const frame = document.getElementById('hudHeroFrame');
-      if (frame) frame.dataset.rarity = heroRarity.id;
-      const keyBadge = document.getElementById('hudHeroKey');
-      if (keyBadge) keyBadge.textContent = heroKeyLabel;
-      const rarityBadge = document.getElementById('hudHeroRarity');
-      if (rarityBadge) {
-        rarityBadge.textContent = heroRarity.code;
-        rarityBadge.className = `rarity-badge rarity-${heroRarity.id}`;
+      // Keep the active hero's portrait on screen when it changes (arrows still browse freely)
+      if (carouselHeroId !== hero.id) {
+        carouselHeroId = hero.id;
+        revealHeroInCarousel(hero.id);
       }
-
-      const badge = document.getElementById('hudHeroBadge');
-      if (badge.dataset.heroId !== hero.id) {
-        badge.dataset.heroId = hero.id;
-        badge.innerHTML = `<img class="hud-avatar-img" src="/assets/tos/head/${hero.id}.png" alt="${hero.nameEn}" />`;
-      }
-      setStyle(badge, 'background', `radial-gradient(circle at 35% 28%, ${hero.accentColor}, ${hero.color})`);
 
       document.getElementById('hudHeroName').textContent = `${hero.nameTh} (${hero.nameEn})`;
       document.getElementById('hudHeroRole').textContent = hero.roleEn || hero.roleTh;
@@ -1140,10 +1364,10 @@ window.startArenaGame = function (renderer) {
       const hpBar = document.getElementById('hudHpBar');
       setStyle(hpBar, 'width', `${hpPct}%`);
       setStyle(hpBar, 'background', hpPct > 50
-        ? 'linear-gradient(180deg, #4ade80 0%, #16a34a 100%)'
+        ? 'linear-gradient(180deg, #86ffb0 0%, #19c45c 100%)'
         : hpPct > 25
-        ? 'linear-gradient(180deg, #fde047 0%, #d97706 100%)'
-        : 'linear-gradient(180deg, #fb7185 0%, #dc2626 100%)');
+        ? 'linear-gradient(180deg, #ffe98a 0%, #f59e0b 100%)'
+        : 'linear-gradient(180deg, #ff9aa6 0%, #e11d48 100%)');
       document.getElementById('hudHpText').textContent = `${me.hp} / ${me.maxHp} HP`;
 
       // Glossy Mobility / Stamina Bar
@@ -1177,8 +1401,6 @@ window.startArenaGame = function (renderer) {
         const nameEl = document.getElementById(`skillName_${slot}`);
         const ownerEl = document.getElementById(`skillOwner_${slot}`);
         const condEl = document.getElementById(`skillCond_${slot}`);
-        const gauge = document.getElementById(`skillGauge_${slot}`);
-        const chargeEl = document.getElementById(`skillCharge_${slot}`);
         const imgEl = document.getElementById(`skillImg_${slot}`);
         const curtainEl = document.getElementById(`skillCurtain_${slot}`);
         const centerEl = document.getElementById(`skillCenter_${slot}`);
@@ -1253,15 +1475,10 @@ window.startArenaGame = function (renderer) {
         }
         if (mixEl) mixEl.hidden = !stolen;
 
-        // Real-time vertical rising cooldown curtain & center readout
-        if (curtainEl) {
-          if (!skill || passive || ready) {
-            setStyle(curtainEl, 'height', '0%');
-          } else {
-            const remainingPct = Math.max(0, Math.min(100, 100 - (charge ?? 0)));
-            setStyle(curtainEl, 'height', `${remainingPct}%`);
-          }
-        }
+        // Orb charge ring + clockwise cooldown sweep & center readout
+        const chargePct = !skill ? 0 : (passive || ready) ? 100 : Math.max(0, Math.min(100, charge ?? 0));
+        setVar(card, '--charge', chargePct);
+        setVar(curtainEl, '--remain', 100 - chargePct);
         if (centerEl) {
           if (!skill) centerEl.textContent = 'หลุด!';
           else if (passive || ready) centerEl.textContent = '';
@@ -1282,13 +1499,14 @@ window.startArenaGame = function (renderer) {
 
         keyEl.textContent = passive ? 'ติดตัว' : slotLabel.key;
         nameEl.textContent = skill?.nameTh ?? 'ช่องว่าง';
-        card.title = skill
-          ? `[${slotLabel.key}] ${skill.nameTh}: ${skill.descTh}${slot === 'weapon' ? ' · อาวุธประจำช่อง' : ' · คลิกขวาเพื่อถอด'}`
+        const descText = skill
+          ? `${skill.descTh}${slot === 'weapon' ? ' · อาวุธประจำช่อง' : ' · คลิกขวาเพื่อถอด'}`
           : 'เกียร์หลุด! กด G เพื่อเก็บเกียร์ใกล้ตัว หรือเปิดคลังเก็บของ (B)';
-
-        if (gauge.parentElement) gauge.parentElement.hidden = charge == null;
-        gauge.value = charge ?? 0;
-        chargeEl.textContent = ready ? 'พร้อม!' : `${charge ?? 0}%`;
+        const descEl = document.getElementById(`skillDesc_${slot}`);
+        if (descEl && descEl.textContent !== descText) descEl.textContent = descText;
+        card.setAttribute?.('aria-label', skill
+          ? `[${slotLabel.key} / ${slotLabel.altKey}] ${skill.nameTh}: ${descText}`
+          : descText);
 
         if (!skill) {
           ownerEl.textContent = 'กด G เก็บเกียร์';
@@ -1308,25 +1526,27 @@ window.startArenaGame = function (renderer) {
       });
     }
 
-    // Update Bright Glossy Scoreboard
+    drawMinimap(state, me);
+
+    // Scoreboard (names come from other players: escape before innerHTML)
     const sorted = [...state.players].sort((a, b) => b.score - a.score || b.kills - a.kills);
     scoreboardList.innerHTML = sorted.map((p, i) => {
       const h = GAME_DATA.HEROES[p.heroId];
       const isMe = p.id === localClientId;
       return `
         <div class="score-row ${isMe ? 'me' : ''}">
-          <span>${i + 1}. ${p.name} <span class="score-hero-tag">[${h?.nameTh || ''}]</span></span>
+          <span>${i + 1}. ${escapeHtml(p.name)} <span class="score-hero-tag">[${h?.nameTh || ''}]</span></span>
           <span>${p.kills}K / ${p.deaths}D</span>
         </div>
       `;
     }).join('');
 
-    // Update Bright Glossy Kill Feed
+    // Kill feed
     if (state.killFeed) {
       killFeedList.innerHTML = state.killFeed.map(kf => `
         <div class="kill-item ${kf.isRingOut ? 'ringout' : ''}">
-          <strong>${kf.killer}</strong> ➔ <strong>${kf.victim}</strong>
-          <div class="kill-method">${kf.method}</div>
+          <strong>${escapeHtml(kf.killer)}</strong> ➔ <strong>${escapeHtml(kf.victim)}</strong>
+          <div class="kill-method">${escapeHtml(kf.method)}</div>
         </div>
       `).join('');
     }
