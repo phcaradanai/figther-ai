@@ -226,6 +226,48 @@ test('Knight strikes coil high, then finish low with both boots on the floor', t
   for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the slam left a boot at ${y.toFixed(3)}`);
 });
 
+test('Knight gear skills hit their poses when their effects land', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const point = new Vector3();
+  const tip = () => knight.R.swordMount.localToWorld(point.set(0, 0, 1.04)).clone();
+  const hilt = () => knight.R.swordMount.localToWorld(point.set(0, 0, 0.16)).clone();
+  const hips = () => knight.R.hips.getWorldPosition(point).y;
+  const shield = () => knight.R.handL.localToWorld(point.set(0.08, -0.16, 0.02)).clone();
+  function cast(skill, frames) {
+    advance(knight, {}, 40);
+    advance(knight, { state: 'skill', animSkillId: skill }, frames);
+  }
+  advance(knight, {}, 40);
+  const standing = hips();
+
+  // Excalibur Wave: the effect glints on a raised blade, then chops into the floor at 0.085 s.
+  cast('knight_weapon', 3);
+  assert.equal(knight.currentName, 'sweep');
+  assert.ok(tip().y > 2.0, `blade tip at ${tip().y.toFixed(2)} during the glint`);
+  advance(knight, { state: 'skill', animSkillId: 'knight_weapon' }, 4);
+  assert.ok(tip().y < 0.7 && tip().z > 0.8, `blade tip at ${tip().toArray().map(v => v.toFixed(2))} after the chop`);
+
+  // Aegis Fortress: the ground impact lands at 0.05 s, on one knee behind the shield.
+  cast('knight_armor', 4);
+  assert.equal(knight.currentName, 'slam');
+  assert.ok(standing - hips() > 0.25, `hips only ${(standing - hips()).toFixed(2)} below standing on the plant`);
+  assert.ok(shield().y < 0.75 && shield().z > 0.35, `shield at ${shield().toArray().map(v => v.toFixed(2))}`);
+
+  // Lionheart Warcry: the pillar lands by 0.08 s, the sword thrust up into it.
+  cast('knight_helmet', 6);
+  assert.equal(knight.currentName, 'warcry');
+  const up = tip().sub(hilt()).normalize();
+  assert.ok(up.y > 0.9, `sword points ${up.toArray().map(v => v.toFixed(2))} during the roar`);
+
+  // Chariot Rush: shield in front from the push-off.
+  cast('knight_trinket', 4);
+  assert.equal(knight.currentName, 'charge');
+  knight.R.torso.getWorldPosition(point);
+  const chest = point.z;
+  assert.ok(shield().z - chest > 0.3, `shield only ${(shield().z - chest).toFixed(2)} ahead of the chest`);
+});
+
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());

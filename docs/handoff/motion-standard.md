@@ -102,7 +102,20 @@ The sword sections of the same recording (18.6–24.5 and 27.5–28.8) show one 
 
 - The server deals damage on the press and allows a swing every 280 ms, so the first two strikes reach contact near 0.12 s. Their holds give way to the next swing.
 - `stance()` places both boots on the floor through two-bone leg IK when a pose is authored. During a strike the lowest sole is pulled to the floor, and `KnightFootwork.ground()` sets the other boot flat on it. The finisher's leap (`KNIGHT_AIRBORNE`) is exempt.
-- Arm and wrist angles were solved against target blade directions and hand positions measured on the real rig. For example, the cleave's wind-up puts the hand above the right shoulder with the blade pointing up and back. Re-solve them in the lab if the sword mount or the rig changes.
+- Arm and wrist angles were solved against target blade directions and hand positions measured on the real rig. For example, the cleave's wind-up puts the hand above the right shoulder with the blade pointing up and back. If the sword mount or the rig changes, re-solve them with `lab.solve(side, clip, time, dir, at)` in the lab. `side` is `'R'` for the blade or `'L'` for the shield's outer face. Coordinates face +Z with left at +X, measured from the feet.
 
 The previous clips finished the cleave with the back boot about 0.15 units off the floor, which read as a hop. The strike test now requires the hips to drop at least 0.08 below standing and both ankles to sit within 0.03 of rest height after the first two strikes. It also requires the finisher's leap to lift a boot.
+
+## Knight gear skills (2026-11-26)
+
+The server spawns every skill effect on the cast, and the skill state lasts 550 ms. The old skill clips reached their key poses up to 0.3 s after their effects, so the shield slammed down after the Aegis dome had already burst. `buildKnightSkills()` in [knight_attacks.js](../../public/js/three/knight_attacks.js) times each pose to its effect in [knight_holy_vfx.js](../../public/js/three/knight_holy_vfx.js):
+
+| Skill (clip) | Effect timing | Pose |
+| --- | --- | --- |
+| Excalibur Wave (`sweep`) | Glint on the raised blade 0–0.08 s, vertical arc into the floor at 0.085 s | Blade straight up at 0.035 s, chop into a deep lunge at 0.085 s, hold while the crescent travels |
+| Aegis Fortress (`slam`) | Ground impact and dome at 0.05 s | Shield lifts, then drops to one knee with the shield rim planted at 0.05 s and holds |
+| Lionheart Warcry (`warcry`) | Light pillar lands 0.02–0.08 s, roar rings from 0.09 s | Short gather, then chest up with the sword thrust into the pillar and the shield arm wide at 0.085 s |
+| Chariot Rush (`charge`) | Server launches at 18 u/s, losing 9% per tick | Push off behind the shield, leap shield-first (feet off the floor 0.03–0.2 s), land braced and skid |
+
+`KNIGHT_STRIKES` carries these four as well, so commit times, trail windows and floor contact share the basic strikes' handling. Aegis is marked `kneel`, so the sole is pulled to the floor without leveling the kneeling boot. `charge` plays once for the skinned Knight instead of looping. The lab has a scenario per skill (`?scenario=knight_weapon` and so on). The skill test checks each pose at its effect time and fails on the old clips.
 

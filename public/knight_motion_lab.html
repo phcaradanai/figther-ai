@@ -86,6 +86,17 @@
         return { facing: RIGHT, state: held ? 'attack' : 'idle', comboStep: step };
       } },
       heavy: { length: 1.6, at: t => ({ facing: RIGHT, state: t > 0.3 && t < 0.82 ? 'heavy' : 'idle' }) },
+      // Gear skills hold 'skill' for 550 ms. Chariot Rush launches at 18 u/s and
+      // loses 9% per 30 Hz server tick.
+      ...Object.fromEntries(['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket'].map(id => [id, {
+        length: 1.8,
+        at: t => {
+          const k = t - 0.3;
+          const active = k > 0 && k < 0.55;
+          const speed = id === 'knight_trinket' && k > 0 ? 18 * Math.pow(0.91, k * 30) : 0;
+          return { facing: RIGHT, speed: speed > 0.3 ? speed : 0, state: active ? 'skill' : 'idle', animSkillId: active ? id : null };
+        }
+      }])),
       dodge: { length: 2, at: t => (t > 0.4 && t < 0.8 ? { speed: 10 * (1 - (t - 0.4) * 1.5), facing: RIGHT, rolling: true } : { facing: RIGHT }) },
       guard: { length: 2.5, at: t => ({ facing: RIGHT, guarding: t > 0.4 && t < 2 }) }
     };
@@ -144,11 +155,11 @@
     function step(scenario) {
       const input = scenario.at(simTime + DT);
       const { speed = 0, facing = RIGHT, y = 0, vy = 0, grounded = true, sprint = false, rolling = false,
-        state = 'idle', comboStep = 0, guarding = false, jumpCount = 0 } = input;
+        state = 'idle', comboStep = 0, guarding = false, jumpCount = 0, animSkillId = null } = input;
       const vx = Math.cos(facing) * speed;
       const vz = Math.sin(facing) * speed;
       Object.assign(player, { x: player.x + vx * DT, y, z: player.z + vz * DT, vx, vy, vz, facing, grounded,
-        isSprinting: sprint, isRolling: rolling, state, comboStep, guarding, jumpCount });
+        isSprinting: sprint, isRolling: rolling, state, comboStep, guarding, jumpCount, animSkillId });
       view.update(player, env);
       simTime += DT;
     }
@@ -253,7 +264,81 @@
     }
     requestAnimationFrame(frame);
 
-    window.lab = { seek, sheet, live, draw, SCENARIOS, get view() { return view; }, get player() { return player; } };
+    // Arm solver. Samples a clip on a private view facing +Z (left is +X, up is +Y),
+    // then searches one arm's angles so the blade or the shield's outer face points
+    // along `dir` with the hand or shield centre at `at` (world units, from the feet).
+    // lab.solve('R', 'attack1', 0.07, [-0.35, 0.65, -0.65], [-0.30, 1.35, -0.15])
+    let probe = null;
+    const BLADE = [new THREE.Vector3(0, 0, 0.16), new THREE.Vector3(0, 0, 1.04)];
+    const SHIELD_CENTRE = new THREE.Vector3(0.08, -0.16, 0.02);
+    function sample(clip, time) {
+      if (!probe) {
+        const gear = Object.fromEntries(GAME_DATA.GEAR_SLOTS.map(slot => [slot, heroId]));
+        probe = new ChibiView({ heroId, gear, x: 0, y: 0, z: 0, facing: Math.PI / 2, grounded: true, state: 'idle' });
+      }
+      probe.mixer.stopAllAction();
+      const action = probe.actions[clip];
+      action.reset();
+      action.setEffectiveWeight(1);
+      action.play();
+      action.time = time;
+      probe.mixer.update(0);
+      probe.root.position.set(0, 0, 0);
+      probe.root.rotation.set(0, 0, 0);
+      probe.root.updateMatrixWorld(true);
+    }
+    function measure(side) {
+      const R = probe.R;
+      probe.root.updateMatrixWorld(true);
+      if (side === 'R') {
+        const base = BLADE[0].clone().applyMatrix4(R.swordMount.matrixWorld);
+        const dir = BLADE[1].clone().applyMatrix4(R.swordMount.matrixWorld).sub(base).normalize();
+        return { at: R.handR.getWorldPosition(new THREE.Vector3()), dir };
+      }
+      const dir = new THREE.Vector3(0, -1, 0).applyQuaternion(R.handL.getWorldQuaternion(new THREE.Quaternion()));
+      return { at: SHIELD_CENTRE.clone().applyMatrix4(R.handL.matrixWorld), dir };
+    }
+    function solve(side, clip, time, dir, at, start) {
+      sample(clip, time);
+      const R = probe.R;
+      const joints = ['arm' + side, 'fore' + side, 'hand' + side];
+      const value = joints.map(name => {
+        const e = new THREE.Euler().setFromQuaternion(R[name].quaternion);
+        return [e.x, e.y, e.z];
+      });
+      if (start) start.forEach((v, i) => { value[i] = v.slice(); });
+      const limits = [[[-3.3, 1.0], [-0.9, 0.9], [-1.6, 1.4]], [[-2.3, 0], [0, 0], [0, 0]], [[-1.0, 1.0], [-0.6, 0.6], [-0.7, 0.7]]];
+      const want = new THREE.Vector3(...dir).normalize();
+      const point = new THREE.Vector3(...at);
+      const set = () => joints.forEach((name, i) => R[name].quaternion.setFromEuler(new THREE.Euler(...value[i])));
+      const cost = () => {
+        set();
+        const m = measure(side);
+        const angle = Math.acos(THREE.MathUtils.clamp(m.dir.dot(want), -1, 1));
+        const wrist = value[2].reduce((sum, v) => sum + v * v, 0);
+        return angle * angle + m.at.distanceToSquared(point) * 4 + wrist * 0.05;
+      };
+      let best = cost();
+      for (let step = 0.4; step > 0.004; step *= 0.6) {
+        for (let round = 0; round < 30; round++) {
+          let improved = false;
+          for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) for (const delta of [step, -step]) {
+            const old = value[j][k];
+            value[j][k] = THREE.MathUtils.clamp(old + delta, ...limits[j][k]);
+            const c = cost();
+            if (c < best - 1e-7) { best = c; improved = true; } else value[j][k] = old;
+          }
+          if (!improved) break;
+        }
+      }
+      set();
+      const m = measure(side);
+      const round2 = v => +v.toFixed(2);
+      return { cost: round2(best), ...Object.fromEntries(joints.map((name, i) => [name, value[i].map(round2)])),
+        at: m.at.toArray().map(round2), dir: m.dir.toArray().map(round2) };
+    }
+
+    window.lab = { seek, sheet, live, draw, sample, measure, solve, SCENARIOS, get view() { return view; }, get player() { return player; } };
   </script>
 </body>
 </html>

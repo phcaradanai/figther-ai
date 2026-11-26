@@ -12,7 +12,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
 import { buildKnightLocomotion, knightIdle } from './knight_motion.js';
-import { buildKnightAttacks, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
+import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
 
@@ -1816,7 +1816,8 @@ function clipsFor(style, skinnedKnight) {
     if (skinnedKnight) {
       const ready = pose(STANCE, READY.shield);
       Object.assign(clips, buildKnightLocomotion(makeKnightClip, ready, pose));
-      Object.assign(clips, buildKnightAttacks(makeKnightClip, knightIdle(ready, pose), pose));
+      const idle = knightIdle(ready, pose);
+      Object.assign(clips, buildKnightAttacks(makeKnightClip, idle, pose), buildKnightSkills(makeKnightClip, idle, pose));
       // Every action must own the wrist tracks so crossfades can reset them.
       for (const clip of Object.values(clips)) {
         if (clip.tracks.some(track => track.name === 'handR.quaternion')) continue;
@@ -1875,7 +1876,7 @@ const _vy = new THREE.Vector3(0, 1, 0);
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
 const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll', ...KNIGHT_BRAKE_CLIPS]);
-const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', 'attack1', 'attack2', 'attack3', 'heavy', 'sweep', ...KNIGHT_BRAKE_CLIPS]);
+const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
 function lerpAngle(a, b, t) {
@@ -1891,7 +1892,7 @@ const SWORD_TRAIL_WINDOWS = {
   attack1: KNIGHT_STRIKES.attack1.trail,
   attack2: KNIGHT_STRIKES.attack2.trail,
   attack3: KNIGHT_STRIKES.attack3.trail,
-  sweep: [0.09, 0.25]
+  sweep: KNIGHT_STRIKES.sweep.trail
 };
 
 function basicAttackClip(step, hits) {
@@ -2062,7 +2063,7 @@ export class ChibiView {
     this.actions = {};
     for (const [name, clip] of Object.entries(clipsFor(this.style, this.skinnedKnight))) {
       const a = this.mixer.clipAction(clip);
-      if (ONE_SHOT.has(name) || (this.skinnedKnight && (name === 'jump' || name === 'fall'))) {
+      if (ONE_SHOT.has(name) || (this.skinnedKnight && (name === 'jump' || name === 'fall' || name === 'charge'))) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
       }
@@ -2449,7 +2450,7 @@ export class ChibiView {
       this.mixer.update(paused ? 0 : poseDt);
       this.savePure();
       this.applyLayers(pl, poseDt, paused);
-      this.footwork?.apply(this.current, pl.grounded, env.floorY, this.strikeFeetDown);
+      this.footwork?.apply(this.current, pl.grounded, env.floorY, this.strikeFeetDown && !KNIGHT_STRIKES[this.currentName].kneel);
     }
     if (this.swordTrail) {
       const swinging = this.skinnedKnight && trailWin

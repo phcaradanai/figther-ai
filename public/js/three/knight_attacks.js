@@ -12,10 +12,15 @@ export const KNIGHT_STRIKES = {
   attack1: { contact: 0.12, trail: [0.07, 0.19], commit: 0.24 },
   attack2: { contact: 0.115, trail: [0.065, 0.18], commit: 0.24 },
   attack3: { contact: 0.19, trail: [0.13, 0.25], commit: 0.36 },
-  heavy: { contact: 0.21, trail: null, commit: 0.40 }
+  heavy: { contact: 0.21, trail: null, commit: 0.40 },
+  // Gear skills: contact is when the skill's effect lands.
+  sweep: { contact: 0.085, trail: [0.03, 0.13], commit: 0.50 },
+  slam: { contact: 0.05, trail: null, commit: 0.50, kneel: true },
+  warcry: { contact: 0.085, trail: null, commit: 0.50 },
+  charge: { contact: 0.035, trail: null, commit: 0.45 }
 };
 // Clip times when a strike deliberately leaves the floor.
-export const KNIGHT_AIRBORNE = { attack3: [0.058, 0.18] };
+export const KNIGHT_AIRBORNE = { attack3: [0.058, 0.18], charge: [0.03, 0.2] };
 
 // Leg geometry of the skinned Knight, in rig units.
 const THIGH = 0.2238;
@@ -158,6 +163,105 @@ export function buildKnightAttacks(makeClip, idle, pose) {
     heavy: makeClip('heavy', [
       [0, idle], [0.12, bashPull, 'out'], [heavy.contact, bashDrive, 'in'],
       [0.33, bashHold, 'io'], [0.56, idle, 'io']
+    ])
+  };
+}
+
+// Gear skills, timed to their effects: every effect is spawned on the cast, so
+// each pose reaches its mark within the first 0.1 s and then holds.
+export function buildKnightSkills(makeClip, idle, pose) {
+  // Excalibur Wave: the blade snaps straight up (the glint), then chops down
+  // into the ground in front as the golden crescent leaves.
+  const waveRaise = pose(idle, stance(0.62, -0.04, [0.08, 0.06], [-0.14, 0.06]), {
+    hips: [-0.04, -0.10, 0], hipsOffset: [0, 0, -0.03],
+    torso: [-0.22, -0.15, 0], head: [0.14, 0.20, 0],
+    armR: [-2.43, -0.26, 0.20], foreR: [0, 0, 0], handR: [0.54, -0.01, -0.01],
+    armL: [-0.90, 0, 0.30], foreL: [-0.90, 0, 0], handL: [0, 0, 0]
+  });
+  const waveChop = pose(idle, stance(0.46, 0.16, [0.34, 0.14], [-0.30, 0.14]), {
+    hips: [0.16, 0.08, 0], hipsOffset: [0, 0, 0.08],
+    torso: [0.62, 0.08, 0], head: [-0.42, -0.10, 0],
+    armR: [-0.81, -0.44, 0.40], foreR: [-0.10, 0, 0], handR: [0.26, 0.03, 0],
+    armL: [0.30, 0, 0.55], foreL: [-1.30, 0, 0], handL: [0, 0, 0]
+  });
+  const waveThrough = pose(waveChop, {
+    hipsY: 0.445, torso: [0.68, 0.10, 0], head: [-0.46, -0.10, 0],
+    armR: [-0.79, -0.43, 0.34], foreR: [0, 0, 0], handR: [0.23, 0, -0.01]
+  });
+  const waveHold = pose(waveChop, { hipsY: 0.455, torso: [0.64, 0.09, 0] });
+
+  // Aegis Fortress: lift the shield, then drop to one knee and drive its rim
+  // into the floor with the sword held back, holding while the dome stands.
+  const aegisLift = pose(idle, stance(0.60, 0, [0.05, 0.06], [-0.10, 0.06]), {
+    hips: [0, 0.22, 0], torso: [-0.10, 0.25, 0], head: [0.04, -0.40, 0],
+    armL: [-1.29, -0.38, -0.45], foreL: [-0.86, 0, 0], handL: [0.07, -0.02, 0.34],
+    armR: [0.35, -0.65, -0.30], foreR: [-0.15, 0, 0], handR: [0.04, 0, -0.01]
+  });
+  const [kneelLeg, kneelShin, kneelFoot] = plant(0.36, 0.05, 0.24, 0.10);
+  const aegisPlant = pose(idle, {
+    hips: [0.05, 0.25, 0], hipsOffset: [0, 0, 0.02], hipsY: 0.36,
+    legL: [kneelLeg, 0.04, 0.10], shinL: [kneelShin, 0, 0], footL: [kneelFoot, 0, -0.08],
+    legR: [0.18, -0.04, -0.08], shinR: [1.62, 0, 0], footR: [0.85, 0, 0.06],
+    torso: [0.32, 0.30, 0], head: [-0.22, -0.48, 0],
+    armL: [-0.50, 0.44, -0.73], foreL: [-0.08, 0, 0], handL: [-0.28, 0.49, -0.70],
+    armR: [-0.04, -0.90, -0.66], foreR: [-0.15, 0, 0], handR: [-0.46, -0.39, -0.19]
+  });
+  const aegisSettle = pose(aegisPlant, { hipsY: 0.345, torso: [0.36, 0.30, 0] });
+  const aegisHold = pose(aegisPlant, { hipsY: 0.352, torso: [0.33, 0.30, 0] });
+
+  // Lionheart Warcry: gather in, then throw the chest up and thrust the sword
+  // into the falling pillar of light, shield arm flung wide, roaring upward.
+  const roarGather = pose(idle, stance(0.52, 0.20, [0.12, 0.12], [-0.12, 0.12]), {
+    hips: [0.20, 0.05, 0], torso: [0.40, 0, 0], head: [0.20, 0, 0],
+    armR: [0.21, -0.90, 1.17], foreR: [0, 0, 0], handR: [0.71, -0.01, -0.01],
+    armL: [0.17, -0.59, -0.68], foreL: [-2.30, 0, 0], handL: [-0.28, 0.16, -0.01]
+  });
+  const roarCry = pose(idle, stance(0.55, -0.05, [0.22, 0.20], [-0.20, 0.20]), {
+    hips: [-0.05, 0.05, 0], torso: [-0.32, 0, 0], head: [-0.36, 0, 0],
+    armR: [-2.51, 0.25, -0.12], foreR: [0, 0, 0], handR: [0.94, 0.01, 0],
+    armL: [-0.75, 0.50, 0.80], foreL: [-0.51, 0, 0], handL: [-0.15, 0.08, 0.16]
+  });
+  const roarPeak = pose(roarCry, { hipsY: 0.54, torso: [-0.38, 0, 0], head: [-0.42, 0, 0] });
+  const roarHold = pose(roarCry, { torso: [-0.30, 0, 0], head: [-0.32, 0, 0] });
+
+  // Chariot Rush: push off low behind the shield, leap shield-first, then land
+  // braced and skid as the rush slows.
+  const rushPush = pose(idle, stance(0.46, 0.30, [0.18, 0.06], [-0.34, 0.06]), {
+    hips: [0.30, -0.20, 0], torso: [0.55, -0.35, 0], head: [-0.50, 0.50, 0],
+    armL: [-1.61, -0.08, -1.60], foreL: [-2.06, 0, 0], handL: [0.11, -0.39, 0.55],
+    armR: [0.14, 0.30, -0.56], foreR: [-0.17, 0, 0], handR: [-0.28, -0.08, -0.03]
+  });
+  const rushLeap = pose(rushPush, {
+    hipsY: 0.64, torso: [0.70, -0.35, 0], head: [-0.60, 0.50, 0],
+    legL: [-1.10, 0.04, -0.04], shinL: [1.30, 0, 0], footL: [0.30, 0, 0],
+    legR: [0.75, -0.04, 0.04], shinR: [0.60, 0, 0], footR: [0.60, 0, 0],
+    armL: [-1.83, -0.40, -1.60], foreL: [-2.30, 0, 0], handL: [0.11, -0.37, 0.54],
+    armR: [-0.07, 0.28, -0.42], foreR: [-0.12, 0, 0], handR: [-0.29, -0.04, -0.02]
+  });
+  const rushLand = pose(rushPush, stance(0.44, 0.25, [0.36, 0.10], [-0.34, 0.10]), {
+    hips: [0.25, -0.25, 0], torso: [0.60, -0.40, 0], head: [-0.50, 0.55, 0],
+    armL: [-1.36, -0.24, -1.60], foreL: [-2.30, 0, 0], handL: [0.08, -0.51, 0.29],
+    armR: [-0.08, 0.44, -0.47], foreR: [-0.09, 0, 0], handR: [-0.16, -0.03, -0.03]
+  });
+  const rushSkid = pose(rushLand, { hipsY: 0.45, torso: [0.50, -0.38, 0], head: [-0.42, 0.52, 0] });
+
+  const { sweep, slam, warcry, charge } = KNIGHT_STRIKES;
+  return {
+    sweep: makeClip('sweep', [
+      [0, idle], [0.035, waveRaise, 'out'], [sweep.contact, waveChop, 'in'],
+      [0.12, waveThrough, 'out'], [0.40, waveHold, 'io'], [0.62, idle, 'io']
+    ]),
+    slam: makeClip('slam', [
+      [0, idle], [0.025, aegisLift, 'out'], [slam.contact, aegisPlant, 'in'],
+      [0.09, aegisSettle, 'out'], [0.44, aegisHold, 'io'], [0.68, idle, 'io']
+    ]),
+    warcry: makeClip('warcry', [
+      [0, idle], [0.045, roarGather, 'out'], [warcry.contact, roarCry, 'in'],
+      [0.14, roarPeak, 'out'], [0.44, roarHold, 'io'], [0.66, idle, 'io']
+    ]),
+    charge: makeClip('charge', [
+      [0, idle], [charge.contact, rushPush, 'out'], [0.12, rushLeap, 'out'],
+      [0.22, rushLand, 'in'], [0.40, rushSkid, 'io'], [0.60, idle, 'io']
     ])
   };
 }
