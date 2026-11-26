@@ -30,11 +30,15 @@ const SKINNED_HEROES = {
     alignArms: true,
     painterly: true,
     stepFps: 15,
+    headScale: 1.12,
+    swordScale: 1.12,
+    shieldScale: 1.10,
     fused: ['trinket'],
     helmetMesh: 'KnightHelmet',
     swordMesh: 'KnightSword',
     shieldMesh: 'KnightShield',
     swordMount: { p: [0, -0.085, 0.02], tilt: 0.35 },
+    swordTrail: { base: [0, 0, 0.18], tip: [0, 0, 1.12] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
     capeBones: [
@@ -112,16 +116,18 @@ function bakeGeo(src, matrix, color) {
 
 const RAMP = makeToonRamp();
 const TOS_RAMP = (() => {
-  // High-key 4-band watercolor ramp for baked hand-painted Tree of Savior textures
-  const bands = new Uint8Array([122, 196, 240, 255]);
-  const data = new Uint8Array(bands.length * 4);
-  for (let i = 0; i < bands.length; i++) {
-    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = bands[i];
+  // Smooth high-key storybook shading ramp (Tree of Savior M soft painted diffuse, no harsh gray bands)
+  const N = 16;
+  const data = new Uint8Array(N * 4);
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const v = Math.round((0.58 + 0.42 * (t * t * (3 - 2 * t))) * 255);
+    data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v;
     data[i * 4 + 3] = 255;
   }
-  const tex = new THREE.DataTexture(data, bands.length, 1);
-  tex.minFilter = THREE.NearestFilter;
-  tex.magFilter = THREE.NearestFilter;
+  const tex = new THREE.DataTexture(data, N, 1);
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
   tex.generateMipmaps = false;
   tex.needsUpdate = true;
   return tex;
@@ -137,13 +143,17 @@ function makeToSMaterial(srcMat) {
   m.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <opaque_fragment>',
-      `float tosRim = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
-       float tosInk = smoothstep(0.68, 0.88, tosRim);
-       outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.28, 0.21, 0.19), tosInk * 0.65);
+      `// Tree of Savior M warm storybook split-tone + delicate warm-sepia ink contour
+       float tosLuma = dot(outgoingLight, vec3(0.299, 0.587, 0.114));
+       vec3 tosWarmTint = mix(vec3(0.99, 0.94, 0.97), vec3(1.05, 1.01, 0.94), clamp(tosLuma, 0.0, 1.0));
+       outgoingLight *= tosWarmTint;
+       float tosRim = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+       float tosInk = smoothstep(0.72, 0.91, tosRim);
+       outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.25, 0.17, 0.14), tosInk * 0.54);
        #include <opaque_fragment>`
     );
   };
-  m.customProgramCacheKey = () => 'tos-painterly-toon-v1';
+  m.customProgramCacheKey = () => 'tos-painterly-storybook-v2';
   return m;
 }
 const SKIN = '#fde3cf';
@@ -1090,6 +1100,11 @@ function buildSkinnedRig(b, heroId, gear, model) {
     b.skeletons.push(skeleton);
   }
 
+  // Optional ToS chibi-heroic head proportion boost applied post-bind (scales head + helmet together)
+  if (spec.headScale && spec.headScale !== 1 && R.head) {
+    R.head.scale.setScalar(spec.headScale);
+  }
+
   // Rigid attachments under bones need a 1/s child wrapper because bones inherit rigScale = s.
   const fused = new Set(spec.fused || []);
   const unscaled = (parent) => {
@@ -1114,10 +1129,19 @@ function buildSkinnedRig(b, heroId, gear, model) {
         const sm = spec.swordMount || { p: [0, -0.03, 0], tilt: 0.35 };
         const w = mount(unscaled(R.handR), sm.tilt);
         w.position.set(sm.p[0], sm.p[1], sm.p[2]);
+        const swScale = spec.swordScale || 1;
+        if (swScale !== 1) w.scale.setScalar(swScale);
         b.glbPart(w, gearScene, spec.swordMesh, { painterly: !!spec.painterly });
+        if (spec.swordTrail) {
+          R.swordMount = w;
+          R.swordTrailSpec = spec.swordTrail;
+        }
       }
       if (spec.shieldMesh) {
-        b.glbPart(unscaled(R.handL), gearScene, spec.shieldMesh, { painterly: !!spec.painterly });
+        const shWrap = unscaled(R.handL);
+        const shScale = spec.shieldScale || 1;
+        if (shScale !== 1) shWrap.scale.multiplyScalar(shScale);
+        b.glbPart(shWrap, gearScene, spec.shieldMesh, { painterly: !!spec.painterly });
       }
     } else if (WEAPONS[gear.weapon]) {
       WEAPONS[gear.weapon](b, { R: unscaled(R.handR), L: unscaled(R.handL), foreL: unscaled(R.foreL) });
@@ -1213,9 +1237,11 @@ const READY = {
   },
   fist:  { armR: [-0.45, 0, -0.3], foreR: [-1.9, 0, 0], armL: [-0.55, 0, 0.3], foreL: [-1.9, 0, 0], torso: [0.12, 0.15, 0] },
   shield: {
-    armL: [-0.4, 0, -0.12], foreL: [-1.3, 0, 0], armR: [0.5, 0, -0.32], foreR: [-0.25, 0, 0],
-    torso: [0.12, 0.22, 0], head: [0.05, -0.18, 0],
-    legL: [-0.38, 0, 0.13], shinL: [0.48, 0, 0], legR: [0.4, 0, -0.15], shinR: [0.36, 0, 0], hipsY: 0.55
+    // Tree of Savior M Peltasta / Murmilo stance: chest proud, shield angled cleanly in front,
+    // broadsword held out to the right flank so the blade reads crisply in open silhouette
+    armL: [-0.62, 0, -0.26], foreL: [-1.12, 0, 0], armR: [-0.15, 0, -0.78], foreR: [-0.45, 0, 0],
+    torso: [0.06, 0.28, 0], head: [-0.08, -0.24, 0],
+    legL: [-0.34, 0, 0.14], shinL: [0.42, 0, 0], legR: [0.36, 0, -0.15], shinR: [0.32, 0, 0], hipsY: 0.56
   }
 };
 const KNEEL = { legL: [-1.45, 0, 0.14], shinL: [1.5, 0, 0], legR: [0.25, 0, -0.12], shinR: [1.55, 0, 0], hipsY: 0.37 };
@@ -1295,10 +1321,21 @@ function buildClips(style) {
   const lunge = { legL: [-0.45, 0, 0.05], shinL: [0.35, 0, 0], legR: [0.4, 0, -0.05], shinR: [0.25, 0, 0], hipsY: 0.57 };
 
   // Locomotion
-  // Idle: breathing + slow weight shift from foot to foot
-  const idleA = P({ hips: [0, 0, 0.035], torso: [0.06, 0.05, -0.04], head: [0.06, -0.04, 0.02] });
-  const idleB = P({ hips: [0, 0, -0.03], torso: [0.1, -0.04, 0.035], head: [0.02, 0.04, -0.02], hipsY: 0.6, armR: [base.armR[0] - 0.06, 0, base.armR[2] - 0.05], armL: [base.armL[0] - 0.06, 0, base.armL[2] + 0.05] });
-  clips.idle = makeClip('idle', [[0, idleA], [1.0, idleB], [2.0, idleA]]);
+  // Idle: breathing + weight shift (shield style uses ToS M lively rhythmic combat bounce)
+  if (style === 'shield') {
+    const shIdleA = P({ hips: [0, 0, 0.025], torso: [0.05, 0.30, -0.02], head: [-0.09, -0.26, 0.01], hipsY: 0.565 });
+    const shIdleB = P({
+      hips: [0, 0, -0.02], torso: [0.10, 0.25, 0.02], head: [-0.05, -0.21, -0.01], hipsY: 0.538,
+      armL: [base.armL[0] - 0.07, 0, base.armL[2] - 0.03],
+      armR: [base.armR[0] + 0.05, 0, base.armR[2] - 0.08],
+      legL: [-0.40, 0, 0.15], shinL: [0.50, 0, 0], legR: [0.42, 0, -0.16], shinR: [0.40, 0, 0]
+    });
+    clips.idle = makeClip('idle', [[0, shIdleA], [0.55, shIdleB], [1.1, shIdleA]]);
+  } else {
+    const idleA = P({ hips: [0, 0, 0.035], torso: [0.06, 0.05, -0.04], head: [0.06, -0.04, 0.02] });
+    const idleB = P({ hips: [0, 0, -0.03], torso: [0.1, -0.04, 0.035], head: [0.02, 0.04, -0.02], hipsY: 0.6, armR: [base.armR[0] - 0.06, 0, base.armR[2] - 0.05], armL: [base.armL[0] - 0.06, 0, base.armL[2] + 0.05] });
+    clips.idle = makeClip('idle', [[0, idleA], [1.0, idleB], [2.0, idleA]]);
+  }
   const runArms = style === 'fist' || style === 'shield' ? {} : null;
   const runK = (side) => {
     const s = side;
@@ -1326,8 +1363,13 @@ function buildClips(style) {
     const pr = (p) => pose(p, { torso: [0.2, p.torso[1] * 0.5, 0], armR: [-0.35, 0, -0.2], foreR: [-1.25, 0, 0] });
     clips.run = makeClip('run', [[0, pr(runK(1))], [0.12, pr(pass(1)), 'out'], [0.24, pr(runK(-1)), 'in'], [0.36, pr(pass(-1)), 'out'], [0.48, pr(runK(1)), 'in']]);
   } else if (style === 'shield') {
-    const sh = (p, swing) => pose(p, { armR: [0.55 + swing, 0, -0.34], foreR: [-0.2, 0, 0], torso: [0.34, 0, 0] });
-    clips.run = makeClip('run', [[0, sh(runK(1), 0.15)], [0.12, sh(pass(1), 0), 'out'], [0.24, sh(runK(-1), -0.1), 'in'], [0.36, sh(pass(-1), 0), 'out'], [0.48, sh(runK(1), 0.15), 'in']]);
+    // ToS M Swordsman/Peltasta dash-run: shield braced forward, broadsword held cleanly out-and-back
+    const sh = (p, swing) => pose(p, {
+      armL: [-0.74, 0, -0.22], foreL: [-1.08, 0, 0],
+      armR: [0.32 + swing, 0, -0.74], foreR: [-0.35, 0, 0],
+      torso: [0.32, 0.10 * Math.sign(swing || 1), 0], head: [-0.24, -0.08 * Math.sign(swing || 1), 0]
+    });
+    clips.run = makeClip('run', [[0, sh(runK(1), 0.16)], [0.11, sh(pass(1), 0), 'out'], [0.22, sh(runK(-1), -0.14), 'in'], [0.33, sh(pass(-1), 0), 'out'], [0.44, sh(runK(1), 0.16), 'in']]);
   } else {
     clips.run = makeClip('run', [[0, runK(1)], [0.12, pass(1), 'out'], [0.24, runK(-1), 'in'], [0.36, pass(-1), 'out'], [0.48, runK(1), 'in']]);
   }
@@ -1344,7 +1386,7 @@ function buildClips(style) {
 
   const guard = P({ torso: [0.15, 0.25, 0], armL: [-1.35, 0, -0.55], foreL: [-0.9, 0, 0], armR: [-0.6, 0, -0.25], foreR: [-1.3, 0, 0], legL: [-0.38, 0, 0.1], shinL: [0.5, 0, 0], legR: [0.38, 0, -0.1], shinR: [0.4, 0, 0], hipsY: 0.55 });
   const guardPose = style === 'shield'
-    ? P({ torso: [0.22, 0.1, 0], head: [0.15, -0.1, 0], armL: [-1.25, 0, -0.2], foreL: [-0.5, 0, 0], armR: [0.6, 0, -0.35], legL: [-0.45, 0, 0.15], shinL: [0.6, 0, 0], legR: [0.45, 0, -0.16], shinR: [0.45, 0, 0], hipsY: 0.52 })
+    ? P({ torso: [0.18, 0.16, 0], head: [-0.04, -0.16, 0], armL: [-1.30, 0, -0.32], foreL: [-0.65, 0, 0], armR: [0.32, 0, -0.72], foreR: [-0.45, 0, 0], legL: [-0.46, 0, 0.16], shinL: [0.60, 0, 0], legR: [0.46, 0, -0.16], shinR: [0.46, 0, 0], hipsY: 0.51 })
     : guard;
   clips.guard = makeClip('guard', [[0, guardPose], [0.5, pose(guardPose, { hipsY: guardPose.hipsY - 0.01 })], [1.0, guardPose]]);
 
@@ -1417,28 +1459,29 @@ function buildClips(style) {
     A.a1 = null;
   } else if (style === 'shield') {
     const crouchWide = { legL: [-0.55, 0, 0.16], shinL: [0.75, 0, 0], legR: [0.45, 0, -0.16], shinR: [0.6, 0, 0], hipsY: 0.5 };
-    const deepLunge = { legL: [-0.95, 0, 0.12], shinL: [1.05, 0, 0], legR: [0.78, 0, -0.12], shinR: [0.32, 0, 0], hipsY: 0.42 };
-    const tucked = { armL: [0.15, 0, 0.3], foreL: [-1.25, 0, 0] };
-    // 1: Montano-style low sweep, right to left, finishing low and extended
-    const sweepAntic = P(crouchWide, { torso: [0.3, -0.75, 0], head: [0, 0.5, 0], armR: [-0.2, 0, -1.45], foreR: [-0.3, 0, 0] });
-    const sweepHit = P(deepLunge, tucked, { torso: [0.48, 0.78, 0], head: [-0.05, -0.55, 0], armR: [-1.12, 0, 0.6], foreR: [-0.04, 0, 0] });
-    const sweepHold = pose(sweepHit, { torso: [0.5, 0.82, 0], armR: [-1.08, 0, 0.66] });
-    // 2: shield bash - pull the shield in, then punch it forward
-    const bashAntic = P(crouchWide, { torso: [0.12, 0.55, 0], head: [0, -0.4, 0], armL: [0.15, 0, 0.1], foreL: [-2.05, 0, 0], armR: [0.65, 0, -0.38] });
-    const bashHit = P(deepLunge, { torso: [0.38, -0.55, 0], head: [-0.1, 0.4, 0], armL: [-1.5, 0, -0.12], foreL: [-0.1, 0, 0], armR: [0.75, 0, -0.38], foreR: [-0.2, 0, 0] });
-    const bashHold = pose(bashHit, { torso: [0.4, -0.58, 0] });
-    // 3: overhead smash into the ground (Shooting-Star-like finisher)
-    const smashAntic = P({ torso: [-0.32, -0.2, 0], head: [-0.25, 0.1, 0], armR: [-2.95, 0, -0.15], foreR: [-0.45, 0, 0], legL: [-0.2, 0, 0.12], shinL: [0.3, 0, 0], legR: [0.35, 0, -0.12], shinR: [0.6, 0, 0], hipsY: 0.62 });
-    const smashHit = P(deepLunge, tucked, { torso: [0.5, 0, 0], head: [-0.28, 0, 0], armR: [-0.7, 0, 0.08], foreR: [0, 0, 0], hipsY: 0.44 });
-    const smashHold = pose(smashHit, { torso: [0.52, 0, 0] });
+    const deepLunge = { legL: [-0.92, 0, 0.12], shinL: [1.02, 0, 0], legR: [0.76, 0, -0.12], shinR: [0.32, 0, 0], hipsY: 0.43 };
+    const tucked = { armL: [0.10, 0, 0.28], foreL: [-1.25, 0, 0] };
+    // 1: ToS M Swordsman Double Slash (high shoulder coil -> explosive diagonal cleave)
+    const sweepAntic = P(crouchWide, { torso: [0.14, -0.82, 0], head: [-0.06, 0.58, 0], armR: [-1.95, 0, -1.22], foreR: [-0.42, 0, 0] });
+    const sweepHit = P(deepLunge, tucked, { torso: [0.44, 0.85, 0], head: [-0.12, -0.60, 0], armR: [-1.22, 0, 0.72], foreR: [-0.04, 0, 0] });
+    const sweepHold = pose(sweepHit, { torso: [0.46, 0.90, 0], armR: [-1.14, 0, 0.78] });
+    // 2: Peltasta Shield Bash + crisp reverse backhand sword cut
+    const bashAntic = P(crouchWide, { torso: [0.10, 0.62, 0], head: [-0.04, -0.45, 0], armL: [0.12, 0, 0.12], foreL: [-2.05, 0, 0], armR: [-1.32, 0, 0.76], foreR: [-0.6, 0, 0] });
+    const bashHit = P(deepLunge, { torso: [0.36, -0.62, 0], head: [-0.14, 0.48, 0], armL: [-1.52, 0, -0.16], foreL: [-0.12, 0, 0], armR: [-1.05, 0, -1.32], foreR: [-0.08, 0, 0] });
+    const bashHold = pose(bashHit, { torso: [0.38, -0.66, 0], armR: [-0.95, 0, -1.38] });
+    // 3: Highlander Crosscut — quick gather + airborne hop cleave slamming downward
+    const smashGather = P(crouchWide, { torso: [0.28, -0.15, 0], head: [-0.15, 0.1, 0], armR: [-2.2, 0, -0.5], foreR: [-0.6, 0, 0], hipsY: 0.46 });
+    const smashAntic = P({ torso: [-0.34, -0.18, 0], head: [-0.28, 0.12, 0], armR: [-3.05, 0, -0.14], foreR: [-0.4, 0, 0], armL: [-0.7, 0, 0.45], foreL: [-1.0, 0, 0], legL: [-0.85, 0, 0.12], shinL: [1.3, 0, 0], legR: [-0.3, 0, -0.12], shinR: [1.0, 0, 0], hipsY: 0.76 });
+    const smashHit = P(deepLunge, tucked, { torso: [0.52, 0.12, 0], head: [-0.28, -0.08, 0], armR: [-0.68, 0, 0.14], foreR: [0, 0, 0], hipsY: 0.43 });
+    const smashHold = pose(smashHit, { torso: [0.54, 0.14, 0] });
     const strikeHold = (name, antic, hit, hold, t) => makeClip(name, [[0, base], [t[0], antic, 'out'], [t[1], hit, 'out'], [t[2], hold, 'lin'], [t[3], base, 'io']]);
-    clips.attack1 = strikeHold('attack1', sweepAntic, sweepHit, sweepHold, [0.05, 0.11, 0.4, 0.56]);
-    clips.attack2 = strikeHold('attack2', bashAntic, bashHit, bashHold, [0.05, 0.1, 0.36, 0.52]);
-    clips.attack3 = strikeHold('attack3', smashAntic, smashHit, smashHold, [0.08, 0.15, 0.5, 0.68]);
-    // Heavy: Shield Push - deep pull, explosive push, long hold
-    clips.heavy = makeClip('heavy', [[0, base], [0.18, pose(bashAntic, { hipsY: 0.46, foreL: [-2.2, 0, 0] }), 'out'], [0.25, pose(bashHit, { armL: [-1.55, 0, -0.1], torso: [0.5, -0.6, 0] }), 'out'], [0.52, bashHold, 'lin'], [0.7, base, 'io']]);
-    // Skills
-    clips.sweep = strikeHold('sweep', pose(sweepAntic, { torso: [0.35, -0.95, 0], hipsY: 0.46 }), pose(sweepHit, { torso: [0.52, 0.95, 0], armR: [-1.05, 0, 0.75] }), pose(sweepHold, { torso: [0.54, 1.0, 0] }), [0.12, 0.2, 0.6, 0.78]);
+    clips.attack1 = strikeHold('attack1', sweepAntic, sweepHit, sweepHold, [0.05, 0.11, 0.38, 0.54]);
+    clips.attack2 = strikeHold('attack2', bashAntic, bashHit, bashHold, [0.05, 0.10, 0.36, 0.52]);
+    clips.attack3 = makeClip('attack3', [[0, base], [0.04, smashGather, 'out'], [0.10, smashAntic, 'out'], [0.17, smashHit, 'in'], [0.50, smashHold, 'lin'], [0.68, base, 'io']]);
+    // Heavy: Murmilo Shield Drive — deep pull, explosive shield slam, crisp hold
+    clips.heavy = makeClip('heavy', [[0, base], [0.16, pose(bashAntic, { hipsY: 0.46, foreL: [-2.2, 0, 0], armR: [0.45, 0, -0.78] }), 'out'], [0.24, pose(bashHit, { armL: [-1.56, 0, -0.14], torso: [0.48, -0.60, 0], armR: [0.60, 0, -0.82] }), 'out'], [0.52, pose(bashHold, { armR: [0.55, 0, -0.82] }), 'lin'], [0.7, base, 'io']]);
+    // Skills: Excalibur Wave wide sweeping cleave
+    clips.sweep = strikeHold('sweep', pose(sweepAntic, { torso: [0.26, -1.02, 0], armR: [-1.55, 0, -1.42], hipsY: 0.46 }), pose(sweepHit, { torso: [0.50, 0.98, 0], armR: [-1.14, 0, 0.82] }), pose(sweepHold, { torso: [0.52, 1.02, 0] }), [0.11, 0.19, 0.58, 0.76]);
     A.a1 = null;
   } else if (style === 'cast') {
     A.a1 = [
@@ -1672,6 +1715,139 @@ function lerpAngle(a, b, t) {
 }
 
 // ---------------------------------------------------------------------------
+// SWORD RIBBON TRAIL (Tree of Savior M Double Slash / Crosscut golden blade arc)
+// ---------------------------------------------------------------------------
+const SWORD_TRAIL_WINDOWS = {
+  attack1: [0.03, 0.17],
+  attack2: [0.03, 0.16],
+  attack3: [0.08, 0.24],
+  sweep: [0.09, 0.25]
+};
+
+class SwordTrail {
+  constructor(mountNode, spec) {
+    this.mount = mountNode;
+    this.localBase = new THREE.Vector3(...spec.base);
+    this.localTip = new THREE.Vector3(...spec.tip);
+    this.maxSamples = 22;
+    this.life = 0.19;
+    this.samples = [];
+    this.prevBase = new THREE.Vector3();
+    this.prevTip = new THREE.Vector3();
+    this.hasPrev = false;
+
+    const verts = new Float32Array(this.maxSamples * 2 * 3);
+    const colors = new Float32Array(this.maxSamples * 2 * 4);
+    const indices = [];
+    for (let i = 0; i < this.maxSamples - 1; i++) {
+      const a = i * 2, b = a + 1, c = a + 2, d = a + 3;
+      indices.push(a, b, c, b, d, c);
+    }
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(verts, 3).setUsage(THREE.DynamicDrawUsage));
+    this.geo.setAttribute('color', new THREE.BufferAttribute(colors, 4).setUsage(THREE.DynamicDrawUsage));
+    this.geo.setIndex(indices);
+    this.geo.setDrawRange(0, 0);
+
+    // Normal blending with per-vertex RGBA alpha reads crisply on bright ToS floors
+    // and on transparent My Item preview canvases (where AdditiveBlending loses alpha).
+    this.mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.mesh = new THREE.Mesh(this.geo, this.mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 19;
+    this._b = new THREE.Vector3();
+    this._t = new THREE.Vector3();
+    this._mb = new THREE.Vector3();
+    this._mt = new THREE.Vector3();
+    this._dir = new THREE.Vector3();
+  }
+
+  pushSample(b, t, age = 0) {
+    this.samples.push({ b: b.clone(), t: t.clone(), age });
+    if (this.samples.length > this.maxSamples) this.samples.shift();
+  }
+
+  update(dt, active, spaceParent) {
+    if (!spaceParent) return;
+    if (this.mesh.parent !== spaceParent) spaceParent.add(this.mesh);
+    for (let i = this.samples.length - 1; i >= 0; i--) {
+      this.samples[i].age += dt;
+      if (this.samples[i].age >= this.life) this.samples.splice(i, 1);
+    }
+    if (active) {
+      this.mount.updateWorldMatrix(true, false);
+      this._b.copy(this.localBase).applyMatrix4(this.mount.matrixWorld);
+      this._t.copy(this.localTip).applyMatrix4(this.mount.matrixWorld);
+      spaceParent.worldToLocal(this._b);
+      spaceParent.worldToLocal(this._t);
+
+      // Subdivide fast swings along a curved blade arc so the ribbon stays silky smooth even on stepped frames
+      if (this.hasPrev) {
+        const dist = this._t.distanceTo(this.prevTip);
+        if (dist > 0.14) {
+          const steps = Math.min(3, Math.ceil(dist / 0.25));
+          const len = this._t.distanceTo(this._b);
+          for (let k = 1; k < steps; k++) {
+            const u = k / steps;
+            this._mb.lerpVectors(this.prevBase, this._b, u);
+            this._mt.lerpVectors(this.prevTip, this._t, u);
+            this._dir.subVectors(this._mt, this._mb);
+            if (this._dir.lengthSq() > 1e-5) {
+              this._dir.normalize().multiplyScalar(len);
+              this._mt.copy(this._mb).add(this._dir);
+            }
+            this.pushSample(this._mb, this._mt, dt * (1 - u));
+          }
+        }
+      }
+      this.pushSample(this._b, this._t, 0);
+      this.prevBase.copy(this._b);
+      this.prevTip.copy(this._t);
+      this.hasPrev = true;
+    } else {
+      this.hasPrev = false;
+    }
+
+    const n = this.samples.length;
+    if (n < 2) {
+      this.mesh.visible = false;
+      this.geo.setDrawRange(0, 0);
+      return;
+    }
+    this.mesh.visible = true;
+    const pos = this.geo.attributes.position.array;
+    const col = this.geo.attributes.color.array;
+    for (let i = 0; i < n; i++) {
+      const s = this.samples[i];
+      const u = i / (n - 1);
+      const fade = Math.max(0, 1 - s.age / this.life) * Math.pow(u, 1.5);
+      const vi = i * 6;
+      const ci = i * 8;
+      pos[vi] = s.b.x; pos[vi + 1] = s.b.y; pos[vi + 2] = s.b.z;
+      pos[vi + 3] = s.t.x; pos[vi + 4] = s.t.y; pos[vi + 5] = s.t.z;
+      // Feathered warm amber inner edge -> crisp luminous cream-gold ToS crescent blade edge
+      col[ci] = 1.05; col[ci + 1] = 0.68; col[ci + 2] = 0.18; col[ci + 3] = 0.08 * fade;
+      col[ci + 4] = 1.38; col[ci + 5] = 1.18; col[ci + 6] = 0.62; col[ci + 7] = 0.92 * fade;
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.color.needsUpdate = true;
+    this.geo.setDrawRange(0, (n - 1) * 6);
+  }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.geo.dispose();
+    this.mat.dispose();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CHIBI VIEW: one per player
 // ---------------------------------------------------------------------------
 export class ChibiView {
@@ -1689,6 +1865,9 @@ export class ChibiView {
     this.stepFps = useSkinned && !SKIP_STEP ? (skinned.spec.stepFps || 0) : 0;
     this.stepAcc = 0;
     this.stepForce = true;
+    this.swordTrail = this.R.swordMount && this.R.swordTrailSpec
+      ? new SwordTrail(this.R.swordMount, this.R.swordTrailSpec)
+      : null;
     this.root = this.R.root;
     this.R.staff = this.root.getObjectByName('staff') || null;
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
@@ -1744,6 +1923,8 @@ export class ChibiView {
       if (restart) {
         next.reset();
         next.play();
+        this.clipStart = this.time;
+        this.stepForce = true;
       }
       return;
     }
@@ -1937,7 +2118,12 @@ export class ChibiView {
     // updates to stepFps (e.g. 15 FPS) while snapping instantly on new actions.
     const frozen = pl.buffs?.frozen || pl.state === 'frozen';
     const paused = now < this.hitStopUntil || frozen;
-    const stepDt = this.stepFps > 0 ? 1 / this.stepFps : 0;
+    const clipTime = this.time - this.clipStart;
+    const trailWin = SWORD_TRAIL_WINDOWS[this.currentName];
+    const inSlash = !!(trailWin && clipTime >= trailWin[0] && clipTime <= trailWin[1]);
+    // Step at 15 FPS for ToS 2D punch on idle/locomotion/holds; run smooth during active blade swings for crisp arc trails
+    const effStepFps = inSlash ? 0 : this.stepFps;
+    const stepDt = effStepFps > 0 ? 1 / effStepFps : 0;
     let poseDt = dt;
     let doPose = true;
     if (stepDt > 0) {
@@ -1949,12 +2135,19 @@ export class ChibiView {
       } else {
         doPose = false;
       }
+    } else if (this.stepAcc > 0) {
+      poseDt = dt + this.stepAcc;
+      this.stepAcc = 0;
+      this.stepForce = false;
     }
     if (doPose) {
       this.restorePure();
       this.mixer.update(paused ? 0 : poseDt);
       this.savePure();
       this.applyLayers(pl, poseDt, paused);
+    }
+    if (this.swordTrail) {
+      this.swordTrail.update(paused ? 0 : dt, inSlash && !paused, this.root.parent);
     }
 
     // Timed gun shots (twin gunner): fire each scheduled shot as the clip passes it
@@ -2081,6 +2274,7 @@ export class ChibiView {
   }
 
   dispose() {
+    this.swordTrail?.dispose();
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);
     this.root.removeFromParent();

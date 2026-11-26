@@ -22,21 +22,31 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
     highlights + normal-map micro-details + warm-indigo AO directly into a single albedo
     texture per mesh, stripping `normalMap` and `metallicRoughnessMap` (12 textures → 4,
     total download 3.35 MB → 1.73 MB, tris 40k → 18.8k, ~3× lower GPU VRAM).
-  - **ToS Painterly Toon shader (`painterly: true`)**: lightweight `MeshToonMaterial` with
-    high-key 4-band watercolor ramp (`TOS_RAMP`) and a 0-extra-draw-call warm-ink Fresnel
-    contour (`onBeforeCompile`); skips heavy PBR/IBL/normal lookups while preserving
+  - **ToS M Storybook Toon shader v2 (`painterly: true`)**: lightweight `MeshToonMaterial` with
+    smooth 16-texel high-key ramp (`TOS_RAMP`, `0.58..1.00`), warm-sepia highlight / soft-mauve
+    shadow split-tone (`tosWarmTint`), and delicate warm-brown Fresnel ink contour
+    (`onBeforeCompile`, 0 extra draw calls); skips heavy PBR/IBL/normal lookups while preserving
     emissive hit-flash/Super Armor tints and opacity.
-  - **Stepped 15 FPS animation (`stepFps: 15`)**: quantizes skeleton & cape pose updates
-    to 15 FPS for snappy 2D/ToS/Guilty-Gear feel (with zero-latency snap on new actions
-    and `onHit`, while root movement & VFX stay smooth 60+ FPS; `?step=0` disables).
+  - **Chibi-heroic proportions & ToS M Swordsman/Peltasta/Murmilo clips**: `headScale: 1.12`,
+    `swordScale: 1.12`, `shieldScale: 1.10`; upright chest & head, broadsword held out in open
+    silhouette to the right flank, kite shield angled forward; lively bounce idle, Double Slash
+    (`attack1`), Shield Bash + reverse cut (`attack2`), airborne Highlander Crosscut (`attack3`),
+    Murmilo Shield Drive (`heavy`), and wide Excalibur cleave (`sweep`).
+  - **Live 3D `SwordTrail` crescent ribbon + hybrid 15 FPS stepping (`stepFps: 15`)**:
+    zero-allocation per-vertex RGBA curved sword-blade arc trail (`SWORD_TRAIL_WINDOWS`) that
+    switches out of 15 FPS stepped cadence during active swings so blade arcs stay silky smooth
+    while idle/locomotion/holds keep the snappy ToS/2D 15 FPS feel (`?step=0` disables).
+  - **Telephoto diorama camera (`renderer3d.js`, `stage.js`)**: `FOV 22`, `CAM_PITCH 0.62`,
+    `camDist 41` (wheel `22..58`), matched fog pullback (`+11/+15`), and unobstructed north
+    `sky_temple` painted castle backdrop.
   - **A-pose arm alignment (`alignArms: true`)** + **3-bone skinned cape** (`cape1..cape3`,
     topologically isolated from legs/arms via BFS + two-pass bone-heat binding).
   - **Modular gear** via `Builder.glbPart()` (`KnightHelmet`, `KnightSword`, `KnightShield`,
     plus dropped loot in `buildGearItem`), mixed helmet scaling (`otherHelmetScale: 0.56`),
     and procedural fallback when `gear.armor !== heroId` (`?skinned=0` disables skinned).
-  - Verified live in browser at default `/` (idle, guard, attacks, Q/E/R/F skills + Super
-    Armor emissive, helmet drop & pickup, My Item 3D turntable, mixed helmet & fallback,
-    0 console/network/WebGL errors).
+  - Verified live in browser at default `/` (idle, run, guard, 3-hit combo with golden
+    `SwordTrail`, Q/E/R/F skills + Super Armor emissive, helmet drop & pickup, My Item 3D
+    turntable, unobstructed north-west sky at FOV 22, 0 console/network/WebGL errors).
 - Blender MCP connects once Blender's window is open (the add-on auto-starts its server),
   but all AI generators are off. The user generates models themselves on
   https://hy3d.tencent.ai/ and hands over GLBs. Source files: `D:\3D-Models\*.glb` and

@@ -25,8 +25,8 @@ import { ReaperThreeVFX } from './reaper_effekseer_3d.js';
 import { makeShadowTexture, makeMagicCircle } from './textures.js';
 
 const COS45 = Math.SQRT1_2;
-const CAM_PITCH = 0.64; // ~37 degrees down
-const FOV = 30;
+const CAM_PITCH = 0.62; // ~35.5 degrees down (Tree of Savior M isometric diorama angle)
+const FOV = 22;
 
 const GradeShader = {
   uniforms: {
@@ -189,7 +189,7 @@ export class ThreeRenderer {
     this.hazards = new Map();
     this.stage = null;
     this.camTarget = new THREE.Vector3();
-    this.camDist = 30;
+    this.camDist = 41;
     this.shake = 0;
     this.time = 0;
     this.last = performance.now();
@@ -203,7 +203,7 @@ export class ThreeRenderer {
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('wheel', (e) => {
       if (e.target !== this.canvas) return;
-      this.camDist = Math.max(18, Math.min(44, this.camDist + Math.sign(e.deltaY) * 2));
+      this.camDist = Math.max(22, Math.min(58, this.camDist + Math.sign(e.deltaY) * 2.5));
     }, { passive: true });
   }
 
@@ -249,6 +249,10 @@ export class ThreeRenderer {
     this.stage = new Stage(map);
     this.scene.add(this.stage.group);
     this.stage.applyEnvironment(this.scene, this.hemi, this.sun);
+    if (this.scene.fog?.isFog) {
+      this.scene.fog.near += 11;
+      this.scene.fog.far += 15;
+    }
     this.centerCameraOnNextFrame = true;
   }
 
@@ -754,7 +758,7 @@ export class ThreeRenderer {
         const f = me.facing || 0;
         target.x += Math.cos(f) * 2.2;
         target.z += Math.sin(f) * 2.2;
-        desiredDist = Math.max(16, this.camDist - 2.5);
+        desiredDist = Math.max(20, this.camDist - 3.5);
       }
     }
     if (me && this.centerCameraOnNextFrame) {
