@@ -63,6 +63,35 @@
       const y = vy0 * k - GRAVITY * k * k / 2;
       return y > 0 ? { y, vy: vy0 - GRAVITY * k, grounded: false } : null;
     }
+    // A jump with presses at given times, integrated at 60 Hz like the server's arc.
+    function flight(events) {
+      const frames = [];
+      let y = 0, vy = 0, grounded = true, state = 'idle', until = 0, comboStep = 0, presses = 0;
+      for (let i = 0; i <= 60 * 4; i++) {
+        const t = i * DT;
+        for (const [at, kind, step] of events) {
+          if (Math.abs(at - t) > DT / 2) continue;
+          if (kind === 'jump') { vy = JUMP; grounded = false; continue; }
+          if (kind === 'attack') {
+            presses++;
+            if (presses <= 2 && !grounded) vy = Math.max(vy, 3.8);
+            state = 'attack'; until = t + 0.238; comboStep = step;
+          } else {
+            if (!grounded) vy = Math.max(vy, 2.0);
+            state = 'heavy'; until = t + 0.52;
+          }
+        }
+        if (state !== 'idle' && t >= until) state = 'idle';
+        if (!grounded) {
+          vy -= GRAVITY * DT;
+          y += vy * DT;
+          if (y <= 0) { y = 0; vy = 0; grounded = true; presses = 0; }
+        }
+        frames.push({ facing: RIGHT, y, vy, grounded, state, comboStep: state === 'attack' ? comboStep : 0 });
+      }
+      return t => frames[Math.min(frames.length - 1, Math.round(t / DT))];
+    }
+
     const SCENARIOS = {
       idle: { length: 4, at: () => ({}) },
       walk: { length: 4, at: t => (t > 0.4 && t < 3 ? { speed: WALK, facing: RIGHT } : { facing: RIGHT }) },
@@ -86,6 +115,10 @@
         return { facing: RIGHT, state: held ? 'attack' : 'idle', comboStep: step };
       } },
       heavy: { length: 1.6, at: t => ({ facing: RIGHT, state: t > 0.3 && t < 0.82 ? 'heavy' : 'idle' }) },
+      // Air strikes: J lifts the Knight to at least 3.8 u/s for the first two
+      // presses of a jump; an air heavy lifts to 2 u/s. 'attack' lasts 238 ms, 'heavy' 520 ms.
+      jumpAttack: { length: 2.4, at: flight([[0.30, 'jump'], [0.50, 'attack', 1], [0.78, 'attack', 2], [1.06, 'attack', 3]]) },
+      airHeavy: { length: 2.2, at: flight([[0.30, 'jump'], [0.55, 'heavy']]) },
       // Gear skills hold 'skill' for 550 ms. Chariot Rush launches at 18 u/s and
       // loses 9% per 30 Hz server tick.
       ...Object.fromEntries(['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket'].map(id => [id, {

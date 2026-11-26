@@ -17,8 +17,14 @@ export const KNIGHT_STRIKES = {
   sweep: { contact: 0.085, trail: [0.03, 0.13], commit: 0.50 },
   slam: { contact: 0.05, trail: null, commit: 0.50, kneel: true },
   warcry: { contact: 0.085, trail: null, commit: 0.50 },
-  charge: { contact: 0.035, trail: null, commit: 0.45 }
+  charge: { contact: 0.035, trail: null, commit: 0.45 },
+  // Strikes that start in the air keep their clip through a landing.
+  airRise: { contact: 0.115, trail: [0.06, 0.18], commit: 0.24, air: true },
+  airSpike: { contact: 0.11, trail: [0.06, 0.17], commit: 0.24, air: true },
+  airSmash: { contact: 0.21, trail: [0.15, 0.27], commit: 0.40, air: true }
 };
+// Forward somersault into the air heavy's chop: [start, duration] in seconds.
+export const KNIGHT_AIR_FLIP = [0.03, 0.17];
 // Clip times when a strike deliberately leaves the floor.
 export const KNIGHT_AIRBORNE = { attack3: [0.058, 0.18], charge: [0.03, 0.2] };
 
@@ -146,8 +152,84 @@ export function buildKnightAttacks(makeClip, idle, pose) {
   });
   const bashHold = pose(bashDrive, { hipsY: 0.465, torso: [0.42, -0.46, 0], armL: [-1.52, 0.46, -0.40] });
 
+
+  // Air strikes. The first one in a jump launches the target, so the blade
+  // rises from low behind to high in front. Later ones spike the target down
+  // with an overhead chop. The air heavy somersaults into a chop (the flip is
+  // applied in code). Knees stay gathered throughout so nothing reads as a
+  // stance in mid-air.
+  const tuckedLegs = {
+    legL: [-1.25, 0.04, -0.07], shinL: [1.95, 0, 0], footL: [0.45, 0, 0.05],
+    legR: [-0.80, -0.04, 0.07], shinR: [2.05, 0, 0], footR: [0.55, 0, -0.05]
+  };
+  const airborne = pose(idle, tuckedLegs, {
+    hips: [0.04, 0.04, 0], hipsOffset: [0, 0, 0], hipsY: 0.66,
+    torso: [0.12, 0.10, 0.02], head: [-0.12, -0.14, 0],
+    armL: [-0.80, 0.06, 0.40], foreL: [-1.00, 0, 0], handL: [0, 0, 0],
+    armR: [-0.90, -0.10, -0.30], foreR: [-0.30, 0, 0], handR: [0.40, 0, 0]
+  });
+  const riseCoil = pose(airborne, {
+    hips: [0.10, -0.25, 0], torso: [0.30, -0.55, 0.05], head: [-0.20, 0.60, 0],
+    legL: [-0.95, 0.04, -0.07], shinL: [1.70, 0, 0], legR: [-0.30, -0.04, 0.07], shinR: [1.60, 0, 0],
+    armR: [-0.81, -0.90, -0.50], foreR: [0, 0, 0], handR: [0.94, -0.53, -0.15],
+    armL: [-1.10, 0.06, 0.30], foreL: [-0.90, 0, 0]
+  });
+  const riseCut = pose(airborne, {
+    hips: [-0.10, 0.25, 0], torso: [-0.28, 0.50, 0.02], head: [0.10, -0.60, 0],
+    legL: [-1.45, 0.04, -0.07], shinL: [1.80, 0, 0], legR: [-0.20, -0.04, 0.07], shinR: [1.10, 0, 0],
+    armR: [-1.75, -0.58, -0.21], foreR: [0, 0, 0], handR: [0.62, -0.02, 0],
+    armL: [0.30, 0.06, 0.60], foreL: [-1.20, 0, 0]
+  });
+  const riseThrough = pose(riseCut, {
+    torso: [-0.34, 0.58, 0.02], armR: [-2.00, 0.16, -0.04], foreR: [0, 0, 0], handR: [0.18, 0.02, 0.01]
+  });
+
+  const spikeCoil = pose(airborne, {
+    hips: [-0.10, -0.06, 0], torso: [-0.30, -0.12, 0], head: [0.16, 0.10, 0],
+    legL: [-1.40, 0.04, -0.07], shinL: [2.10, 0, 0], legR: [-1.10, -0.04, 0.07], shinR: [2.15, 0, 0],
+    armR: [-2.47, -0.16, 0.17], foreR: [-0.04, 0, 0], handR: [-0.07, -0.01, -0.01],
+    armL: [-1.00, 0.06, 0.50], foreL: [-1.00, 0, 0]
+  });
+  const spikeCut = pose(airborne, {
+    hips: [0.20, 0.06, 0], torso: [0.62, 0.08, 0], head: [-0.48, -0.08, 0],
+    legL: [-0.70, 0.04, -0.07], shinL: [1.30, 0, 0], footL: [0.40, 0, 0.05],
+    legR: [0.30, -0.04, 0.07], shinR: [1.40, 0, 0], footR: [0.60, 0, -0.05],
+    armR: [-0.91, -0.79, 0.52], foreR: [0, 0, 0], handR: [0.50, 0.04, 0.01],
+    armL: [0.30, 0.06, 0.60], foreL: [-1.30, 0, 0]
+  });
+  const spikeThrough = pose(spikeCut, {
+    torso: [0.70, 0.10, 0], head: [-0.52, -0.08, 0],
+    armR: [-0.86, -0.73, 0.43], handR: [0.56, -0.04, -0.01]
+  });
+
+  const smashTuck = pose(airborne, {
+    hips: [0.20, 0, 0], torso: [0.50, 0, 0], head: [0.20, 0, 0],
+    legL: [-1.55, 0.04, -0.07], shinL: [2.25, 0, 0], legR: [-1.40, -0.04, 0.07], shinR: [2.25, 0, 0],
+    armR: [-2.47, -0.16, 0.17], foreR: [-0.04, 0, 0], handR: [-0.07, -0.01, -0.01],
+    armL: [-1.20, 0.06, 0.20], foreL: [-1.50, 0, 0]
+  });
+  const smashCut = pose(spikeCut, { torso: [0.66, 0.06, 0], legL: [-0.50, 0.04, -0.07], shinL: [1.10, 0, 0] });
+  const smashHold = pose(smashCut, { torso: [0.58, 0.06, 0] });
+
+  const { airRise, airSpike, airSmash } = KNIGHT_STRIKES;
+  const air = {
+    airRise: makeClip('airRise', [
+      [0, airborne], [0.06, riseCoil, 'out'], [airRise.contact, riseCut, 'in'],
+      [0.17, riseThrough, 'out'], [0.38, airborne, 'io']
+    ]),
+    airSpike: makeClip('airSpike', [
+      [0, airborne], [0.06, spikeCoil, 'out'], [airSpike.contact, spikeCut, 'in'],
+      [0.16, spikeThrough, 'out'], [0.38, airborne, 'io']
+    ]),
+    airSmash: makeClip('airSmash', [
+      [0, airborne], [0.05, smashTuck, 'out'], [0.16, smashTuck, 'lin'], [airSmash.contact, smashCut, 'in'],
+      [0.42, smashHold, 'io'], [0.6, airborne, 'io']
+    ])
+  };
+
   const { attack1: a1, attack2: a2, attack3: a3, heavy } = KNIGHT_STRIKES;
   return {
+    ...air,
     attack1: makeClip('attack1', [
       [0, idle], [0.07, cleaveCoil, 'out'], [a1.contact, cleaveCut, 'in'],
       [0.165, cleaveThrough, 'out'], [0.25, cleaveHold, 'io'], [0.44, idle, 'io']

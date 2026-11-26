@@ -12,7 +12,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
 import { buildKnightLocomotion, knightIdle } from './knight_motion.js';
-import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
+import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIR_FLIP, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
 
@@ -1362,6 +1362,7 @@ function makeClip(name, keys, joints = JOINTS) {
 }
 
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
+const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airSpike']);
 const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
 const KNIGHT_BLADE_CONTACT = Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.contact]));
 
@@ -1831,7 +1832,7 @@ function clipsFor(style, skinnedKnight) {
   return CLIP_CACHE.get(key);
 }
 
-const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR']);
+const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR', 'airRise', 'airSpike', 'airSmash']);
 // Clips that must finish even if the server state moves on (movement can't cut them)
 const COMMITTED = { spin: 0.78, slam: 0.74, flurry: 0.6, roll: 0.44, sweep: 0.72, warcry: 0.7, charge: 0.6, seal: 0.5, windslash: 0.74, throw: 0.42, backflip: 0.55, raise: 0.7, summon: 0.76, nova: 0.7, blink: 0.38, rollshot: 0.56, toss: 0.38, lasso: 0.5 };
 // Sword-and-shield attacks hold their strike pose; moving can't cut the hold short
@@ -1871,7 +1872,7 @@ const KNIGHT_SOLE_Z = [-0.071, 0.195];
 // Whole-body spins done in code: [start, duration, turns], keyed by clip or style:clip
 const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:attack3': [0.08, 0.2, 1], 'twingun:spin': [0.06, 0.56, 2] };
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
-const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
+const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0], airSmash: [...KNIGHT_AIR_FLIP, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
@@ -1888,12 +1889,8 @@ function lerpAngle(a, b, t) {
 // ---------------------------------------------------------------------------
 // SWORD RIBBON TRAIL (Tree of Savior M Double Slash / Crosscut golden blade arc)
 // ---------------------------------------------------------------------------
-const SWORD_TRAIL_WINDOWS = {
-  attack1: KNIGHT_STRIKES.attack1.trail,
-  attack2: KNIGHT_STRIKES.attack2.trail,
-  attack3: KNIGHT_STRIKES.attack3.trail,
-  sweep: KNIGHT_STRIKES.sweep.trail
-};
+const SWORD_TRAIL_WINDOWS = Object.fromEntries(Object.entries(KNIGHT_STRIKES)
+  .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
 
 function basicAttackClip(step, hits) {
   return step >= hits ? 'attack3' : (step % 2 === 1 ? 'attack1' : 'attack2');
@@ -2087,6 +2084,7 @@ export class ChibiView {
     this.capeAng = 0.15;
     this.capeVel = 0;
     this.lastRunPhase = 0;
+    this.airStrikes = 0;
     this.time = Math.random() * 10;
     this.opacityKey = 1;
     this.dashCount = 0;
@@ -2189,13 +2187,18 @@ export class ChibiView {
     if (st === 'dead') return { name: 'dead', key: 'dead', fade: 0.08 };
     if (st === 'knockdown') return { name: 'knockdown', key: 'kd', fade: 0.06 };
     if (st === 'hurt') return { name: 'hurt', key: 'hurt', fade: 0.04 };
+    if (st !== 'attack' && st !== 'heavy') {
+      this.strikeKey = null;
+      if (pl.grounded) this.airStrikes = 0;
+    }
     if (st === 'attack') {
       const step = pl.comboStep || 1;
       const hits = hero?.basicAttack?.comboHits || 3;
-      const name = basicAttackClip(step, hits);
-      return { name, key: `atk${step}`, fade: 0.05 };
+      const key = `atk${step}`;
+      const ground = basicAttackClip(step, hits);
+      return { name: this.skinnedKnight ? this.strikeClip(key, pl, ground) : ground, key, fade: 0.05 };
     }
-    if (st === 'heavy') return { name: 'heavy', key: 'heavy', fade: 0.06 };
+    if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.06 };
     if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
     if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
     if (pl.guarding || st === 'guard') return { name: 'guard', key: 'guard', fade: 0.1 };
@@ -2238,20 +2241,36 @@ export class ChibiView {
     this.hitStopUntil = Math.max(this.hitStopUntil, performance.now() + ms);
   }
 
+  // A strike keeps the clip it started with, so one begun in the air stays an
+  // air strike through the landing. As on the server, the first air strike of a
+  // jump launches and later ones spike; the air heavy is its own clip.
+  strikeClip(key, pl, ground) {
+    if (this.strikeKey !== key) {
+      this.strikeKey = key;
+      this.strikeAir = !pl.grounded;
+      if (this.strikeAir && ground !== 'heavy') this.airStrikes++;
+    }
+    if (!this.strikeAir) return ground;
+    if (ground === 'heavy') return 'airSmash';
+    return this.airStrikes > 1 ? 'airSpike' : 'airRise';
+  }
+
   queueBladeAccent(event, emit) {
     if (!this.skinnedKnight || !this.swordTrail) return false;
-    const hits = window.GAME_DATA?.HEROES?.[this.heroId]?.basicAttack?.comboHits || 3;
-    const clip = basicAttackClip(event.comboStep || 1, hits);
-    this.bladeAccent = { event, emit, clip, expires: this.time + 0.42 };
+    this.bladeAccent = { event, emit, queued: this.time, expires: this.time + 0.42 };
     return true;
   }
 
+  // Emit on the blade contact of the swing that started with the server event,
+  // on the ground or in the air. A swing already under way belongs to an
+  // earlier press.
   updateBladeAccent() {
     const pending = this.bladeAccent;
     if (!pending) return;
+    const contact = KNIGHT_SWINGS.has(this.currentName) ? KNIGHT_BLADE_CONTACT[this.currentName] : undefined;
     if (this.time >= pending.expires) {
       this.bladeAccent = null;
-    } else if (this.currentName === pending.clip && this.current.time >= KNIGHT_BLADE_CONTACT[pending.clip]) {
+    } else if (contact !== undefined && this.clipStart >= pending.queued - 0.1 && this.current.time >= contact) {
       this.bladeAccent = null;
       pending.emit(pending.event);
     }
@@ -2361,7 +2380,8 @@ export class ChibiView {
       // Pull the lowest sole down in a standing pose, a planted strike and while a
       // stride is supported. The flight half of a stride and a leaping strike leave the ground.
       const air = KNIGHT_AIRBORNE[this.currentName];
-      this.strikeFeetDown = !!KNIGHT_STRIKES[this.currentName] && !(air && this.current.time > air[0] && this.current.time < air[1]);
+      const strike = KNIGHT_STRIKES[this.currentName];
+      this.strikeFeetDown = !!strike && !strike.air && !(air && this.current.time > air[0] && this.current.time < air[1]);
       let settle = planted || this.strikeFeetDown || KNIGHT_BRAKE_CLIPS.has(this.currentName) ? Infinity : 0;
       if (this.currentName === 'walk' || this.currentName === 'run') {
         const half = (this.current.time / this.current.getClip().duration * 2) % 1;

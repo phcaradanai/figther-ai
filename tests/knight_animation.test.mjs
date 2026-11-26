@@ -226,6 +226,38 @@ test('Knight strikes coil high, then finish low with both boots on the floor', t
   for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the slam left a boot at ${y.toFixed(3)}`);
 });
 
+test('Knight air strikes launch then spike with gathered legs and keep their clip through a landing', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const point = new Vector3();
+  const air = { y: 1.6, grounded: false, vy: 2 };
+  const lowestAnkle = () => Math.min(...[knight.R.footL, knight.R.footR].map(foot => foot.getWorldPosition(point).y)) - air.y;
+  advance(knight, {}, 30);
+  advance(knight, air, 10);
+
+  advance(knight, { ...air, state: 'attack', comboStep: 1 }, 7);
+  assert.equal(knight.currentName, 'airRise');
+  assert.ok(lowestAnkle() > 0.25, `boots hang ${lowestAnkle().toFixed(3)} above the feet line in the launcher`);
+  advance(knight, air, 6);
+  advance(knight, { ...air, state: 'attack', comboStep: 2 }, 4);
+  assert.equal(knight.currentName, 'airSpike');
+
+  // Landing mid-swing keeps the air strike instead of restarting a ground one.
+  advance(knight, { state: 'attack', comboStep: 2 }, 6);
+  assert.equal(knight.currentName, 'airSpike');
+  advance(knight, {}, 40);
+  assert.equal(knight.currentName, 'idle');
+
+  // A new jump starts with the launcher again, and the air heavy somersaults.
+  advance(knight, air, 6);
+  advance(knight, { ...air, state: 'attack', comboStep: 3 }, 3);
+  assert.equal(knight.currentName, 'airRise');
+  advance(knight, air, 20);
+  advance(knight, { ...air, state: 'heavy' }, 6);
+  assert.equal(knight.currentName, 'airSmash');
+  assert.ok(Math.abs(knight.R.body.rotation.x) > 0.5, 'the air heavy should be mid-somersault');
+});
+
 test('Knight gear skills hit their poses when their effects land', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());

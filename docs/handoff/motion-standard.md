@@ -85,7 +85,7 @@ The player re-sent the same 55 s recording (`Recording 2026-11-26 214755.mp4`). 
 
 The drift estimate rose because each stride now covers about twice the ground and has a flight phase. The planted boot itself holds still through its support window, which the `plants the supporting foot` test covers. The cape test checks that the hem keeps moving against the torso through a sprint and a turn. The old spring moved 0.000 units sideways and 0.066 vertically there, and the strand moves about 0.3 in each.
 
-`/knight_motion_lab.html` is a dev page that drives one `ChibiView` with scripted snapshots at 60 Hz (`?scenario=walk|sprint|jump|runJump|turn|attack|combo|heavy|dodge|guard&cam=game|side|front|back`; `combo` presses J at the server's 280 ms limit). `lab.sheet(name, t0, t1, { cols, rows, mode })` renders a contact sheet for side-by-side comparison with reference frames.
+`/knight_motion_lab.html` is a dev page that drives one `ChibiView` with scripted snapshots at 60 Hz (`?scenario=walk|sprint|jump|runJump|turn|attack|combo|heavy|jumpAttack|airHeavy|dodge|guard&cam=game|side|front|back`, plus one scenario per Knight skill). `combo` presses J at the server's 280 ms limit, and `jumpAttack` applies the server's lift on the first two air presses. `lab.sheet(name, t0, t1, { cols, rows, mode })` renders a contact sheet for side-by-side comparison with reference frames.
 
 ## Tree of Savior sword strikes (2026-11-26)
 
@@ -118,4 +118,21 @@ The server spawns every skill effect on the cast, and the skill state lasts 550 
 | Chariot Rush (`charge`) | Server launches at 18 u/s, losing 9% per tick | Push off behind the shield, leap shield-first (feet off the floor 0.03–0.2 s), land braced and skid |
 
 `KNIGHT_STRIKES` carries these four as well, so commit times, trail windows and floor contact share the basic strikes' handling. Aegis is marked `kneel`, so the sole is pulled to the floor without leveling the kneeling boot. `charge` plays once for the skinned Knight instead of looping. The lab has a scenario per skill (`?scenario=knight_weapon` and so on). The skill test checks each pose at its effect time and fails on the old clips.
+
+## Knight air strikes (2026-11-26)
+
+Jump attacks used to play the ground clips, so the Knight dropped into a wide lunge in mid-air. The server's air rules are:
+- The first jump attack launches the target.
+- Every later one in the same jump spikes the target down. The first two presses also lift the Knight to at least 3.8 u/s.
+- An air heavy spikes the target.
+
+The skinned Knight now has a clip for each case:
+
+| Clip | Used for | Motion |
+| --- | --- | --- |
+| `airRise` | First jump attack | Blade rises from low behind to high in front, knees gathered |
+| `airSpike` | Later jump attacks | Sword cocked overhead, chopped down forward, legs kicking back |
+| `airSmash` | Air heavy | Forward somersault (`KNIGHT_AIR_FLIP`) into the same downward chop |
+
+`ChibiView.strikeClip()` chooses between the ground and air clip when a strike starts, and the strike keeps that clip through a landing. Air strikes are excluded from the floor contact pass. The count of air strikes resets once the Knight is grounded and not attacking. The blade accent now fires on the contact of whichever swing started with the server's slash event, on the ground or in the air.
 
