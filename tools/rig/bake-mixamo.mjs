@@ -15,11 +15,29 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadChibiViews } from './load-chibi.mjs';
 
-// Source file → game clip. Only clips that beat the Knight's own clip on the
-// rig are listed (see docs/handoff/motion-standard.md). `inPlace` removes travel
-// the server already applies; `speed` plays the clip faster.
+// Source file → game clip (see docs/handoff/motion-standard.md).
+//   inPlace  remove travel the server already applies
+//   speed    play faster
+//   floor    keep a lying body, helmet and gear on top of the floor
+//   fix      turn the shield to face forward and keep the blade out of the helmet
+//   strike   [contact, end]: retime so the fastest blade lands at `contact` (the
+//            server deals damage on the press) and the swing settles by `end`
+//   gait     cycle length; the left heel strikes at phase 0 for the footwork
+//   yawFree  drop the hips' turn so the game's own yaw turns the Knight
 export const BAKE = {
-  'sword and shield death': { clip: 'dead', inPlace: false, speed: 1.25 }
+  'sword and shield death': { clip: 'dead', speed: 1.25, floor: true },
+  'slash': { clip: 'attack1', inPlace: true, fix: true, strike: [0.12, 0.44] },
+  'sword and shield attack (2)': { clip: 'attack2', inPlace: true, fix: true, strike: [0.115, 0.42] },
+  'sword and shield attack (3)': { clip: 'attack3', inPlace: true, fix: true, strike: [0.19, 0.58] },
+  'sword and shield run': { clip: 'walk', inPlace: true, fix: true, gait: 0.44 },
+  'sword and shield run (2)': { clip: 'run', inPlace: true, fix: true, gait: 0.39 },
+  'sword and shield idle': { clip: 'idle', inPlace: true, fix: true },
+  'long idle': { clip: 'idleFidget', inPlace: true, fix: true },
+  'sword and shield block idle': { clip: 'guard', inPlace: true, fix: true },
+  'sword and shield block (2)': { clip: 'guardHit', inPlace: true, fix: true },
+  'sword and shield turn': { clip: 'turnR', inPlace: true, fix: true, yawFree: true, speed: 2 },
+  'sword and shield turn (2)': { clip: 'turnL', inPlace: true, fix: true, yawFree: true, speed: 2 },
+  'draw sword 1': { clip: 'draw', inPlace: true, fix: true }
 };
 
 const FPS = 30;
@@ -49,7 +67,7 @@ function findBone(scene, name) {
 
 // World rotation of each source bone relative to its T-pose, applied to the
 // Knight's matching bone in the same reference pose, then made local.
-export function retarget(scene, clip, restHipsY, { inPlace = false } = {}) {
+export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes = null } = {}) {
   const bones = Object.fromEntries(Object.entries(MAP).map(([joint, name]) => [joint, findBone(scene, name)]));
   scene.updateMatrixWorld(true);
   const rest = {};
@@ -59,7 +77,7 @@ export function retarget(scene, clip, restHipsY, { inPlace = false } = {}) {
   const mixer = new AnimationMixer(scene);
   const action = mixer.clipAction(clip);
   action.play();
-  const count = Math.round(clip.duration * FPS) + 1;
+  const count = sourceTimes ? sourceTimes.length : Math.round(clip.duration * FPS) + 1;
   const times = [];
   const rotations = Object.fromEntries(Object.keys(MAP).map(joint => [joint, []]));
   const hips = [];
@@ -67,8 +85,8 @@ export function retarget(scene, clip, restHipsY, { inPlace = false } = {}) {
   const local = new Quaternion();
   for (let i = 0; i < count; i++) {
     const time = Math.min(clip.duration, i / FPS);
-    times.push(+time.toFixed(4));
-    action.time = time;
+    times.push(+(sourceTimes ? i / FPS : time).toFixed(4));
+    action.time = sourceTimes ? Math.min(clip.duration, sourceTimes[i]) : time;
     mixer.update(0);
     scene.updateMatrixWorld(true);
     for (const joint of Object.keys(MAP)) {
@@ -92,7 +110,155 @@ export function retarget(scene, clip, restHipsY, { inPlace = false } = {}) {
       hips[i * 3 + 2] -= z0 + (z1 - z0) * k;
     }
   }
-  return { fps: FPS, duration: +clip.duration.toFixed(4), times, rotations, hips: hips.map(v => +v.toFixed(4)) };
+  return { fps: FPS, duration: times[times.length - 1], times, rotations, hips: hips.map(v => +v.toFixed(4)) };
+}
+
+// Fastest blade moment and the window where the blade sweeps above 35% of it.
+export function bladeTiming(view, data) {
+  const tip = new Vector3();
+  const previous = new Vector3();
+  const speeds = [];
+  for (let i = 0; i < data.times.length; i++) {
+    poseFrame(view, data, i);
+    view.R.swordMount.localToWorld(tip.set(0, 0, 1.04));
+    speeds.push(i ? tip.distanceTo(previous) / (data.times[i] - data.times[i - 1]) : 0);
+    previous.copy(tip);
+  }
+  const peak = speeds.indexOf(Math.max(...speeds));
+  let first = peak;
+  let last = peak;
+  while (first > 1 && speeds[first - 1] > speeds[peak] * 0.35) first--;
+  while (last < speeds.length - 1 && speeds[last + 1] > speeds[peak] * 0.35) last++;
+  return { contact: data.times[peak], trail: [data.times[Math.max(0, first - 1)], data.times[last]] };
+}
+
+// Source sample times that put the fastest blade at `contact` and end by `end`:
+// a short wind-up is compressed into the contact time, the follow-through into the rest.
+export function strikeTimes(sourceContact, duration, contact, end) {
+  const windup = Math.min(sourceContact, 0.3);
+  const follow = Math.min(duration - sourceContact, 0.6);
+  const times = [];
+  for (let t = 0; t <= end + 1e-6; t += 1 / FPS) {
+    times.push(t <= contact
+      ? sourceContact - windup + windup * (t / contact)
+      : sourceContact + follow * Math.min(1, (t - contact) / (end - contact)));
+  }
+  return times;
+}
+
+// Rotate a looping gait so the left heel strike (left boot furthest ahead of the
+// hips) is phase 0, and resample it to `duration`.
+export function alignGait(view, data, duration) {
+  const ankle = new Vector3();
+  const hips = new Vector3();
+  const frames = data.times.length - 1;
+  let strike = 0;
+  let reach = -Infinity;
+  for (let i = 0; i < frames; i++) {
+    poseFrame(view, data, i);
+    const ahead = view.R.footL.getWorldPosition(ankle).z - view.R.hips.getWorldPosition(hips).z;
+    if (ahead > reach) { reach = ahead; strike = i; }
+  }
+  const order = Array.from({ length: frames }, (_, i) => (i + strike) % frames);
+  order.push(order[0]);
+  const rotations = Object.fromEntries(Object.entries(data.rotations).map(([joint, values]) => [joint, order.flatMap(i => values.slice(i * 4, i * 4 + 4))]));
+  const hipsTrack = order.flatMap(i => data.hips.slice(i * 3, i * 3 + 3));
+  const times = order.map((_, i) => +(duration * i / frames).toFixed(4));
+  return { ...data, duration, times, rotations, hips: hipsTrack };
+}
+
+// Remove the hips' turn about the vertical from the first frame on.
+export function stripYaw(data) {
+  const q = new Quaternion();
+  const first = new Euler().setFromQuaternion(q.fromArray(data.rotations.hips, 0), 'YXZ').y;
+  const turn = new Quaternion();
+  const hips = data.rotations.hips.slice();
+  for (let i = 0; i < data.times.length; i++) {
+    q.fromArray(hips, i * 4);
+    const yaw = new Euler().setFromQuaternion(q, 'YXZ').y;
+    q.premultiply(turn.setFromAxisAngle(new Vector3(0, 1, 0), first - yaw));
+    q.toArray().forEach((v, k) => { hips[i * 4 + k] = +v.toFixed(4); });
+  }
+  return { ...data, rotations: { ...data.rotations, hips } };
+}
+
+// Mixamo holds its shield on the forearm, so on the Knight's hand mount the
+// shield faces sideways, and its swings pass through the oversized helmet. Turn
+// the left wrist so the shield faces forward, and the right wrist (then the
+// forearm) just enough to keep the blade clear of the helmet. Each frame starts
+// from the previous frame's correction so the wrists move smoothly.
+const SHIELD_FACING = new Vector3(0.35, 0.05, 0.93).normalize();
+const HELMET_CLEARANCE = 0.3;
+export function fixHands(view, data) {
+  const R = view.R;
+  const out = { ...data, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
+  const base = new Quaternion();
+  const turn = new Quaternion();
+  const euler = new Euler();
+  const normal = new Vector3();
+  const rootInverse = new Quaternion();
+  const head = new Vector3();
+  const bladeBase = new Vector3();
+  const bladeTip = new Vector3();
+  const along = new Vector3();
+  const nearest = new Vector3();
+  const facing = (value) => {
+    R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
+    R.handL.updateMatrixWorld(true);
+    normal.set(0, -1, 0).applyQuaternion(R.handL.getWorldQuaternion(turn));
+    normal.applyQuaternion(rootInverse);
+    return Math.acos(Math.max(-1, Math.min(1, normal.dot(SHIELD_FACING))));
+  };
+  const clearance = (joint, value) => {
+    R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
+    R[joint].updateMatrixWorld(true);
+    R.head.getWorldPosition(head).y += 0.22;
+    R.swordMount.localToWorld(bladeBase.set(0, 0, 0.16));
+    R.swordMount.localToWorld(bladeTip.set(0, 0, 1.04));
+    along.subVectors(bladeTip, bladeBase);
+    const k = Math.max(0, Math.min(1, head.clone().sub(bladeBase).dot(along) / along.lengthSq()));
+    return nearest.copy(bladeBase).addScaledVector(along, k).distanceTo(head);
+  };
+  const search = (start, cost, limit) => {
+    const value = start.slice();
+    let best = cost(value);
+    for (let step = 0.4; step > 0.005; step *= 0.6) {
+      for (let round = 0; round < 20; round++) {
+        let improved = false;
+        for (let axis = 0; axis < 3; axis++) for (const delta of [step, -step]) {
+          const old = value[axis];
+          value[axis] = Math.max(-limit, Math.min(limit, old + delta));
+          const c = cost(value);
+          if (c < best - 1e-7) { best = c; improved = true; } else value[axis] = old;
+        }
+        if (!improved) break;
+      }
+    }
+    return value;
+  };
+  let shield = [0, 0, 0];
+  const blade = { handR: [0, 0, 0], foreR: [0, 0, 0] };
+  for (let i = 0; i < data.times.length; i++) {
+    poseFrame(view, out, i);
+    view.root.getWorldQuaternion(rootInverse).invert();
+    base.copy(R.handL.quaternion);
+    const previousShield = shield;
+    shield = search(shield, v => facing(v) ** 2 + 0.02 * v.reduce((a, x) => a + x * x, 0)
+      + 0.5 * v.reduce((a, x, k) => a + (x - previousShield[k]) ** 2, 0), 2.2);
+    R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...shield)));
+    R.handL.quaternion.toArray().forEach((v, k) => { out.rotations.handL[i * 4 + k] = +v.toFixed(4); });
+    for (const joint of ['handR', 'foreR']) {
+      base.copy(R[joint].quaternion);
+      const previous = blade[joint];
+      const start = clearance(joint, previous) >= HELMET_CLEARANCE ? previous.map(x => x * 0.85) : previous;
+      blade[joint] = search(start, v => Math.max(0, HELMET_CLEARANCE - clearance(joint, v)) ** 2 * 200
+        + 0.05 * v.reduce((a, x) => a + x * x, 0) + 0.3 * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4);
+      R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...blade[joint])));
+      R[joint].updateMatrixWorld(true);
+      R[joint].quaternion.toArray().forEach((v, k) => { out.rotations[joint][i * 4 + k] = +v.toFixed(4); });
+    }
+  }
+  return out;
 }
 
 // Lowest point of a set of meshes, from every fourth vertex, in world units.
@@ -292,18 +458,29 @@ async function main() {
     if (!source) continue;
     const key = basename(file, '.glb');
     const plan = BAKE[key];
-    const data = retarget(gltf.scene, source, restHipsY, plan || { inPlace: true });
+    let data = retarget(gltf.scene, source, restHipsY, plan || { inPlace: true });
     report['mixamo:' + key] = score(view, clipFromData(key, data));
     if (preview) {
       await mkdir(preview, { recursive: true });
       await writeFile(join(preview, key + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...data }));
     }
     if (out && plan) {
-      const speed = plan.speed || 1;
-      const baked = clearFloor(view, { ...data, duration: +(data.duration / speed).toFixed(4), times: data.times.map(t => +(t / speed).toFixed(4)) });
+      let extra = {};
+      if (plan.strike) {
+        const [contact, end] = plan.strike;
+        data = retarget(gltf.scene, source, restHipsY, {
+          inPlace: plan.inPlace, sourceTimes: strikeTimes(bladeTiming(view, data).contact, source.duration, contact, end)
+        });
+      }
+      if (plan.yawFree) data = stripYaw(data);
+      if (plan.gait) data = alignGait(view, data, plan.gait);
+      if (plan.fix) data = fixHands(view, data);
+      if (plan.floor) data = clearFloor(view, data);
+      if (plan.speed) data = { ...data, duration: +(data.duration / plan.speed).toFixed(4), times: data.times.map(t => +(t / plan.speed).toFixed(4)) };
+      if (plan.strike) extra = bladeTiming(view, data);
       await mkdir(out, { recursive: true });
-      await writeFile(join(out, plan.clip + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...baked }));
-      report['baked:' + plan.clip] = score(view, clipFromData(plan.clip, baked));
+      await writeFile(join(out, plan.clip + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...extra, ...data }));
+      report['baked:' + plan.clip] = { ...score(view, clipFromData(plan.clip, data)), ...extra };
     }
   }
   view.dispose();

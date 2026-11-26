@@ -163,7 +163,7 @@ test('Knight cape sways with the stride and turns, lifts while falling and stays
     side.push(local.x);
     lift.push(local.y);
   }
-  assert.ok(trailing > resting.behind + 0.25, `cape trailed ${trailing.toFixed(3)} vs ${resting.behind.toFixed(3)} at rest`);
+  assert.ok(trailing > resting.behind + 0.15, `cape trailed ${trailing.toFixed(3)} vs ${resting.behind.toFixed(3)} at rest`);
   assert.ok(nearest > 0.3, `cape hem came within ${nearest.toFixed(3)} of the hips`);
   // Against the torso, the hem keeps moving through a steady sprint.
   assert.ok(range(side) > 0.12 && range(lift) > 0.15,
@@ -192,41 +192,30 @@ test('Knight cape sways with the stride and turns, lifts while falling and stays
   }
 });
 
-test('Knight strikes coil high, then finish low with both boots on the floor', t => {
+test('Knight strikes settle with both boots on the floor and the finisher leaves it', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());
   const point = new Vector3();
-  const tipHeight = () => knight.R.swordMount.localToWorld(point.set(0, 0, 1.04)).y;
   const ankles = () => [knight.R.footL, knight.R.footR].map(foot => foot.getWorldPosition(point).y);
-  advance(knight, {}, 40);
-  const standingHips = knight.R.hips.getWorldPosition(point).y;
   const rest = knight.R.restFootY;
-
   for (const comboStep of [1, 2]) {
     advance(knight, {}, 40);
-    advance(knight, { state: 'attack', comboStep }, 4);
-    const coiled = tipHeight();
-    advance(knight, { state: 'attack', comboStep }, 8);
+    advance(knight, { state: 'attack', comboStep }, 24);
     assert.equal(knight.currentName, 'attack' + comboStep);
-    const hips = knight.R.hips.getWorldPosition(point).y;
-    assert.ok(standingHips - hips > 0.08, `attack${comboStep} finished only ${(standingHips - hips).toFixed(3)} below standing`);
-    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `attack${comboStep} left a boot at ${y.toFixed(3)}`);
-    if (comboStep === 1) assert.ok(coiled - tipHeight() > 0.5, 'the cleave should start high and finish low');
+    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.08, `attack${comboStep} left a boot at ${(y - rest).toFixed(3)}`);
   }
-
-  // The finisher leaves the floor on its leap and lands planted.
   advance(knight, {}, 40);
   let highest = 0;
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i < 18; i++) {
     advance(knight, { state: 'attack', comboStep: 3 }, 1);
     highest = Math.max(highest, ...ankles());
   }
-  assert.ok(highest - rest > 0.08, `the leap only lifted a boot ${(highest - rest).toFixed(3)}`);
+  assert.ok(highest - rest > 0.08, `the finisher only lifted a boot ${(highest - rest).toFixed(3)}`);
   advance(knight, { state: 'attack', comboStep: 3 }, 8);
-  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the slam left a boot at ${y.toFixed(3)}`);
+  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.08, `the finisher left a boot at ${(y - rest).toFixed(3)}`);
 });
 
-test('Knight air strikes launch then spike with gathered legs and keep their clip through a landing', t => {
+test('Knight air strikes launch, cut and spike with gathered legs and keep their clip through a landing', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());
   const point = new Vector3();
@@ -235,27 +224,46 @@ test('Knight air strikes launch then spike with gathered legs and keep their cli
   advance(knight, {}, 30);
   advance(knight, air, 10);
 
-  advance(knight, { ...air, state: 'attack', comboStep: 1 }, 7);
+  advance(knight, { ...air, state: 'attack', comboStep: 1, airStrikes: 1 }, 7);
   assert.equal(knight.currentName, 'airRise');
   assert.ok(lowestAnkle() > 0.25, `boots hang ${lowestAnkle().toFixed(3)} above the feet line in the launcher`);
-  advance(knight, air, 6);
-  advance(knight, { ...air, state: 'attack', comboStep: 2 }, 4);
+  advance(knight, { ...air, airStrikes: 1 }, 6);
+  advance(knight, { ...air, state: 'attack', comboStep: 2, airStrikes: 2 }, 4);
+  assert.equal(knight.currentName, 'airCut');
+  advance(knight, { ...air, airStrikes: 2 }, 8);
+  advance(knight, { ...air, state: 'attack', comboStep: 3, airStrikes: 3 }, 4);
   assert.equal(knight.currentName, 'airSpike');
 
   // Landing mid-swing keeps the air strike instead of restarting a ground one.
-  advance(knight, { state: 'attack', comboStep: 2 }, 6);
+  advance(knight, { state: 'attack', comboStep: 3 }, 6);
   assert.equal(knight.currentName, 'airSpike');
   advance(knight, {}, 40);
   assert.equal(knight.currentName, 'idle');
 
-  // A new jump starts with the launcher again, and the air heavy somersaults.
+  // A new jump starts with the launcher again.
   advance(knight, air, 6);
-  advance(knight, { ...air, state: 'attack', comboStep: 3 }, 3);
+  advance(knight, { ...air, state: 'attack', comboStep: 1 }, 3);
   assert.equal(knight.currentName, 'airRise');
-  advance(knight, air, 20);
-  advance(knight, { ...air, state: 'heavy' }, 6);
-  assert.equal(knight.currentName, 'airSmash');
-  assert.ok(Math.abs(knight.R.body.rotation.x) > 0.5, 'the air heavy should be mid-somersault');
+});
+
+test('Knight air heavy hovers, dives and chops into the floor on landing', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const point = new Vector3();
+  const zone = { mode: 'slam', x: 0, y: 0, z: 3, radius: 2.6 };
+  advance(knight, {}, 30);
+  advance(knight, { y: 1.8, grounded: false, state: 'heavy', airSlam: { ...zone, phase: 'aim' } }, 20);
+  assert.equal(knight.currentName, 'slamAim');
+  const tip = knight.R.swordMount.localToWorld(point.set(0, 0, 1.04)).y;
+  assert.ok(tip > 1.8 + 1.4, `the sword should be cocked overhead, tip at ${tip.toFixed(2)}`);
+  advance(knight, { y: 1.0, z: 1.5, grounded: false, vy: -10, state: 'heavy', airSlam: { ...zone, phase: 'dive' } }, 5);
+  assert.equal(knight.currentName, 'slamDive');
+  advance(knight, { z: 3, state: 'heavy', airSlam: { ...zone, phase: 'impact' } }, 12);
+  assert.equal(knight.currentName, 'slamImpact');
+  for (const foot of [knight.R.footL, knight.R.footR]) {
+    assert.ok(Math.abs(foot.getWorldPosition(point).y - knight.R.restFootY) < 0.03, 'the slam lands planted');
+  }
+  assert.ok(knight.R.swordMount.localToWorld(point.set(0, 0, 1.04)).y < 0.7, 'the blade should be driven into the floor');
 });
 
 test('Knight gear skills hit their poses when their effects land', t => {

@@ -12,7 +12,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
 import { buildKnightLocomotion, knightIdle } from './knight_motion.js';
-import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIR_FLIP, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
+import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
 
@@ -49,8 +49,22 @@ const SKINNED_HEROES = {
     otherHelmetOffset: [0, 0.03, 0.01],
     // Cape hem below the last cape bone, in that bone's space.
     capeTip: [0.003, -0.289, -0.105],
-    // Clips baked from other sources (tools/rig/bake-mixamo.mjs), preferred over code clips.
-    bakedClips: { dead: '/assets/anims/knight/dead.json' },
+    // Mixamo clips baked by tools/rig/bake-mixamo.mjs, preferred over the code clips.
+    bakedClips: {
+      dead: '/assets/anims/knight/dead.json',
+      attack1: '/assets/anims/knight/attack1.json',
+      attack2: '/assets/anims/knight/attack2.json',
+      attack3: '/assets/anims/knight/attack3.json',
+      walk: '/assets/anims/knight/walk.json',
+      run: '/assets/anims/knight/run.json',
+      idle: '/assets/anims/knight/idle.json',
+      idleFidget: '/assets/anims/knight/idleFidget.json',
+      guard: '/assets/anims/knight/guard.json',
+      guardHit: '/assets/anims/knight/guardHit.json',
+      turnL: '/assets/anims/knight/turnL.json',
+      turnR: '/assets/anims/knight/turnR.json',
+      draw: '/assets/anims/knight/draw.json'
+    },
     capeBones: [
       { name: 'cape1', weight: 0.22 },
       { name: 'cape2', weight: 0.38 },
@@ -82,6 +96,10 @@ const skinnedEntries = !SKIP_SKINNED
   }))
   : [];
 const SKINNED_MODELS = Object.fromEntries(skinnedEntries.filter(([, v]) => v));
+// Baked strikes carry their own blade contact and trail window.
+for (const [name, data] of Object.entries(SKINNED_MODELS.knight?.bakedClips || {})) {
+  if (data.contact !== undefined && KNIGHT_STRIKES[name]) Object.assign(KNIGHT_STRIKES[name], { contact: data.contact, trail: data.trail });
+}
 const workshop = await workshopPromise;
 const hairSwatch = new THREE.Color('#cfb390');
 const leatherSwatch = new THREE.Color('#92735f');
@@ -1376,7 +1394,7 @@ function bakedClip(name, data) {
 }
 
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
-const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airSpike']);
+const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airCut', 'airSpike']);
 const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
 const KNIGHT_BLADE_CONTACT = Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.contact]));
 
@@ -1847,7 +1865,7 @@ function clipsFor(style, skinnedKnight) {
   return CLIP_CACHE.get(key);
 }
 
-const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR', 'airRise', 'airSpike', 'airSmash']);
+const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR', 'airRise', 'airCut', 'airSpike', 'slamDive', 'slamImpact', 'guardHit', 'turnL', 'turnR', 'draw', 'idleFidget']);
 // Clips that must finish even if the server state moves on (movement can't cut them)
 const COMMITTED = { spin: 0.78, slam: 0.74, flurry: 0.6, roll: 0.44, sweep: 0.72, warcry: 0.7, charge: 0.6, seal: 0.5, windslash: 0.74, throw: 0.42, backflip: 0.55, raise: 0.7, summon: 0.76, nova: 0.7, blink: 0.38, rollshot: 0.56, toss: 0.38, lasso: 0.5 };
 // Sword-and-shield attacks hold their strike pose; moving can't cut the hold short
@@ -1887,12 +1905,16 @@ const KNIGHT_SOLE_Z = [-0.071, 0.195];
 // Whole-body spins done in code: [start, duration, turns], keyed by clip or style:clip
 const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:attack3': [0.08, 0.2, 1], 'twingun:spin': [0.06, 0.56, 2] };
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
-const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0], airSmash: [...KNIGHT_AIR_FLIP, 1, 0] };
+const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
 const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll', ...KNIGHT_BRAKE_CLIPS]);
-const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
+// Standing clips whose boots are levelled and set on the floor.
+const KNIGHT_STANDING = new Set(['idle', 'guard', 'guardHit', 'turnL', 'turnR', 'draw', 'idleFidget']);
+const KNIGHT_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
+const IDLE_FAMILY = new Set(['idle', 'idleFidget', 'turnL', 'turnR', 'draw']);
+const FIDGET_AFTER = 6;
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
 function lerpAngle(a, b, t) {
@@ -2100,6 +2122,14 @@ export class ChibiView {
     this.capeVel = 0;
     this.lastRunPhase = 0;
     this.airStrikes = 0;
+    this.blockUntil = 0;
+    this.blocks = 0;
+    this.drawUntil = 0;
+    this.spawns = 0;
+    this.turns = 0;
+    this.turnError = 0;
+    this.idleSince = 0;
+    this.fidgets = 0;
     this.time = Math.random() * 10;
     this.opacityKey = 1;
     this.dashCount = 0;
@@ -2199,12 +2229,27 @@ export class ChibiView {
   pickClip(pl, speed) {
     const st = pl.state;
     const hero = window.GAME_DATA?.HEROES?.[pl.heroId];
-    if (st === 'dead') return { name: 'dead', key: 'dead', fade: 0.08 };
+    if (st === 'dead') {
+      this.wasDead = true;
+      return { name: 'dead', key: 'dead', fade: 0.08 };
+    }
+    if (this.wasDead) {
+      this.wasDead = false;
+      if (this.actions.draw) {
+        this.spawns++;
+        this.drawUntil = this.time + this.actions.draw.getClip().duration;
+      }
+    }
     if (st === 'knockdown') return { name: 'knockdown', key: 'kd', fade: 0.06 };
     if (st === 'hurt') return { name: 'hurt', key: 'hurt', fade: 0.04 };
     if (st !== 'attack' && st !== 'heavy') {
       this.strikeKey = null;
       if (pl.grounded) this.airStrikes = 0;
+    }
+    if (this.skinnedKnight && pl.airSlam) {
+      const phase = pl.airSlam.phase;
+      const name = phase === 'aim' ? 'slamAim' : phase === 'impact' ? (pl.grounded ? 'slamImpact' : 'airSpike') : 'slamDive';
+      return { name, key: 'slam-' + phase, fade: phase === 'impact' ? 0.03 : 0.08 };
     }
     if (st === 'attack') {
       const step = pl.comboStep || 1;
@@ -2216,7 +2261,10 @@ export class ChibiView {
     if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.06 };
     if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
     if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
-    if (pl.guarding || st === 'guard') return { name: 'guard', key: 'guard', fade: 0.1 };
+    if (pl.guarding || st === 'guard') {
+      if (this.actions.guardHit && this.time < this.blockUntil) return { name: 'guardHit', key: `block${this.blocks}`, fade: 0.04 };
+      return { name: 'guard', key: 'guard', fade: 0.1 };
+    }
     if (pl.isFlying) return { name: 'fly', key: 'fly', fade: 0.2 };
     if (pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
     if (pl.isDashing) {
@@ -2241,7 +2289,40 @@ export class ChibiView {
         return { name, key: name, fade: 0.060 };
       }
     }
+    if (this.skinnedKnight) {
+      const extra = this.idleExtra();
+      if (extra) return extra;
+    }
     return { name: 'idle', key: 'idle', fade: 0.2 };
+  }
+
+  // Standing still: draw the sword after a respawn, step round on a turn in
+  // place, and every so often play the long fidget. Each runs to its end.
+  idleExtra() {
+    const playing = this.currentName;
+    const running = this.current && this.current.time < this.current.getClip().duration - 0.02;
+    if (this.actions.draw && this.time < this.drawUntil) return { name: 'draw', key: `draw${this.spawns}`, fade: 0.1 };
+    if ((playing === 'turnL' || playing === 'turnR' || playing === 'idleFidget') && running) {
+      return { name: playing, key: playing + (playing === 'idleFidget' ? this.fidgets : this.turns), fade: 0.1 };
+    }
+    if (this.actions.turnL && Math.abs(this.turnError) > 0.6) {
+      this.turns++;
+      const name = this.turnError > 0 ? 'turnL' : 'turnR';
+      return { name, key: name + this.turns, fade: 0.1 };
+    }
+    if (this.actions.idleFidget && this.time - this.idleSince > FIDGET_AFTER) {
+      this.fidgets++;
+      this.idleSince = this.time + this.actions.idleFidget.getClip().duration;
+      return { name: 'idleFidget', key: `idleFidget${this.fidgets}`, fade: 0.3 };
+    }
+    return null;
+  }
+
+  // A guarded hit landed: the shield arm takes the blow.
+  onBlock() {
+    if (!this.actions.guardHit) return;
+    this.blocks++;
+    this.blockUntil = this.time + this.actions.guardHit.getClip().duration * 0.9;
   }
 
   onHit(strong) {
@@ -2257,17 +2338,17 @@ export class ChibiView {
   }
 
   // A strike keeps the clip it started with, so one begun in the air stays an
-  // air strike through the landing. As on the server, the first air strike of a
-  // jump launches and later ones spike; the air heavy is its own clip.
+  // air strike through the landing. The server counts the three hits of a jump
+  // (launch, cut, spike); the local count stands in when a snapshot has none.
   strikeClip(key, pl, ground) {
     if (this.strikeKey !== key) {
       this.strikeKey = key;
       this.strikeAir = !pl.grounded;
       if (this.strikeAir && ground !== 'heavy') this.airStrikes++;
     }
-    if (!this.strikeAir) return ground;
-    if (ground === 'heavy') return 'airSmash';
-    return this.airStrikes > 1 ? 'airSpike' : 'airRise';
+    if (!this.strikeAir || ground === 'heavy') return ground;
+    const hit = pl.airStrikes || this.airStrikes;
+    return hit >= 3 ? 'airSpike' : hit === 2 ? 'airCut' : 'airRise';
   }
 
   queueBladeAccent(event, emit) {
@@ -2356,7 +2437,7 @@ export class ChibiView {
     if (kl) { R.armL.rotateX(-0.45 * kl * ks); R.foreL.rotateX(-0.35 * kl * ks); }
     const lean = 0.12 * Math.max(kr, kl) + 0.45 * Math.sin(this.hitLean * Math.PI * 0.5);
     if (lean) { R.torso.rotateX(-lean); R.head.rotateX(-lean * 0.6); }
-    const planted = this.currentName === 'idle' || this.currentName === 'guard';
+    const planted = this.skinnedKnight ? KNIGHT_STANDING.has(this.currentName) : this.currentName === 'idle' || this.currentName === 'guard';
     this.strikeFeetDown = false;
     if (this.skinnedKnight && pl.grounded && KNIGHT_FLOOR_CLIPS.has(this.currentName)) {
       const load = this.landingLoad;
@@ -2428,6 +2509,7 @@ export class ChibiView {
     // Actions turn briskly into aim; locomotion turns fluidly without jarring snaps
     const acting = pl.state === 'attack' || pl.state === 'heavy' || pl.state === 'skill';
     const previousYaw = this.yaw;
+    this.turnError = lerpAngle(0, Math.PI / 2 - (pl.facing || 0) - this.yaw, 1);
     this.yaw = lerpAngle(this.yaw, Math.PI / 2 - (pl.facing || 0), 1 - Math.exp(-dt * (acting ? 28 : 14)));
     this.root.rotation.y = this.yaw;
     this.footwork?.track(this.root.position, this.yaw, this.yaw - previousYaw, dt, speed);
@@ -2439,6 +2521,7 @@ export class ChibiView {
     this.wasRolling = !!pl.isRolling;
     const locomotionSpeed = this.footwork?.locomotionSpeed(speed, this.currentName) ?? speed;
     const want = this.pickClip(pl, locomotionSpeed);
+    if (!IDLE_FAMILY.has(want.name)) this.idleSince = this.time;
     const trigger = `${want.name}|${want.key}`;
     const committed = this.time < this.commitUntil && LOCOMOTION.has(want.name) && want.name !== this.currentName;
     if (trigger !== this.triggerKey && !committed) {

@@ -238,6 +238,7 @@ export class ThreeRenderer {
   // ------------------------------------------------------------------ fx
   processServerFx(list) {
     for (const fx of list) {
+      if ((fx.type === 'block' || fx.type === 'parry') && fx.playerId) this.players.get(fx.playerId)?.view.onBlock?.();
       if (fx.type === 'slash' && fx.heroId === 'knight' &&
           this.players.get(fx.playerId)?.view.queueBladeAccent(fx, event => {
             if (!this.knightVfx.handleServerFx(event)) this.fx.handle(event);
@@ -844,6 +845,52 @@ export class ThreeRenderer {
     ctx.stroke();
   }
 
+  // Where an air heavy will land: a ring the size of its blast, filling in
+  // while the attacker aims, with a dashed line from the attacker down to it.
+  drawSlamZone(pl, mine) {
+    const ctx = this.octx;
+    const slam = pl.airSlam;
+    if (slam.mode === 'dash') return;
+    const centre = this.toScreen(slam.x, slam.y + 0.05, slam.z);
+    const edge = this.toScreen(slam.x + (slam.radius || 2.4), slam.y + 0.05, slam.z);
+    if (!centre || !edge) return;
+    const radius = Math.hypot(edge.x - centre.x, edge.y - centre.y);
+    const pulse = 1 + Math.sin(this.time * 14) * 0.04;
+    const color = mine ? '255, 214, 102' : '248, 113, 113';
+    ctx.save();
+    ctx.translate(centre.x, centre.y);
+    ctx.scale(1, 0.58);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${color}, ${slam.phase === 'dive' ? 0.28 : 0.14})`;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(${color}, 0.95)`;
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const a = i * Math.PI / 2 + Math.PI / 4;
+      ctx.moveTo(Math.cos(a) * radius * 0.25, Math.sin(a) * radius * 0.25);
+      ctx.lineTo(Math.cos(a) * radius * 0.6, Math.sin(a) * radius * 0.6);
+    }
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+    const from = this.toScreen(pl.x, pl.y + 0.6, pl.z);
+    if (from) {
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -this.time * 40;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(centre.x, centre.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = `rgba(${color}, 0.7)`;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   drawFreeAimReticle(me) {
     const ctx = this.octx;
     const f = me.facing || 0;
@@ -969,6 +1016,7 @@ export class ThreeRenderer {
       for (const pl of state.players) {
         if (pl.state === 'dead') continue;
         if (pl.buffs?.stealth && pl.id !== localId) continue;
+        if (pl.airSlam && (pl.airSlam.phase === 'aim' || pl.airSlam.phase === 'dive')) this.drawSlamZone(pl, pl.id === localId);
         if (pl.id === me?.targeting?.targetId) this.drawTargetReticle(pl, me.targeting.mode, me);
         const s = this.toScreen(pl.x, pl.y + 2.25, pl.z);
         if (!s) continue;

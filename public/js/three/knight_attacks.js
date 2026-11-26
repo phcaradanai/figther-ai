@@ -20,11 +20,13 @@ export const KNIGHT_STRIKES = {
   charge: { contact: 0.035, trail: null, commit: 0.45 },
   // Strikes that start in the air keep their clip through a landing.
   airRise: { contact: 0.115, trail: [0.06, 0.18], commit: 0.24, air: true },
+  airCut: { contact: 0.11, trail: [0.06, 0.17], commit: 0.24, air: true },
   airSpike: { contact: 0.11, trail: [0.06, 0.17], commit: 0.24, air: true },
-  airSmash: { contact: 0.21, trail: [0.15, 0.27], commit: 0.40, air: true }
+  // Air heavy: hover while aiming, plunge, then chop into the floor on landing.
+  slamAim: { air: true, commit: 0 },
+  slamDive: { air: true, commit: 0 },
+  slamImpact: { contact: 0.055, trail: [0, 0.09], commit: 0.36 }
 };
-// Forward somersault into the air heavy's chop: [start, duration] in seconds.
-export const KNIGHT_AIR_FLIP = [0.03, 0.17];
 // Clip times when a strike deliberately leaves the floor.
 export const KNIGHT_AIRBORNE = { attack3: [0.058, 0.18], charge: [0.03, 0.2] };
 
@@ -153,11 +155,10 @@ export function buildKnightAttacks(makeClip, idle, pose) {
   const bashHold = pose(bashDrive, { hipsY: 0.465, torso: [0.42, -0.46, 0], armL: [-1.52, 0.46, -0.40] });
 
 
-  // Air strikes. The first one in a jump launches the target, so the blade
-  // rises from low behind to high in front. Later ones spike the target down
-  // with an overhead chop. The air heavy somersaults into a chop (the flip is
-  // applied in code). Knees stay gathered throughout so nothing reads as a
-  // stance in mid-air.
+  // Air strikes: three per jump. The first launches the target, so the blade
+  // rises from low behind to high in front; the second sweeps flat across while
+  // both hang in the air; the third spikes the target down with an overhead
+  // chop. Knees stay gathered so nothing reads as a stance in mid-air.
   const tuckedLegs = {
     legL: [-1.25, 0.04, -0.07], shinL: [1.95, 0, 0], footL: [0.45, 0, 0.05],
     legR: [-0.80, -0.04, 0.07], shinR: [2.05, 0, 0], footR: [0.55, 0, -0.05]
@@ -202,16 +203,28 @@ export function buildKnightAttacks(makeClip, idle, pose) {
     armR: [-0.86, -0.73, 0.43], handR: [0.56, -0.04, -0.01]
   });
 
-  const smashTuck = pose(airborne, {
-    hips: [0.20, 0, 0], torso: [0.50, 0, 0], head: [0.20, 0, 0],
-    legL: [-1.55, 0.04, -0.07], shinL: [2.25, 0, 0], legR: [-1.40, -0.04, 0.07], shinR: [2.25, 0, 0],
-    armR: [-2.47, -0.16, 0.17], foreR: [-0.04, 0, 0], handR: [-0.07, -0.01, -0.01],
-    armL: [-1.20, 0.06, 0.20], foreL: [-1.50, 0, 0]
-  });
-  const smashCut = pose(spikeCut, { torso: [0.66, 0.06, 0], legL: [-0.50, 0.04, -0.07], shinL: [1.10, 0, 0] });
-  const smashHold = pose(smashCut, { torso: [0.58, 0.06, 0] });
+  // Hit 2 borrows the ground backhand's upper body (its arm angles were solved on
+  // the rig) over gathered legs.
+  const upper = (p) => ({ torso: p.torso, head: p.head, armR: p.armR, foreR: p.foreR, handR: p.handR, armL: p.armL, foreL: p.foreL });
+  const cutDraw = pose(airborne, upper(sweepDraw), { hips: [0.08, 0.30, 0], legL: [-1.10, 0.04, -0.07], shinL: [1.90, 0, 0] });
+  const cutSweep = pose(airborne, upper(sweepCut), { hips: [0.06, -0.30, 0], legR: [-1.15, -0.04, 0.07], shinR: [1.95, 0, 0] });
+  const cutThrough = pose(cutSweep, upper(sweepThrough));
 
-  const { airRise, airSpike, airSmash } = KNIGHT_STRIKES;
+  // Air heavy. Hover leaning over the target with the sword cocked overhead,
+  // dive at it with the legs trailing, and chop into the floor as it lands.
+  const aimHover = pose(airborne, upper(spikeCoil), {
+    hips: [0.25, 0, 0], hipsY: 0.67, torso: [0.20, -0.08, 0], head: [0.10, 0.08, 0],
+    armL: [-1.05, 0.06, 0.45], foreL: [-1.05, 0, 0]
+  });
+  const aimTense = pose(aimHover, { hipsY: 0.68, torso: [0.26, -0.10, 0], head: [0.14, 0.08, 0] });
+  const dive = pose(aimHover, {
+    hips: [0.60, 0, 0], torso: [0.30, -0.05, 0], head: [-0.55, 0.05, 0],
+    legL: [0.20, 0.04, -0.05], shinL: [0.55, 0, 0], footL: [0.65, 0, 0.04],
+    legR: [0.50, -0.04, 0.05], shinR: [0.85, 0, 0], footR: [0.65, 0, -0.04]
+  });
+  const landStrike = pose(crushSlam, upper(spikeCoil), { hipsY: 0.52, torso: [0.20, 0.06, 0], head: [-0.30, -0.06, 0] });
+
+  const { airRise, airCut, airSpike, slamImpact } = KNIGHT_STRIKES;
   const air = {
     airRise: makeClip('airRise', [
       [0, airborne], [0.06, riseCoil, 'out'], [airRise.contact, riseCut, 'in'],
@@ -221,9 +234,14 @@ export function buildKnightAttacks(makeClip, idle, pose) {
       [0, airborne], [0.06, spikeCoil, 'out'], [airSpike.contact, spikeCut, 'in'],
       [0.16, spikeThrough, 'out'], [0.38, airborne, 'io']
     ]),
-    airSmash: makeClip('airSmash', [
-      [0, airborne], [0.05, smashTuck, 'out'], [0.16, smashTuck, 'lin'], [airSmash.contact, smashCut, 'in'],
-      [0.42, smashHold, 'io'], [0.6, airborne, 'io']
+    airCut: makeClip('airCut', [
+      [0, airborne], [0.06, cutDraw, 'out'], [airCut.contact, cutSweep, 'in'],
+      [0.16, cutThrough, 'out'], [0.38, airborne, 'io']
+    ]),
+    slamAim: makeClip('slamAim', [[0, aimHover], [0.45, aimTense, 'io'], [0.9, aimHover, 'io']]),
+    slamDive: makeClip('slamDive', [[0, aimHover], [0.08, dive, 'out'], [0.4, dive, 'lin']]),
+    slamImpact: makeClip('slamImpact', [
+      [0, landStrike], [slamImpact.contact, crushSlam, 'in'], [0.30, crushHold, 'io'], [0.52, idle, 'io']
     ])
   };
 

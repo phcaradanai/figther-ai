@@ -20,6 +20,18 @@ const PLAYER_HEIGHT = 1.7;
 const FLOOR_EPSILON = 0.05;
 const MAX_STAIR_RISE = 0.31;
 const TARGET_HEIGHT_LIMIT = 3;
+// Aerial combo: three basic hits per jump. The first two carry attacker and
+// target up together; the third spikes the target down.
+const AIR_COMBO_HITS = 3;
+// Air heavy: hover and aim (held up to AIR_SLAM_HOLD_MS, or AIR_SLAM_TAP_MS from
+// a single press), then plunge onto the locked target or dash to it, by class.
+const AIR_SLAM_HOLD_MS = 1000;
+const AIR_SLAM_TAP_MS = 350;
+const AIR_SLAM_SPEED = 22;
+const AIR_DASH_SPEED = 20;
+const AIR_SLAM_HEIGHT = 8;
+const AIR_SLAM_RECOVERY_MS = 380;
+const DEFAULT_AIR_HEAVY = { mode: 'slam', range: 4, radius: 2.4 };
 const SKILL_TARGET_TIMEOUT = 4000;
 const SKILL_CHARGE_DEALT = 0.45;
 const SKILL_CHARGE_TAKEN = 0.30;
@@ -361,7 +373,9 @@ class GameRoom {
       attackHeldAt: null,
       chargingAttack: false,
       pendingDashAttack: false,
-      airComboCount: 0,
+      airStrikes: 0,
+      airSlam: null,
+      airSlamUsed: false,
       juggleCount: 0,
       otgCount: 0,
       spikedUntil: 0,
@@ -545,18 +559,204 @@ class GameRoom {
     player.input.facing = player.facing;
   }
 
+  targetingHeight(player) {
+    return player.targeting?.mode === 'slam' ? AIR_SLAM_HEIGHT : TARGET_HEIGHT_LIMIT;
+  }
+
+  // ==========================================================================
+  // AIR HEAVY: hover and aim, then plunge onto the target (slam) or dash to it
+  // ==========================================================================
+  startAirSlam(player, now, held) {
+    if (player.airSlam || player.airSlamUsed || player.grounded || !this.canAttack(player)) return false;
+    const hero = GAME_DATA.HEROES[player.heroId];
+    const air = { ...DEFAULT_AIR_HEAVY, ...(hero.heavyAttack?.air || {}) };
+    player.airSlamUsed = true;
+    player.airSlam = {
+      phase: 'aim', mode: air.mode, range: air.range, radius: air.radius, held,
+      aimUntil: now + (held ? AIR_SLAM_HOLD_MS : AIR_SLAM_TAP_MS), x: player.x, z: player.z, y: player.y, targetId: null, until: 0
+    };
+    player.state = 'heavy';
+    player.stateUntil = now + AIR_SLAM_HOLD_MS + 3000;
+    player.lastHeavyTime = now;
+    player.lastAttackTime = now;
+    player.guarding = false;
+    player.stealthUntil = 0;
+    player.chargingAttack = false;
+    player.vx = 0;
+    player.vz = 0;
+    player.vy = 0;
+    player.targeting = { mode: 'slam', range: air.range, targetId: null };
+    this.aimAirSlam(player, now);
+    return true;
+  }
+
+  // Lock the nearest enemy in range (direction keys switch it), else aim ahead.
+  aimAirSlam(player, now) {
+    const slam = player.airSlam;
+    const target = this.updateTargeting(player, now);
+    slam.targetId = target?.id ?? null;
+    let x = player.x + Math.cos(player.facing) * slam.range * 0.6;
+    let z = player.z + Math.sin(player.facing) * slam.range * 0.6;
+    if (target) {
+      this.faceTarget(player, target);
+      x = target.x;
+      z = target.z;
+    }
+    const dx = x - player.x;
+    const dz = z - player.z;
+    const reach = Math.hypot(dx, dz);
+    if (reach > slam.range) {
+      x = player.x + dx / reach * slam.range;
+      z = player.z + dz / reach * slam.range;
+    }
+    const floor = this.floorPlatformAt(x, z, player.y);
+    slam.x = x;
+    slam.z = z;
+    slam.y = floor ? floor.y : player.y - 3;
+  }
+
+  launchAirSlam(player, now) {
+    const slam = player.airSlam;
+    if (!slam || slam.phase !== 'aim') return;
+    this.aimAirSlam(player, now);
+    const target = slam.targetId ? this.players.get(slam.targetId) : null;
+    player.targeting = null;
+    player.attackHeldAt = null;
+    if (slam.mode === 'dash' && target) {
+      slam.phase = 'dash';
+      slam.until = now + 600;
+      return;
+    }
+    const dx = slam.x - player.x;
+    const dz = slam.z - player.z;
+    const dy = Math.min(-0.5, slam.y - player.y);
+    // Fall at least 8 u/s, and cover the ground distance in the same time so the
+    // plunge lands on the aimed point rather than short of it.
+    const time = Math.min(Math.max(0.12, Math.hypot(dx, dy, dz) / AIR_SLAM_SPEED), -dy / 8);
+    slam.phase = 'dive';
+    slam.vx = dx / time;
+    slam.vz = dz / time;
+    slam.vy = dy / time;
+    slam.until = now + time * 1000 + 600;
+  }
+
+  // Runs after input has set this tick's velocity, before gravity and movement.
+  updateAirSlam(player, now) {
+    const slam = player.airSlam;
+    if (!this.canAttack(player)) {
+      player.airSlam = null;
+      player.targeting = null;
+      return false;
+    }
+    if (slam.phase === 'aim') {
+      player.vx = 0;
+      player.vz = 0;
+      player.vy = 0;
+      this.aimAirSlam(player, now);
+      if (now >= slam.aimUntil) this.launchAirSlam(player, now);
+      return slam.phase !== 'impact';
+    }
+    if (slam.phase === 'dive') {
+      if (now >= slam.until) {
+        player.airSlam = null;
+        player.state = 'idle';
+        return false;
+      }
+      player.vx = slam.vx;
+      player.vz = slam.vz;
+      player.vy = slam.vy;
+      return true;
+    }
+    if (slam.phase === 'dash') {
+      const target = this.players.get(slam.targetId);
+      if (!target || target.state === 'dead' || now >= slam.until) {
+        this.endAirSlam(player, now);
+        return false;
+      }
+      const dx = target.x - player.x;
+      const dy = target.y + 0.4 - player.y;
+      const dz = target.z - player.z;
+      const distance = Math.hypot(dx, dy, dz);
+      if (distance <= 1.0) {
+        this.airDashHit(player, target, now);
+        return false;
+      }
+      this.faceTarget(player, target);
+      player.vx = dx / distance * AIR_DASH_SPEED;
+      player.vy = dy / distance * AIR_DASH_SPEED;
+      player.vz = dz / distance * AIR_DASH_SPEED;
+      return true;
+    }
+    if (now >= slam.until) player.airSlam = null;
+    return false;
+  }
+
+  endAirSlam(player, now) {
+    player.airSlam = { ...player.airSlam, phase: 'impact', until: now + AIR_SLAM_RECOVERY_MS };
+    player.state = 'heavy';
+    player.stateUntil = now + AIR_SLAM_RECOVERY_MS;
+  }
+
+  airSlamImpact(player, now) {
+    const slam = player.airSlam;
+    const hero = GAME_DATA.HEROES[player.heroId];
+    const heavy = hero.heavyAttack;
+    player.vx = 0;
+    player.vz = 0;
+    this.endAirSlam(player, now);
+    if (hero.attackType === 'melee') player.attackActiveUntil = now + CLASH_WINDOW_MS;
+    const fx = {
+      facing: player.facing, heroId: player.heroId, playerId: player.id, color: hero.accentColor,
+      originX: player.x, originY: player.y, originZ: player.z, radius: slam.radius
+    };
+    this.emitFx('heavy_impact', player.x, player.y + 0.4, player.z, { ...fx, text: 'SLAM!' });
+    this.emitFx('shockwave', player.x, player.y + 0.1, player.z, { radius: slam.radius, color: hero.accentColor });
+    this.hitAoE(player, player.x, player.y, player.z, slam.radius, {
+      damage: Math.round(heavy.damage * 1.1),
+      knockback: 5.5,
+      launchY: 7.0,
+      otg: true,
+      stunMs: 900,
+      guardBreak: true,
+      skillNameTh: `${heavy.nameTh} (Air Slam)`
+    });
+  }
+
+  airDashHit(player, target, now) {
+    const hero = GAME_DATA.HEROES[player.heroId];
+    const heavy = hero.heavyAttack;
+    this.endAirSlam(player, now);
+    player.vx *= 0.2;
+    player.vz *= 0.2;
+    player.vy = 2.5;
+    if (hero.attackType === 'melee') player.attackActiveUntil = now + CLASH_WINDOW_MS;
+    this.emitFx('heavy_impact', target.x, target.y + 0.9, target.z, {
+      facing: player.facing, heroId: player.heroId, playerId: player.id, color: hero.accentColor,
+      originX: player.x, originY: player.y, originZ: player.z, text: 'SPIKE!'
+    });
+    this.applyDamage(player, target, {
+      damage: Math.round(heavy.damage * 0.95),
+      knockback: 3.5,
+      spike: !target.grounded,
+      otg: true,
+      stunMs: 850,
+      guardBreak: true,
+      skillNameTh: `${heavy.nameTh} (Air Dash)`
+    });
+  }
+
   clearTargeting(player) {
     player.attackHeldAt = null;
     player.chargingAttack = false;
     player.pendingDashAttack = false;
-    player.targeting = null;
+    if (player.airSlam?.phase !== 'aim') player.targeting = null;
   }
 
   lockedTarget(player, now) {
     const lock = player.targeting;
     if (!lock) return null;
     const target = this.players.get(lock.targetId);
-    return this.targetInRange(player, target, lock.range, TARGET_HEIGHT_LIMIT, now) ? target : null;
+    return this.targetInRange(player, target, lock.range, this.targetingHeight(player), now) ? target : null;
   }
 
   updateTargeting(player, now) {
@@ -579,7 +779,7 @@ class GameRoom {
     if (!player.targeting) return null;
 
     const target = this.lockedTarget(player, now) ||
-      this.findTarget(player, player.targeting.range, TARGET_HEIGHT_LIMIT, now);
+      this.findTarget(player, player.targeting.range, this.targetingHeight(player), now);
     player.targeting.targetId = target?.id ?? null;
     return target;
   }
@@ -589,7 +789,7 @@ class GameRoom {
     const current = this.updateTargeting(player, now);
     if (!player.targeting) return;
     const distance = Math.hypot(dx, dz);
-    const target = this.findTarget(player, player.targeting.range, TARGET_HEIGHT_LIMIT, now,
+    const target = this.findTarget(player, player.targeting.range, this.targetingHeight(player), now,
       { dx: dx / distance, dz: dz / distance }, current || player);
     if (target) {
       player.targeting.targetId = target.id;
@@ -602,6 +802,10 @@ class GameRoom {
 
   handleAttackInput(player, phase, isDashAttack) {
     const now = Date.now();
+    if (player.airSlam) {
+      if (phase === 'release' && player.airSlam.phase === 'aim' && player.airSlam.held) this.launchAirSlam(player, now);
+      return;
+    }
     const isJumpAttack = !player.grounded;
     const isRanged = GAME_DATA.HEROES[player.heroId].attackType === 'ranged';
     if (phase === 'release') {
@@ -675,7 +879,7 @@ class GameRoom {
 
     if (!player.grounded) {
       player.vy = Math.max(player.vy, 4.8);
-      player.airComboCount = 0;
+      player.airStrikes = 0;
       player.jumpCount = Math.min(player.jumpCount, 1);
     }
 
@@ -1076,7 +1280,9 @@ class GameRoom {
     player.attackHitLandedAt = 0;
     player.chargingAttack = false;
     player.pendingDashAttack = false;
-    player.airComboCount = 0;
+    player.airStrikes = 0;
+    player.airSlam = null;
+    player.airSlamUsed = false;
     player.juggleCount = 0;
     player.otgCount = 0;
     player.spikedUntil = 0;
@@ -1440,6 +1646,8 @@ class GameRoom {
     }
     if (!this.canAttack(player)) return;
     if (now < player.stateUntil && player.state === 'skill') return;
+    if (player.airSlam) return;
+    if (isJumpAttack && (player.airStrikes || 0) >= AIR_COMBO_HITS) return;
 
     const cd = hero.basicAttack.cooldown;
     if (now - player.lastAttackTime < cd) return;
@@ -1458,6 +1666,7 @@ class GameRoom {
       player.comboStep = (player.comboStep % hero.basicAttack.comboHits) + 1;
     }
     player.lastComboTime = now;
+    if (isJumpAttack) player.airStrikes = (player.airStrikes || 0) + 1;
 
     const isComboFinisher = !isDashAttack && !isJumpAttack && player.comboStep === hero.basicAttack.comboHits;
     const isFinisher = isComboFinisher || isDashAttack || isJumpAttack;
@@ -1489,13 +1698,11 @@ class GameRoom {
         kb = 3.8;
         stunMs = 750;
       } else if (isJumpAttack) {
-        player.airComboCount = (player.airComboCount || 0) + 1;
-        if (player.airComboCount <= 2) {
-          player.vy = Math.max(player.vy, 3.8);
-        }
-        isSpike = player.airComboCount >= 2;
-        kb = isSpike ? 4.2 : 2.2;
-        launchY = isSpike ? 0 : 7.4;
+        // Hits 1-2 keep attacker and target afloat together; hit 3 spikes.
+        isSpike = player.airStrikes >= AIR_COMBO_HITS;
+        player.vy = Math.max(player.vy, isSpike ? 2.0 : 3.8);
+        kb = isSpike ? 4.2 : 1.6;
+        launchY = isSpike ? 0 : (player.airStrikes === 1 ? 7.4 : 6.2);
         stunMs = isSpike ? 750 : 620;
       }
 
@@ -1619,6 +1826,12 @@ class GameRoom {
     const hero = GAME_DATA.HEROES[player.heroId];
     const heavy = hero.heavyAttack;
     if (!fromCharge && (now - (player.lastHeavyTime || 0) < 550 || now - player.lastAttackTime < hero.basicAttack.cooldown)) return;
+    // In the air the heavy hovers to aim, then slams or dashes (see startAirSlam).
+    if (!player.grounded) {
+      this.clearTargeting(player);
+      this.startAirSlam(player, now, false);
+      return;
+    }
 
     player.lastAttackTime = now;
     player.lastHeavyTime = now;
@@ -1628,9 +1841,8 @@ class GameRoom {
     player.stealthUntil = 0;
     this.clearTargeting(player);
 
-    const isAirSpike = !player.grounded;
-    const range = isAirSpike ? Math.max(2.8, heavy.range * 0.85) : (player.heroId === 'ninja' ? 6.5 : heavy.range);
-    const target = this.findTarget(player, range, isAirSpike ? 3.0 : 2.5, now);
+    const range = player.heroId === 'ninja' ? 6.5 : heavy.range;
+    const target = this.findTarget(player, range, 2.5, now);
     this.faceTarget(player, target);
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
@@ -1643,44 +1855,8 @@ class GameRoom {
       originY: player.y,
       originZ: player.z,
       color: hero.accentColor,
-      text: isAirSpike ? 'SPIKE!' : heavy.nameTh.split(' ')[0]
+      text: heavy.nameTh.split(' ')[0]
     });
-
-    if (isAirSpike) {
-      player.vy = Math.max(player.vy, 2.0);
-      if (hero.attackType === 'melee') player.attackActiveUntil = now + CLASH_WINDOW_MS;
-      this.emitFx('heavy_impact', player.x + dirX * 1.1, player.y + 0.5, player.z + dirZ * 1.1, {
-        facing: player.facing,
-        heroId: player.heroId,
-        playerId: player.id,
-        originX: player.x,
-        originY: player.y,
-        originZ: player.z,
-        color: hero.accentColor,
-        text: 'SPIKE!'
-      });
-      for (const t of this.players.values()) {
-        if (!this.areEnemies(player, t) || t.state === 'dead') continue;
-        const d = distXZ(player, t);
-        if (d <= range && Math.abs(player.y - t.y) <= 3.0) {
-          const toX = t.x - player.x;
-          const toZ = t.z - player.z;
-          const dot = (toX / (d || 1)) * dirX + (toZ / (d || 1)) * dirZ;
-          if (dot > -0.1 || d < 1.6) {
-            this.applyDamage(player, t, {
-              damage: Math.round(heavy.damage * 0.95),
-              knockback: 3.5,
-              spike: true,
-              otg: true,
-              stunMs: 850,
-              guardBreak: true,
-              skillNameTh: `${heavy.nameTh} (Air Spike)`
-            });
-          }
-        }
-      }
-      return;
-    }
 
     // Special hero-specific heavy attack implementations
     if (player.heroId === 'ninja') {
@@ -3030,7 +3206,6 @@ class GameRoom {
         p.state = 'idle';
         p.juggleCount = 0;
         p.otgCount = 0;
-        p.airComboCount = 0;
       }
 
       // Periodic Burn DoT
@@ -3051,7 +3226,8 @@ class GameRoom {
 
       const hero = GAME_DATA.HEROES[p.heroId] || GAME_DATA.HEROES.knight;
       const mob = this.getEffectiveMobility(p);
-      const aimTarget = this.updateTargeting(p, now);
+      const aimTarget = p.airSlam ? null : this.updateTargeting(p, now);
+      if (!p.airSlam && !p.grounded && p.chargingAttack && hero.attackType === 'melee') this.startAirSlam(p, now, true);
       const canMove = p.state !== 'hurt' && p.state !== 'knockdown' && p.state !== 'frozen' && now >= p.rootUntil;
       const isBurstDashing = now < p.dashUntil || now < p.dodgeUntil;
       // Hold-Shift sprint: faster run that drains the mobility gauge (stamina).
@@ -3109,11 +3285,16 @@ class GameRoom {
         p.vz *= drag;
       }
 
+      // The air heavy holds still while aiming, then sets its own plunge or dash.
+      const slamControl = p.airSlam ? this.updateAirSlam(p, now) : false;
+
       // Gear hover is paid for at cast time. Native / cloak-granted flight uses the mobility gauge.
       const gearHover = now < p.hoverUntil;
       const nativeFlight = mob.canFly && !p.flyExhausted && p.mobilityGauge > 0 &&
         (now < p.flyUntil || (p.input.jumpHeld && (p.jumpCount >= 1 || p.vy < -1.0)));
-      if (!p.grounded && canMove && (gearHover || nativeFlight)) {
+      if (slamControl) {
+        p.isFlying = false;
+      } else if (!p.grounded && canMove && (gearHover || nativeFlight)) {
         p.isFlying = true;
 
         if (p.input.jumpHeld && p.y < 4.4) {
@@ -3176,7 +3357,9 @@ class GameRoom {
           p.grounded = true;
           p.jumpCount = 0;
           p.airDashCount = 0;
-          p.airComboCount = 0;
+          p.airStrikes = 0;
+          p.airSlamUsed = false;
+          if (p.airSlam?.phase === 'dive') this.airSlamImpact(p, now);
           p.isFlying = false;
           p.flyUntil = 0;
           p.hoverUntil = 0;
@@ -3430,6 +3613,11 @@ class GameRoom {
         animSkillId: p.animSkillId,
         targeting: p.targeting && { mode: p.targeting.mode, targetId: p.targeting.targetId, slot: p.targeting.slot, range: p.targeting.range },
         comboStep: p.comboStep,
+        airStrikes: p.airStrikes || 0,
+        airSlam: p.airSlam && {
+          phase: p.airSlam.phase, mode: p.airSlam.mode, radius: p.airSlam.radius,
+          x: Number(p.airSlam.x.toFixed(2)), y: Number(p.airSlam.y.toFixed(2)), z: Number(p.airSlam.z.toFixed(2))
+        },
         guarding: p.guarding,
         gear: p.gear,
         skillGauges,

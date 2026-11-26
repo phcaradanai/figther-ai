@@ -986,7 +986,63 @@ test('simultaneous melee swings clash with zero damage and Just Guard charges sk
   assert.ok(p2.player(parried).skillGauges.helmet >= preCharge + 7);
 });
 
-test('hero swap cancels attack recovery and air heavy spikes airborne targets into ground bounce', { timeout: 14000 }, async t => {
+test('a jump allows three basic hits and the third spikes the target', { timeout: 12000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.9, z: 0 }]);
+  await Promise.all([
+    attacker.observe(p => p.grounded && !p.buffs.invuln),
+    defender.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+  attacker.send({ type: 'jump' });
+  await attacker.observe(p => !p.grounded && p.y > 0.8);
+  for (let hit = 1; hit <= 3; hit++) {
+    attacker.send({ type: 'attack', phase: 'press' });
+    attacker.send({ type: 'attack', phase: 'release' });
+    await attacker.observe(p => p.airStrikes === hit);
+    if (hit < 3) await new Promise(resolve => setTimeout(resolve, 300));
+  }
+  const third = await attacker.observe(p => p.airStrikes === 3);
+  assert.equal(attacker.player(third).grounded, false);
+  const bounce = defender.observe((p, m) => m.fx.some(f => f.type === 'text' && f.text === 'GROUND BOUNCE!'));
+  // A fourth press before landing does nothing.
+  attacker.messages.length = 0;
+  await new Promise(resolve => setTimeout(resolve, 300));
+  attacker.send({ type: 'attack', phase: 'press' });
+  attacker.send({ type: 'attack', phase: 'release' });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const airborne = attacker.messages.filter(m => m.type === 'state' && !attacker.player(m).grounded);
+  assert.ok(airborne.length > 0, 'the fourth press should come before landing');
+  const id = attacker.player(airborne[0]).id;
+  assert.ok(airborne.every(m => attacker.player(m).airStrikes === 3));
+  assert.ok(!airborne.some(m => m.fx.some(f => f.type === 'slash' && f.playerId === id)), 'a fourth air hit was allowed');
+  await bounce;
+  await attacker.observe(p => p.grounded && p.airStrikes === 0);
+});
+
+test('a held air heavy hovers to aim, then the Knight plunges onto the locked target', { timeout: 12000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 2.6, z: 0 }]);
+  await Promise.all([
+    attacker.observe(p => p.grounded && !p.buffs.invuln),
+    defender.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+  const hp = defender.player(await defender.observe(p => p.grounded)).hp;
+  attacker.send({ type: 'jump' });
+  await attacker.observe(p => !p.grounded && p.y > 1.2);
+  attacker.send({ type: 'attack', phase: 'press' });
+  const aiming = await attacker.observe(p => p.airSlam?.phase === 'aim');
+  const lockedY = attacker.player(aiming).y;
+  await new Promise(resolve => setTimeout(resolve, 300));
+  const held = attacker.player(await attacker.observe(p => p.airSlam?.phase === 'aim'));
+  assert.ok(Math.abs(held.y - lockedY) < 0.05, `the Knight drifted ${held.y - lockedY} while aiming`);
+  assert.equal(held.targeting?.mode, 'slam');
+  assert.ok(Math.abs(held.airSlam.x - 2.6) < 0.4, `the slam aimed at x=${held.airSlam.x}`);
+  attacker.send({ type: 'attack', phase: 'release' });
+  await attacker.observe(p => p.airSlam?.phase === 'dive');
+  const landed = await attacker.observe((p, m) => m.fx.some(f => f.type === 'heavy_impact' && f.text === 'SLAM!'));
+  assert.ok(Math.abs(attacker.player(landed).x - 2.6) < 0.8, 'the Knight should land on the target');
+  await defender.observe(p => p.hp < hp);
+});
+
+test('hero swap cancels attack recovery and an air-dashing heavy spikes airborne targets into ground bounce', { timeout: 14000 }, async t => {
   const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.7, z: 0 }], 'samurai');
   await Promise.all([
     attacker.observe(p => p.grounded && !p.buffs.invuln),

@@ -73,6 +73,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 4.5, radius: 2.6 },
         nameTh: 'กระแทกโล่ (Shield Bash)',
         damage: 18,
         range: 2.5,
@@ -171,6 +173,8 @@
         comboHits: 4
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'dash', range: 6.5 },
         nameTh: 'ก้าวพริบตาแทงหลัง (Shadow Backstab)',
         damage: 16,
         range: 5.5,
@@ -270,6 +274,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 5, radius: 3 },
         nameTh: 'เสาเพลิงมังกร (Dragon Pillar)',
         damage: 20,
         range: 5.0,
@@ -371,6 +377,8 @@
         comboHits: 4
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 4, radius: 2.2 },
         nameTh: 'กระสุนแม็กนั่มเดดอาย (Deadeye Magnum)',
         damage: 19,
         range: 10.5,
@@ -470,6 +478,8 @@
         comboHits: 4
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'dash', range: 6 },
         nameTh: 'เพลงดาบอิไอผ่าพริบตา (Iaido Flash)',
         damage: 19,
         range: 5.5,
@@ -570,6 +580,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 5, radius: 3 },
         nameTh: 'ลมหายใจศูนย์องศา (Absolute Zero)',
         damage: 15,
         range: 4.5,
@@ -671,6 +683,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 5, radius: 2.8 },
         nameTh: 'ไซบอร์กเลเซอร์บีม (Cyborg Laser Cannon)',
         damage: 21,
         range: 12.0,
@@ -774,6 +788,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'slam', range: 4, radius: 3.2 },
         nameTh: 'พายุขวานหมุน (Whirlwind Axe)',
         damage: 20,
         range: 2.9,
@@ -875,6 +891,8 @@
         comboHits: 4
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'dash', range: 5.5 },
         nameTh: 'อัปเปอร์คัตพยัคฆ์เสยฟ้า (Tiger Uppercut)',
         damage: 17,
         range: 2.3,
@@ -976,6 +994,8 @@
         comboHits: 3
       },
       heavyAttack: {
+        // Air heavy: hover and aim, then plunge onto the target (slam) or dash to it.
+        air: { mode: 'dash', range: 6 },
         nameTh: 'เคียวกระชากวิญญาณ (Soul Hook Pull)',
         damage: 16,
         range: 4.8,
