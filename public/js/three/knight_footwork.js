@@ -144,6 +144,7 @@ export class KnightFootwork {
   // wide stance never floats one foot or sinks the other.
   ground(action, floorY) {
     const { rig } = this;
+    const plans = [];
     for (const leg of this.legs) {
       leg.ankle.getWorldPosition(this.ankle);
       const floor = floorY ? floorY(this.ankle.x, this.ankle.z, this.position.y + 0.10) : this.position.y;
@@ -153,8 +154,16 @@ export class KnightFootwork {
       if (weight <= 0.001) continue;
       leg.knee.getWorldQuaternion(this.parentRotation);
       leg.yaw = heading.setFromQuaternion(this.parentRotation, 'YXZ').y;
-      this.target.set(this.ankle.x, floor + rig.restFootY, this.ankle.z).lerp(this.ankle, 1 - weight);
-      this.solve(leg, weight);
+      const goal = new Vector3(this.ankle.x, floor + rig.restFootY, this.ankle.z).lerp(this.ankle, 1 - weight);
+      plans.push({ leg, goal, weight });
+    }
+    // Reaching one boot down can lower the hips, which sinks the other boot, so
+    // solve both legs again against the final hip height.
+    for (let pass = 0; pass < 2; pass++) {
+      for (const { leg, goal, weight } of plans) {
+        this.target.copy(goal);
+        this.solve(leg, weight);
+      }
     }
   }
 

@@ -119,22 +119,22 @@ The server spawns every skill effect on the cast, and the skill state lasts 550 
 
 `KNIGHT_STRIKES` carries these four as well, so commit times, trail windows and floor contact share the basic strikes' handling. Aegis is marked `kneel`, so the sole is pulled to the floor without leveling the kneeling boot. `charge` plays once for the skinned Knight instead of looping. The lab has a scenario per skill (`?scenario=knight_weapon` and so on). The skill test checks each pose at its effect time and fails on the old clips.
 
-## Knight air strikes (2026-11-26)
+## Aerial combo and air heavy (2026-11-27)
 
-Jump attacks used to play the ground clips, so the Knight dropped into a wide lunge in mid-air. The server's air rules are:
-- The first jump attack launches the target.
-- Every later one in the same jump spikes the target down. The first two presses also lift the Knight to at least 3.8 u/s.
-- An air heavy spikes the target.
+The server rules (see `AIR_COMBO_HITS` and `startAirSlam` in `server.js`) are:
 
-The skinned Knight now has a clip for each case:
+- **Three basic hits per jump.** `airStrikes` counts them until the player lands. It used to reset whenever an attack's 238 ms state ended, so every air hit counted as the first. Hits 1 and 2 lift the attacker to at least 3.8 u/s and the target 7.4 / 6.2 u/s, with only a 0.6 push, so both stay airborne and within reach. Hit 3 spikes the target, which ground-bounces on landing. A fourth press before landing does nothing.
+- **Air heavy.** Holding J past the charge threshold in the air, or pressing heavy once, starts a hover with gravity stopped. A held aim lasts up to 1 s and a single press 0.35 s. The heavy locks the nearest enemy within the class's range, and arrow keys switch targets through the `slam` targeting mode. With no enemy it aims ahead. On release or timeout the player plunges to the aimed point at 22 u/s, falling at least 8 u/s, and the landing hits everything within the class's radius. Classes set to `dash` fly at the locked target instead, and spike it if it is airborne. The per-class `heavyAttack.air` in `shared_data.js` holds the mode, range and radius. Knight slams with range 4.5 and radius 2.6. Ninja, samurai, striker and reaper dash. Those values are first guesses for tuning.
+- The snapshot carries `airStrikes` and `airSlam` (`phase` aim / dive / dash / impact, `mode`, `x/y/z`, `radius`). The 3D renderer draws the landing zone for every player who is aiming or diving.
 
-| Clip | Used for | Motion |
-| --- | --- | --- |
-| `airRise` | First jump attack | Blade rises from low behind to high in front, knees gathered |
-| `airSpike` | Later jump attacks | Sword cocked overhead, chopped down forward, legs kicking back |
-| `airSmash` | Air heavy | Forward somersault (`KNIGHT_AIR_FLIP`) into the same downward chop |
+| Knight clip | Used for |
+| --- | --- |
+| `airRise` | Air hit 1: blade rises from low behind to high in front |
+| `airCut` | Air hit 2: the ground backhand's upper body over gathered legs |
+| `airSpike` | Air hit 3: overhead chop down |
+| `slamAim` / `slamDive` / `slamImpact` | Hover with the sword cocked overhead, dive with the legs trailing, chop into the floor on landing |
 
-`ChibiView.strikeClip()` chooses between the ground and air clip when a strike starts, and the strike keeps that clip through a landing. Air strikes are excluded from the floor contact pass. The count of air strikes resets once the Knight is grounded and not attacking. The blade accent now fires on the contact of whichever swing started with the server's slash event, on the ground or in the air.
+`ChibiView.strikeClip()` picks the air or ground clip when a strike starts and keeps it through a landing. It uses the snapshot's `airStrikes`, with a local count as fallback.
 
 ## Mixamo clips (2026-11-26)
 
@@ -142,14 +142,18 @@ The pipeline has two steps. [mixamo_to_glb.py](../../tools/rig/mixamo_to_glb.py)
 
 The retarget takes each Mixamo bone's world rotation relative to its T-pose and applies it to the matching Knight bone in the same reference pose. `Spine2` drives `torso`. Hips height scales by the ratio of the two rigs' hip heights. The bake then keeps the lying Knight on top of the floor. It searches each frame for the smallest hips lift, chest raise and chin tuck that clears the body and helmet, then turns the wrists so the sword and shield rest on the floor. The cape's cloth stays above the feet line. Keep the FBX and GLB sources out of the repo.
 
-Score of the Lite Sword and Shield Pack against the Knight's own clips:
+The Knight now uses these baked clips, chosen by the player after comparison:
 
-| Mixamo clip | Result | Reason |
+| Game clip | Mixamo source | Bake options |
 | --- | --- | --- |
-| death | **Used as `dead`**, at 1.25× speed | Staggers back and falls flat in 1.9 s, inside the 3 s respawn. The old clip just folded down and sank 0.4 into the floor. |
-| attack, attack (2)–(4) | Not used | Fastest blade at 0.33–1.17 s against the 0.12 s contact the server needs. attack and attack (4) put the blade through the helmet for 42 and 25 frames. |
-| block idle, block, block (2) | Not used | The shield ends up facing the Knight's right side, not forward. block and block (2) are moves into and out of a block, not a hit being absorbed. |
-| idle | Not used | Holds the shield edge-on. |
-| run, run (2) | Not used | Realistic jog instead of the Tree of Savior run. |
-| strafe, turn, draw sword, sheath sword | Not used | No matching game state. |
+| `attack1` / `attack2` / `attack3` | Slash / attack (2) / attack (3) | Retimed so the fastest blade lands at 0.13 / 0.13 / 0.20 s; contact and trail stored in the clip and copied into `KNIGHT_STRIKES` |
+| `walk` / `run` | run / run (2) | Rotated so the left heel strikes at phase 0, resampled to 0.44 / 0.39 s for the support-foot solver |
+| `idle`, `idleFidget` | idle, the 7.5 s Sword And Shield Idle | The fidget plays once after 6 s standing still |
+| `guard`, `guardHit` | block idle, block (2) | `guardHit` plays on the server's `block` / `parry` events |
+| `turnR` / `turnL` | turn / turn (2) | Hips yaw removed and doubled speed, played when the facing jumps by over 0.6 rad while standing |
+| `draw` | draw sword 1 | Plays after a respawn |
+| `dead` | death | 1.25× speed, kept on top of the floor |
 
+`fix` turns the left wrist so the shield faces forward (Mixamo holds its shield on the forearm, so on the Knight's hand mount it faced sideways). It also turns the right wrist and forearm just enough to keep the blade 0.3 from the helmet's centre, and each frame starts from the previous frame's correction. Blade-through-helmet frames fell from 11 to 1 (Slash) and from 22 to 0 (the long idle). During strikes both boots are grounded in two passes, so pulling one boot down no longer sinks the other. The hand-made ToS clips stay in `knight_motion.js` and `knight_attacks.js`, and the baked clips override them by name. Remove a clip from `bakedClips` to fall back to the hand-made one.
+
+Sheath sword, strafe and the other attacks are not used: the game has no sheathed or strafing state, and the remaining attacks are covered.

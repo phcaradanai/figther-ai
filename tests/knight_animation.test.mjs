@@ -202,7 +202,7 @@ test('Knight strikes settle with both boots on the floor and the finisher leaves
     advance(knight, {}, 40);
     advance(knight, { state: 'attack', comboStep }, 24);
     assert.equal(knight.currentName, 'attack' + comboStep);
-    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.08, `attack${comboStep} left a boot at ${(y - rest).toFixed(3)}`);
+    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `attack${comboStep} left a boot at ${(y - rest).toFixed(3)}`);
   }
   advance(knight, {}, 40);
   let highest = 0;
@@ -212,7 +212,7 @@ test('Knight strikes settle with both boots on the floor and the finisher leaves
   }
   assert.ok(highest - rest > 0.08, `the finisher only lifted a boot ${(highest - rest).toFixed(3)}`);
   advance(knight, { state: 'attack', comboStep: 3 }, 8);
-  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.08, `the finisher left a boot at ${(y - rest).toFixed(3)}`);
+  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the finisher left a boot at ${(y - rest).toFixed(3)}`);
 });
 
 test('Knight air strikes launch, cut and spike with gathered legs and keep their clip through a landing', t => {
@@ -325,6 +325,33 @@ test('Knight death is the baked fall and comes to rest on top of the floor', t =
     for (let i = 0; i < positions.count; i += 8) lowest = Math.min(lowest, o.localToWorld(o.getVertexPosition(i, point)).y);
   });
   assert.ok(lowest > -0.04, `the lying Knight sinks ${lowest.toFixed(3)} into the floor`);
+});
+
+test('Knight standing extras: turn in place, draw after respawn, guard hit and a long-idle fidget', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  advance(knight, {}, 30);
+  advance(knight, { facing: Math.PI / 2 + 1.6 }, 3);
+  assert.equal(knight.currentName, 'turnR');
+  advance(knight, { facing: Math.PI / 2 + 1.6 }, 40);
+  assert.equal(knight.currentName, 'idle');
+
+  advance(knight, { state: 'dead' }, 20);
+  advance(knight, {}, 3);
+  assert.equal(knight.currentName, 'draw');
+  advance(knight, {}, 40);
+  assert.equal(knight.currentName, 'idle');
+
+  advance(knight, { guarding: true, state: 'guard' }, 20);
+  assert.equal(knight.currentName, 'guard');
+  knight.onBlock();
+  advance(knight, { guarding: true, state: 'guard' }, 3);
+  assert.equal(knight.currentName, 'guardHit');
+  advance(knight, { guarding: true, state: 'guard' }, 40);
+  assert.equal(knight.currentName, 'guard');
+
+  advance(knight, {}, 60 * 6 + 30);
+  assert.equal(knight.currentName, 'idleFidget');
 });
 
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {

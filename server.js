@@ -1701,7 +1701,8 @@ class GameRoom {
         // Hits 1-2 keep attacker and target afloat together; hit 3 spikes.
         isSpike = player.airStrikes >= AIR_COMBO_HITS;
         player.vy = Math.max(player.vy, isSpike ? 2.0 : 3.8);
-        kb = isSpike ? 4.2 : 1.6;
+        // A light push keeps the target within reach of the next air hit.
+        kb = isSpike ? 4.2 : 0.6;
         launchY = isSpike ? 0 : (player.airStrikes === 1 ? 7.4 : 6.2);
         stunMs = isSpike ? 750 : 620;
       }

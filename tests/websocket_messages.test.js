@@ -992,12 +992,13 @@ test('a jump allows three basic hits and the third spikes the target', { timeout
     attacker.observe(p => p.grounded && !p.buffs.invuln),
     defender.observe(p => p.grounded && !p.buffs.invuln)
   ]);
+  const step = (label, promise) => promise.catch(error => { throw new Error(`${label}: ${error.message}`); });
   attacker.send({ type: 'jump' });
-  await attacker.observe(p => !p.grounded && p.y > 0.8);
+  await step('jump', attacker.observe(p => !p.grounded && p.y > 0.8));
   for (let hit = 1; hit <= 3; hit++) {
     attacker.send({ type: 'attack', phase: 'press' });
     attacker.send({ type: 'attack', phase: 'release' });
-    await attacker.observe(p => p.airStrikes === hit);
+    await step(`hit ${hit}`, attacker.observe(p => p.airStrikes === hit));
     if (hit < 3) await new Promise(resolve => setTimeout(resolve, 300));
   }
   const third = await attacker.observe(p => p.airStrikes === 3);
@@ -1014,8 +1015,8 @@ test('a jump allows three basic hits and the third spikes the target', { timeout
   const id = attacker.player(airborne[0]).id;
   assert.ok(airborne.every(m => attacker.player(m).airStrikes === 3));
   assert.ok(!airborne.some(m => m.fx.some(f => f.type === 'slash' && f.playerId === id)), 'a fourth air hit was allowed');
-  await bounce;
-  await attacker.observe(p => p.grounded && p.airStrikes === 0);
+  await step('ground bounce', bounce);
+  await step('landing', attacker.observe(p => p.grounded && p.airStrikes === 0));
 });
 
 test('a held air heavy hovers to aim, then the Knight plunges onto the locked target', { timeout: 12000 }, async t => {
@@ -1031,14 +1032,20 @@ test('a held air heavy hovers to aim, then the Knight plunges onto the locked ta
   const aiming = await attacker.observe(p => p.airSlam?.phase === 'aim');
   const lockedY = attacker.player(aiming).y;
   await new Promise(resolve => setTimeout(resolve, 300));
-  const held = attacker.player(await attacker.observe(p => p.airSlam?.phase === 'aim'));
+  const heldState = await attacker.observe(p => p.airSlam?.phase === 'aim');
+  const held = attacker.player(heldState);
+  const target = defender.player(heldState);
   assert.ok(Math.abs(held.y - lockedY) < 0.05, `the Knight drifted ${held.y - lockedY} while aiming`);
   assert.equal(held.targeting?.mode, 'slam');
-  assert.ok(Math.abs(held.airSlam.x - 2.6) < 0.4, `the slam aimed at x=${held.airSlam.x}`);
+  assert.equal(held.targeting?.targetId, target.id);
+  // Spawns are jittered, so compare with where the defender actually stands.
+  assert.ok(Math.hypot(held.airSlam.x - target.x, held.airSlam.z - target.z) < 0.3,
+    `the slam aimed at ${held.airSlam.x},${held.airSlam.z} for a target at ${target.x},${target.z}`);
   attacker.send({ type: 'attack', phase: 'release' });
-  await attacker.observe(p => p.airSlam?.phase === 'dive');
-  const landed = await attacker.observe((p, m) => m.fx.some(f => f.type === 'heavy_impact' && f.text === 'SLAM!'));
-  assert.ok(Math.abs(attacker.player(landed).x - 2.6) < 0.8, 'the Knight should land on the target');
+  const diving = attacker.player(await attacker.observe(p => p.airSlam?.phase === 'dive'));
+  const landed = attacker.player(await attacker.observe((p, m) => m.fx.some(f => f.type === 'heavy_impact' && f.text === 'SLAM!')));
+  const miss = Math.hypot(landed.x - diving.airSlam.x, landed.z - diving.airSlam.z);
+  assert.ok(miss < 0.8, `the Knight landed ${miss.toFixed(2)} from the aimed point`);
   await defender.observe(p => p.hp < hp);
 });
 
