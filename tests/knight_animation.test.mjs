@@ -132,6 +132,66 @@ test('Knight keeps its ankles under its body through ground and air poses', t =>
   }
 });
 
+test('Knight cape sways with the stride and turns, lifts while falling and stays behind the body', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const hem = knight.root.getObjectByName('cape3');
+  const tip = new Vector3();
+  const hips = new Vector3();
+  // The Knight faces +Z, so a positive value is distance behind the hips.
+  function measure() {
+    hem.localToWorld(tip.set(0.003, -0.289, -0.105));
+    knight.R.hips.getWorldPosition(hips);
+    const local = knight.R.torso.worldToLocal(tip.clone());
+    return { behind: hips.z - tip.z, height: tip.y - hips.y, local };
+  }
+  const range = values => Math.max(...values) - Math.min(...values);
+  advance(knight, {}, 60);
+  const resting = measure();
+  let z = 0;
+  let nearest = Infinity;
+  let trailing = 0;
+  const side = [];
+  const lift = [];
+  for (let i = 1; i <= 90; i++) {
+    z += 7.5 * dt;
+    advance(knight, { z, vz: 7.5, isSprinting: true }, 1);
+    const { behind, local } = measure();
+    nearest = Math.min(nearest, behind);
+    if (i <= 45) continue;
+    trailing += behind / 45;
+    side.push(local.x);
+    lift.push(local.y);
+  }
+  assert.ok(trailing > resting.behind + 0.25, `cape trailed ${trailing.toFixed(3)} vs ${resting.behind.toFixed(3)} at rest`);
+  assert.ok(nearest > 0.3, `cape hem came within ${nearest.toFixed(3)} of the hips`);
+  // Against the torso, the hem keeps moving through a steady sprint.
+  assert.ok(range(side) > 0.12 && range(lift) > 0.15,
+    `cape barely moved against the torso: side ${range(side).toFixed(3)}, lift ${range(lift).toFixed(3)}`);
+
+  const turning = [];
+  let x = 0;
+  for (let i = 1; i <= 20; i++) {
+    x += 5.4 * dt;
+    advance(knight, { x, z, vx: 5.4, facing: 0 }, 1);
+    turning.push(measure().local.x);
+  }
+  assert.ok(range(turning) > 0.12, `cape did not swing out on a turn: ${range(turning).toFixed(3)}`);
+
+  advance(knight, { x, z, facing: Math.PI / 2 }, 60);
+  let falling;
+  for (let i = 1; i <= 36; i++) {
+    const time = i * dt;
+    advance(knight, { z, y: 11.2 * time - 14 * time * time, vy: 11.2 - 28 * time, grounded: false }, 1);
+    falling = measure();
+    assert.ok(falling.behind > 0.3, `cape hem swung to ${falling.behind.toFixed(3)} in the air`);
+  }
+  assert.ok(falling.height > resting.height + 0.15, `cape did not lift while falling: ${falling.height.toFixed(3)}`);
+  for (const name of ['cape1', 'cape2', 'cape3']) {
+    assert.ok(knight.root.getObjectByName(name).matrixWorld.elements.every(Number.isFinite));
+  }
+});
+
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());

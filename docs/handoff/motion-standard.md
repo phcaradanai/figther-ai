@@ -67,3 +67,22 @@ Knight uses the same gameplay inputs and adds [support-foot placement](../../pub
 Run the same replay and an in-arena pass before tuning these choices for another skinned hero. Keep the landing strength and lean limits in proportion to that hero, and choose where its authored arcs reach contact instead of copying Knight's clip times.
 
 Review the silhouette at normal gameplay scale as well as the replay metrics. Knight now catches a stop on the lead leg, lets the torso and equipment continue through the transition, and then settles into ready stance. The stop clip blends out immediately when the player moves again. On the fixed replay, the last visible foot motion after stopping extends from 167 ms to 233 ms while the steady-walk and sprint drift estimates stay the same.
+
+## Tree of Savior run, jump and cape (2026-11-26)
+
+The player re-sent the same 55 s recording (`Recording 2026-11-26 214755.mp4`). Close crops of the run (04.80–05.27, 44.00–44.47) and the hop (47.97–48.43) drove a second Knight pass:
+
+- **Run.** The torso leans forward and the hips bounce. A knee drives up in front while the other heel kicks up behind toward the seat, and both feet leave the ground between steps. Seen from behind, the boots land close to the centre line. `walk` (the default 5.4 speed) is now this jog and `run` (sprint) is a stronger version of it. Both come from one `STRIDE` table in [knight_motion.js](../../public/js/three/knight_motion.js), where the thighs adduct (`TRACK`) so the legs no longer splay. The sword arm stays mostly behind the hip so the blade is carried, not brandished.
+- **Jump.** Push off through the toes, then both knees gather to the chest with the sword pointed ahead and the shield arm thrown back. The fall clip opens the legs toward the ground and the existing landing compression takes over.
+- **Footwork.** Support starts slightly before the contact key (`CATCH` in [knight_footwork.js](../../public/js/three/knight_footwork.js)) so the landing boot does not skim the floor at swing speed. The sole is pulled to the floor only during the supported part of each half stride, which keeps the flight phase.
+- **Cape.** [cape_cloth.js](../../public/js/three/cape_cloth.js) runs a three-segment verlet strand per skinned cape. Drag comes from the render root's smoothed velocity and inertia from its acceleration, so the 30 Hz server steps do not make it twitch. Bending stiffness limits creasing. The strand cannot swing forward of its authored drape, and it rides over a heel kicked up behind. The bones ease into the strand's shape. Procedural capes on other heroes keep the old spring.
+
+| Knight measure (same replay) | Before this pass | After |
+| --- | ---: | ---: |
+| Walk ankle drift estimate (units/s, P90) | 0.63 | 1.01 |
+| Sprint ankle drift estimate (units/s, P90) | 0.54 | 1.95 |
+| Low / high jump hip drop (units) | 0.015 / 0.064 | 0.046 / 0.102 |
+
+The drift estimate rose because each stride now covers about twice the ground and has a flight phase. The planted boot itself holds still through its support window, which the `plants the supporting foot` test covers. The cape test checks that the hem keeps moving against the torso through a sprint and a turn. The old spring moved 0.000 units sideways and 0.066 vertically there, and the strand moves about 0.3 in each.
+
+`/knight_motion_lab.html` is a dev page that drives one `ChibiView` with scripted snapshots at 60 Hz (`?scenario=walk|sprint|jump|runJump|turn|attack|dodge|guard&cam=game|side|front|back`). `lab.sheet(name, t0, t1, { cols, rows, mode })` renders a contact sheet for side-by-side comparison with reference frames.

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knight Motion Lab — ห้องทดสอบท่าทาง</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #c9d9e0; font: 12px "Segoe UI", Tahoma, sans-serif; color: #1d2733; overflow: hidden; }
+    #view, #sheet { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    #sheet { display: none; background: #1b2026; object-fit: contain; }
+    #ui {
+      position: fixed; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      background: rgba(255, 255, 255, 0.86); border-radius: 8px; padding: 6px 8px; max-width: calc(100vw - 16px);
+    }
+    #ui select, #ui button, #ui input { font: inherit; }
+    #info { position: fixed; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-family: Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="ui">
+    <label>ท่า (scenario) <select id="scenario"></select></label>
+    <label>กล้อง <select id="cam">
+      <option value="game">มุมเกม (game)</option>
+      <option value="side">ด้านข้าง (side)</option>
+      <option value="front">ด้านหน้า (front)</option>
+      <option value="back">ด้านหลัง (back)</option>
+    </select></label>
+    <button id="play">⏸</button>
+    <label>ความเร็ว <select id="rate"><option>1</option><option>0.5</option><option>0.25</option><option>0.1</option></select></label>
+    <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" style="width: 220px" />
+  </div>
+  <div id="info"></div>
+  <script src="/js/shared_data.js"></script>
+  <script type="module">
+    // Dev tool: drive one ChibiView with scripted snapshots at a fixed 60 Hz so a
+    // pose at a given time is reproducible. Not linked from the game.
+    import * as THREE from 'three';
+    import { ChibiView } from '/js/three/chibi.js';
+
+    const DT = 1 / 60;
+    const GRAVITY = 28;
+    const WALK = 5.4;
+    const SPRINT = 7.5;
+    const JUMP = 11.2;
+    const RIGHT = -Math.PI / 4; // screen right in the game camera
+    const params = new URLSearchParams(location.search);
+    const heroId = params.get('hero') || 'knight';
+
+    // Each scenario maps time to the fields the server would send.
+    function airborne(t, t0, vy0 = JUMP) {
+      const k = t - t0;
+      const y = vy0 * k - GRAVITY * k * k / 2;
+      return y > 0 ? { y, vy: vy0 - GRAVITY * k, grounded: false } : null;
+    }
+    const SCENARIOS = {
+      idle: { length: 4, at: () => ({}) },
+      walk: { length: 4, at: t => (t > 0.4 && t < 3 ? { speed: WALK, facing: RIGHT } : { facing: RIGHT }) },
+      sprint: { length: 4, at: t => (t > 0.4 && t < 3 ? { speed: SPRINT, facing: RIGHT, sprint: true } : { facing: RIGHT }) },
+      jump: { length: 2.2, at: t => ({ facing: RIGHT, ...(airborne(t, 0.4) || {}) }) },
+      runJump: { length: 3, at: t => {
+        const air = airborne(t, 0.9);
+        return { speed: t > 0.3 && t < 2.4 ? WALK : 0, facing: RIGHT, ...(air || {}), jumpCount: air ? 1 : 0 };
+      } },
+      turn: { length: 4, at: t => ({ speed: t > 0.3 && t < 3.3 ? WALK : 0,
+        facing: t < 1.3 ? RIGHT : t < 2.3 ? RIGHT + Math.PI / 2 : RIGHT + Math.PI }) },
+      attack: { length: 2.4, at: t => {
+        const step = t < 0.3 ? 0 : t < 0.75 ? 1 : t < 1.2 ? 2 : t < 1.8 ? 3 : 0;
+        return { facing: RIGHT, state: step ? 'attack' : 'idle', comboStep: step };
+      } },
+      dodge: { length: 2, at: t => (t > 0.4 && t < 0.8 ? { speed: 10 * (1 - (t - 0.4) * 1.5), facing: RIGHT, rolling: true } : { facing: RIGHT }) },
+      guard: { length: 2.5, at: t => ({ facing: RIGHT, guarding: t > 0.4 && t < 2 }) }
+    };
+
+    const canvas = document.getElementById('view');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#c9d9e0');
+    scene.add(new THREE.HemisphereLight('#fff6ec', '#b9a58f', 1.7));
+    const sun = new THREE.DirectionalLight('#fff1e0', 2.2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 40 });
+    scene.add(sun, sun.target);
+
+    // Checker floor so a sliding boot shows against fixed squares.
+    const tex = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const g = c.getContext('2d');
+      g.fillStyle = '#e6dccb'; g.fillRect(0, 0, 128, 128);
+      g.fillStyle = '#d4c7b1'; g.fillRect(0, 0, 64, 64); g.fillRect(64, 64, 64, 64);
+      g.strokeStyle = '#a8957a'; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128);
+      const t = new THREE.CanvasTexture(c);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(60, 60);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), new THREE.MeshLambertMaterial({ map: tex }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const camera = new THREE.PerspectiveCamera(22, 1, 0.3, 200);
+    const env = { dt: DT, fx: null, floorY: () => 0 };
+    let view = null;
+    let player = null;
+    let simTime = 0;
+
+    function reset() {
+      view?.dispose();
+      const gear = Object.fromEntries(GAME_DATA.GEAR_SLOTS.map(slot => [slot, heroId]));
+      player = { heroId, gear, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, facing: RIGHT, grounded: true, state: 'idle', jumpCount: 0 };
+      view = new ChibiView(player);
+      view.time = 0;
+      scene.add(view.root);
+      simTime = 0;
+    }
+
+    function step(scenario) {
+      const input = scenario.at(simTime + DT);
+      const { speed = 0, facing = RIGHT, y = 0, vy = 0, grounded = true, sprint = false, rolling = false,
+        state = 'idle', comboStep = 0, guarding = false, jumpCount = 0 } = input;
+      const vx = Math.cos(facing) * speed;
+      const vz = Math.sin(facing) * speed;
+      Object.assign(player, { x: player.x + vx * DT, y, z: player.z + vz * DT, vx, vy, vz, facing, grounded,
+        isSprinting: sprint, isRolling: rolling, state, comboStep, guarding, jumpCount });
+      view.update(player, env);
+      simTime += DT;
+    }
+
+    function seek(name, t) {
+      const scenario = SCENARIOS[name];
+      if (!view || t < simTime - 1e-6 || current !== name) { current = name; reset(); }
+      while (simTime + DT / 2 < t) step(scenario);
+    }
+
+    function aim(mode, dist = 9) {
+      const p = view.root.position;
+      const target = new THREE.Vector3(p.x, p.y + 0.75, p.z);
+      const dir = new THREE.Vector3();
+      if (mode === 'game') {
+        const pitch = 0.62;
+        dir.set(Math.cos(pitch) * Math.SQRT1_2, Math.sin(pitch), Math.cos(pitch) * Math.SQRT1_2);
+        dist *= 1.35;
+      } else {
+        const f = RIGHT + ({ side: -Math.PI / 2, front: 0, back: Math.PI }[mode] || 0);
+        dir.set(Math.cos(f), 0.12, Math.sin(f)).normalize();
+      }
+      camera.position.copy(target).addScaledVector(dir, dist);
+      camera.lookAt(target);
+      sun.position.set(p.x - 6, p.y + 12, p.z + 3);
+      sun.target.position.copy(p);
+    }
+
+    function draw(w, h, mode) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      aim(mode);
+      renderer.render(scene, camera);
+    }
+
+    // Render a contact sheet of one scenario: times from t0 to t1, cols x rows tiles.
+    function sheet(name, t0, t1, { cols = 6, rows = 2, mode = 'side', w = 200, h = 260 } = {}) {
+      const out = document.getElementById('sheet');
+      out.width = cols * w;
+      out.height = rows * h;
+      const g = out.getContext('2d');
+      const n = cols * rows;
+      current = null;
+      for (let i = 0; i < n; i++) {
+        const t = t0 + (t1 - t0) * (n === 1 ? 0 : i / (n - 1));
+        seek(name, t);
+        draw(w, h, mode);
+        const x = (i % cols) * w, y = Math.floor(i / cols) * h;
+        g.drawImage(canvas, 0, 0, w, h, x, y, w, h);
+        g.fillStyle = 'rgba(0,0,0,0.6)';
+        g.fillRect(x, y, 116, 16);
+        g.fillStyle = '#ffe066';
+        g.font = '11px Consolas, monospace';
+        g.fillText(`${t.toFixed(2)}s ${view.currentName}`, x + 3, y + 12);
+        g.strokeStyle = '#333';
+        g.strokeRect(x, y, w, h);
+      }
+      out.style.display = 'block';
+      canvas.style.display = 'none';
+      document.getElementById('ui').style.display = 'none';
+      document.getElementById('info').style.display = 'none';
+      return { cols, rows, n };
+    }
+
+    function live() {
+      document.getElementById('sheet').style.display = 'none';
+      canvas.style.display = 'block';
+      document.getElementById('ui').style.display = 'flex';
+      document.getElementById('info').style.display = 'block';
+    }
+
+    const sel = document.getElementById('scenario');
+    for (const name of Object.keys(SCENARIOS)) sel.add(new Option(name, name));
+    sel.value = params.get('scenario') || 'walk';
+    const camSel = document.getElementById('cam');
+    camSel.value = params.get('cam') || 'game';
+    const scrub = document.getElementById('scrub');
+    const info = document.getElementById('info');
+    let current = null;
+    let playing = true;
+    let clock = 0;
+    let last = performance.now();
+    document.getElementById('play').onclick = (e) => { playing = !playing; e.target.textContent = playing ? '⏸' : '▶'; };
+    scrub.oninput = () => { playing = false; document.getElementById('play').textContent = '▶'; clock = Number(scrub.value) * SCENARIOS[sel.value].length; };
+    sel.onchange = () => { clock = 0; current = null; };
+
+    function frame(now) {
+      const real = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (document.getElementById('sheet').style.display !== 'block') {
+        const scenario = SCENARIOS[sel.value];
+        if (playing) clock += real * Number(document.getElementById('rate').value);
+        if (clock > scenario.length) clock = 0;
+        seek(sel.value, clock);
+        scrub.value = clock / scenario.length;
+        draw(innerWidth, innerHeight, camSel.value);
+        const phase = view.current ? view.current.time / view.current.getClip().duration : 0;
+        info.textContent = `${sel.value} t=${clock.toFixed(2)}s  clip=${view.currentName}  phase=${phase.toFixed(2)}  grounded=${player.grounded}`;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    window.lab = { seek, sheet, live, draw, SCENARIOS, get view() { return view; }, get player() { return player; } };
+  </script>
+</body>
+</html>

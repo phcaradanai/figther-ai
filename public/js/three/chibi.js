@@ -13,6 +13,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
 import { buildKnightLocomotion } from './knight_motion.js';
 import { KnightFootwork } from './knight_footwork.js';
+import { CapeCloth } from './cape_cloth.js';
 
 const gltfLoader = new GLTFLoader();
 
@@ -45,6 +46,8 @@ const SKINNED_HEROES = {
     swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
+    // Cape hem below the last cape bone, in that bone's space.
+    capeTip: [0.003, -0.289, -0.105],
     capeBones: [
       { name: 'cape1', weight: 0.22 },
       { name: 'cape2', weight: 0.38 },
@@ -2069,6 +2072,16 @@ export class ChibiView {
       : null;
     this.root = this.R.root;
     this.footwork = this.skinnedKnight ? new KnightFootwork(this.R) : null;
+    // The skinned cape's bone chain follows a small cloth strand.
+    const capeTip = useSkinned ? skinned.spec.capeTip : null;
+    this.cloth = capeTip && this.R.extras.capes.length === 3 && gear.trinket === pl.heroId
+      ? new CapeCloth(this.R.extras.capes, capeTip, ['L', 'R'].flatMap(side => [
+        [this.R['shin' + side], new THREE.Vector3(0, 0, 0)],
+        [this.R['shin' + side], new THREE.Vector3(0, -0.14, 0)],
+        [this.R['foot' + side], new THREE.Vector3(0, 0, 0)],
+        [this.R['foot' + side], new THREE.Vector3(0, -0.09, -0.06)]
+      ]))
+      : null;
     this.R.staff = this.root.getObjectByName('staff') || null;
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
     this.mixer = new THREE.AnimationMixer(this.root);
@@ -2369,9 +2382,13 @@ export class ChibiView {
           soleY = Math.min(soleY, _vp.y);
         }
       }
-      // Pull the lowest sole down only in the walking cycle or a standing pose.
-      // A sprint, hop or attack may deliberately leave the ground.
-      const settle = planted || KNIGHT_BRAKE_CLIPS.has(this.currentName) ? Infinity : this.currentName === 'walk' ? 0.07 : 0;
+      // Pull the lowest sole down in a standing pose and while a stride is
+      // supported. The flight half of a stride and a hop or attack may leave the ground.
+      let settle = planted || KNIGHT_BRAKE_CLIPS.has(this.currentName) ? Infinity : 0;
+      if (this.currentName === 'walk' || this.currentName === 'run') {
+        const half = (this.current.time / this.current.getClip().duration * 2) % 1;
+        settle = 0.06 * (1 - THREE.MathUtils.smoothstep(half, 0.48, 0.62));
+      }
       R.hips.position.y += Math.max(-settle, -soleY) / s;
     }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)
@@ -2556,7 +2573,12 @@ export class ChibiView {
     this.capeVel += (capeTarget - this.capeAng) * 46 * dt;
     this.capeVel *= Math.exp(-dt * 8.5);
     this.capeAng = Math.max(0.04, Math.min(0.92, this.capeAng + this.capeVel * dt));
-    if (doPose && this.R.extras.capes.length > 0) {
+    if (this.cloth) {
+      if (doPose) {
+        this.root.updateMatrixWorld(true);
+        this.cloth.update(paused ? 0 : poseDt, this.root.position, Math.min(1, speed / 7.5) * 1.6);
+      }
+    } else if (doPose && this.R.extras.capes.length > 0) {
       const torsoPitch = _e.setFromQuaternion(this.R.torso.quaternion, 'XYZ').x;
       // When torso leans backward (torsoPitch < 0), compensate cape1 so cloth stays clear of legs!
       const backComp = Math.max(0, -torsoPitch * 0.85);

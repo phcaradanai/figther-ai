@@ -15,37 +15,53 @@ export function buildKnightLocomotion(makeClip, ready, pose) {
     armR: [0.13, 0, -0.36], foreR: [-0.43, 0, 0], handR: [0.08, 0.02, 0]
   });
 
+  // Tree of Savior style chibi run: forward lean, bouncing hips, a knee driven
+  // high through a heel kicked up behind, fists pumping, feet landing under the
+  // body. Per half stride the lead leg reaches, catches the body, passes under it
+  // and pushes off; both feet leave the ground before the other leg lands.
+  const STRIDE = [
+    // [phase, lead thigh/knee/ankle, trail thigh/knee/ankle, hip height, pelvis turn, arm swing]
+    [0.00, [-0.60, 0.26, -0.20], [0.50, 1.00, 0.48], -0.012, 1.0, 1.00],
+    [0.08, [-0.34, 0.58, 0.02], [0.36, 1.72, 0.58], -0.004, 0.65, 0.80],
+    [0.19, [-0.02, 0.44, 0.14], [-0.42, 1.85, 0.36], -0.012, 0.0, 0.25],
+    [0.30, [0.40, 0.24, 0.55], [-0.90, 1.30, 0.12], 0.018, -0.55, -0.45],
+    [0.41, [0.56, 0.72, 0.46], [-0.80, 0.56, -0.08], 0.045, -0.85, -0.85]
+  ];
+  // Thighs adduct so each boot lands near the centre line instead of under its hip.
+  const TRACK = 0.075;
+
   function gait(name, duration, effort) {
-    // The loaded leg moves from reach through compression and push-off.
-    // The other leg folds forward. Pelvis and shoulders turn in opposition.
-    const keys = [
-      { angle: -0.66, knee: 0.16, ankle: 0.37, back: 0.58, fold: 0.28, toe: 0.22, load: 0.003, twist: 0.12, swing: 0.49 },
-      { angle: -0.28, knee: 0.33, ankle: -0.06, back: 0.26, fold: 0.65, toe: 0.14, load: -0.020, twist: 0.06, swing: 0.27 },
-      { angle: 0.13, knee: 0.15, ankle: -0.32, back: -0.33, fold: 0.80, toe: -0.11, load: 0.014, twist: -0.03, swing: -0.11 },
-      { angle: 0.51, knee: 0.20, ankle: 0.04, back: -0.67, fold: 0.39, toe: 0.17, load: 0.017, twist: -0.10, swing: -0.40 }
-    ];
     const sprint = name === 'run';
+    const lean = sprint ? 0.42 : 0.28;
+    const hipsY = sprint ? 0.588 : 0.600;
+    const fold = sprint ? 1.06 : 0.9;
+    const bob = sprint ? 1.2 : 1;
     const frames = [];
     for (const side of [1, -1]) {
-      for (const [index, k] of keys.entries()) {
-        const phase = (side === 1 ? 0 : 0.5) + [0, 0.115, 0.255, 0.385][index];
-        const lead = side === 1 ? 'L' : 'R';
-        const trail = side === 1 ? 'R' : 'L';
-        frames.push([phase * duration, pose(idle, {
-          hips: [0.045 * effort, k.twist * side * effort * 0.72, -0.026 * side * effort],
-          hipsOffset: [0.019 * side * effort, 0, k.load * 0.5],
-          hipsY: 0.603 + k.load * effort,
-          torso: [(sprint ? 0.42 : 0.16) - k.load * 1.6, -k.twist * side * effort * 1.85, 0.068 * side * effort],
-          head: [sprint ? -0.32 : -0.12, k.twist * side * 0.60, -0.046 * side * effort],
-          armL: [-0.50 - k.swing * side * effort * 0.74, 0.08, 0.27],
-          foreL: [(sprint ? -0.75 : -1.01) + k.swing * side * 0.20, 0, 0.04],
-          armR: [(sprint ? 0.43 : 0.12) + k.swing * side * effort * 0.72, -0.13, -0.48],
-          foreR: [(sprint ? -0.63 : -0.38) - k.swing * side * effort * 0.42, 0, 0],
-          handR: [-0.20 * k.swing * side * effort, 0.07, -0.06],
-          ['leg' + lead]: [k.angle * effort, 0, -0.015 * side],
-          ['shin' + lead]: [k.knee, 0, 0], ['foot' + lead]: [k.ankle * effort, 0, 0],
-          ['leg' + trail]: [k.back * effort, 0, 0.015 * side],
-          ['shin' + trail]: [k.fold * effort, 0, 0], ['foot' + trail]: [k.toe * effort, 0, 0]
+      const lead = side === 1 ? 'L' : 'R';
+      const trail = side === 1 ? 'R' : 'L';
+      for (const [at, [lt, lk, la], [tt, tk, ta], rise, turn, arm] of STRIDE) {
+        const swing = arm * side;
+        const twist = -0.10 * turn * side * effort;
+        const chest = -twist * 1.9;
+        frames.push([((side === 1 ? 0 : 0.5) + at) * duration, pose(idle, {
+          hips: [0.04, 0.03 + twist, -0.03 * turn * side],
+          hipsOffset: [0.016 * side * Math.max(0, 1 - Math.abs(turn - 0.3)), 0, 0],
+          hipsY: hipsY + rise * bob,
+          torso: [lean + 0.06 * (0.5 - rise / 0.045) * (sprint ? 1 : 0.7), chest, 0.045 * side * effort],
+          head: [-lean * 0.78, -0.05 - (chest + twist) * 0.7, -0.03 * side],
+          // Sword arm pumps opposite the lead leg, mostly behind the hip, so the
+          // blade is carried level instead of brandished.
+          armR: [0.05 - 0.42 * swing * effort, -0.10, -0.32],
+          foreR: [-0.85 - 0.25 * Math.max(0, swing) + 0.15 * Math.max(0, -swing), 0, 0],
+          handR: [0.35 + 0.30 * swing, 0.06, -0.08],
+          // Shield arm stays bent with the shield carried at the hip.
+          armL: [-0.40 + 0.46 * swing * effort, 0.06, 0.24],
+          foreL: [-1.22 + 0.16 * swing, 0, 0],
+          ['leg' + lead]: [lt * effort, 0, -TRACK * side],
+          ['shin' + lead]: [lk * fold, 0, 0], ['foot' + lead]: [la * effort, 0, TRACK * side * 0.8],
+          ['leg' + trail]: [tt * effort, 0, TRACK * side],
+          ['shin' + trail]: [tk * fold, 0, 0], ['foot' + trail]: [ta * effort, 0, -TRACK * side * 0.8]
         }), 'lin']);
       }
     }
@@ -74,24 +90,35 @@ export function buildKnightLocomotion(makeClip, ready, pose) {
     return makeClip('brake' + lead, [[0, catchStep], [0.071, catchStep, 'lin'], [0.145, recover, 'out'], [0.27, idle]]);
   }
 
+  // Jump: push off through the toes, then gather both knees up to the chest with
+  // the sword pointed ahead and the shield arm thrown back for balance, then let
+  // the legs open toward the ground on the way down.
   const lift = pose(idle, {
-    hips: [0.04, 0.025, -0.026], hipsY: 0.637, torso: [-0.19, 0.14, 0.03], head: [0.13, -0.16, 0],
-    legL: [-0.50, 0, -0.027], shinL: [0.48, 0, 0], footL: [0.14, 0, 0],
-    legR: [0.12, 0, 0.014], shinR: [0.30, 0, 0], footR: [0.19, 0, 0],
-    armL: [-0.48, 0, 0.30], foreL: [-0.90, 0, 0], armR: [0.63, 0, -0.48]
+    hips: [-0.06, 0.03, 0], hipsY: 0.648, torso: [-0.08, 0.10, 0], head: [0.06, -0.12, 0],
+    legL: [0.10, 0, -0.05], shinL: [0.30, 0, 0], footL: [0.62, 0, 0.04],
+    legR: [0.30, 0, 0.05], shinR: [0.46, 0, 0], footR: [0.58, 0, -0.04],
+    armL: [-0.95, 0.10, 0.36], foreL: [-0.80, 0, 0],
+    armR: [-1.05, -0.12, -0.26], foreR: [-0.55, 0, 0], handR: [0.10, 0.05, 0]
   });
   const tuck = pose(lift, {
-    hips: [-0.04, 0.045, -0.035], hipsY: 0.609, torso: [0.18, 0.18, 0.06], head: [-0.12, -0.22, -0.04],
-    legL: [-0.76, 0, -0.052], shinL: [0.94, 0, 0], footL: [0.08, 0, 0],
-    legR: [-0.19, 0, 0.034], shinR: [0.72, 0, 0], footR: [0.15, 0, 0],
-    armL: [-0.94, 0.06, 0.24], foreL: [-1.24, 0, 0],
-    armR: [0.19, -0.12, -0.61], foreR: [-0.60, 0, 0]
+    hips: [0.05, 0.04, 0], hipsY: 0.668, torso: [0.16, 0.12, 0.02], head: [-0.16, -0.14, 0],
+    legL: [-1.30, 0, -0.07], shinL: [2.05, 0, 0], footL: [0.45, 0, 0.05],
+    legR: [-0.88, 0, 0.07], shinR: [2.15, 0, 0], footR: [0.55, 0, -0.05],
+    armL: [0.30, 0.08, 0.50], foreL: [-0.95, 0, 0],
+    armR: [-1.22, -0.10, -0.20], foreR: [-0.12, 0, 0], handR: [0.78, 0.05, 0]
+  });
+  const apex = pose(tuck, {
+    torso: [0.12, 0.10, 0.02],
+    legL: [-1.20, 0, -0.07], shinL: [1.90, 0, 0],
+    legR: [-0.74, 0, 0.07], shinR: [2.05, 0, 0],
+    armR: [-1.14, -0.10, -0.22], foreR: [-0.18, 0, 0]
   });
   const reach = pose(tuck, {
-    hips: [0.03, 0.04, -0.018], hipsY: 0.611, torso: [0.30, 0.05, 0.045], head: [-0.12, -0.08, 0],
-    legL: [-0.29, 0, -0.022], shinL: [0.35, 0, 0], footL: [0.025, 0, 0],
-    legR: [0.035, 0, 0.021], shinR: [0.32, 0, 0], footR: [-0.10, 0, 0],
-    armL: [-0.75, 0, 0.18], foreL: [-1.04, 0, 0], armR: [0.29, -0.09, -0.57]
+    hips: [0.02, 0.04, 0], hipsY: 0.630, torso: [0.20, 0.08, 0.02], head: [-0.14, -0.10, 0],
+    legL: [-0.50, 0, -0.06], shinL: [0.55, 0, 0], footL: [-0.05, 0, 0.04],
+    legR: [0.12, 0, 0.06], shinR: [0.90, 0, 0], footR: [0.30, 0, -0.04],
+    armL: [-0.30, 0.06, 0.52], foreL: [-0.85, 0, 0],
+    armR: [-0.85, -0.10, -0.34], foreR: [-0.45, 0, 0], handR: [0.50, 0.05, 0]
   });
   const dodgePush = pose(idle, {
     hips: [0.20, 0.25, -0.10], hipsY: 0.47, hipsOffset: [0, 0, -0.08],
@@ -115,13 +142,13 @@ export function buildKnightLocomotion(makeClip, ready, pose) {
 
   return {
     idle: makeClip('idle', [[0, idle], [0.92, breathe], [2.15, idle]]),
-    walk: gait('walk', 0.46, 0.76),
-    run: gait('run', 0.39, 1.11),
+    walk: gait('walk', 0.44, 0.9),
+    run: gait('run', 0.39, 1.08),
     brakeL: brake('L', 'R', 1),
     brakeR: brake('R', 'L', -1),
-    jump: makeClip('jump', [[0, lift], [0.07, lift, 'lin'], [0.19, tuck, 'out'],
-      [0.38, pose(tuck, { torso: [0.10, 0.10, 0.025], armR: [0.07, 0, -0.41] }), 'lin']]),
-    fall: makeClip('fall', [[0, pose(tuck, { legL: [-0.50, 0, -0.036], shinL: [0.65, 0, 0] })], [0.19, reach, 'out']]),
+    jump: makeClip('jump', [[0, lift], [0.05, lift, 'lin'], [0.17, tuck, 'out'], [0.42, apex, 'io']]),
+    fall: makeClip('fall', [[0, apex], [0.10, pose(apex, { legL: [-0.95, 0, -0.07], shinL: [1.40, 0, 0] }), 'io'],
+      [0.30, reach, 'out']]),
     roll: makeClip('roll', [[0, idle], [0.052, dodgePush, 'out'], [0.146, dodgePass, 'lin'], [0.252, dodgeCatch, 'out'], [0.35, idle, 'io']])
   };
 }

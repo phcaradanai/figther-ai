@@ -3,6 +3,7 @@ import { MathUtils, Quaternion, Vector3 } from 'three';
 const { clamp, smoothstep } = MathUtils;
 const up = new Vector3(0, 1, 0);
 const forward = new Vector3(0, 0, 1);
+const CATCH = 0.06;
 
 // Anchor the support boot in world space while the clip drives its swing leg.
 // The placement follows the visual root so server tick cadence cannot tug the boot along.
@@ -100,9 +101,12 @@ export class KnightFootwork {
     }
     const duration = action.getClip().duration;
     const phase = action.time / duration;
-    const end = name === 'run' ? 0.34 : 0.41;
+    const end = name === 'run' ? 0.31 : 0.34;
     for (const [i, leg] of this.legs.entries()) {
-      const progress = (phase + i * 0.5) % 1;
+      // A running foot is caught just before its contact key, so it does not
+      // skim the floor at full swing speed on the last airborne frame.
+      const cycle = (phase + i * 0.5) % 1;
+      const progress = cycle >= 1 - CATCH ? cycle - 1 : cycle;
       if (progress >= end || (leg.planted && progress < leg.progress)) {
         leg.planted = false;
       }
@@ -123,7 +127,7 @@ export class KnightFootwork {
       const turn = Math.acos(clamp(Math.cos(this.yaw - leg.yaw), -1, 1));
       const sideError = Math.abs((leg.contact.x - this.ankle.x) * Math.cos(this.yaw)
         - (leg.contact.z - this.ankle.z) * Math.sin(this.yaw));
-      const weight = smoothstep(progress, 0.01, 0.075)
+      const weight = smoothstep(progress, -CATCH, 0.01)
         * (1 - smoothstep(progress, end - 0.125, end))
         * (1 - smoothstep(turn, 0.30, 0.90))
         * (1 - smoothstep(sideError, 0.075, 0.16))
