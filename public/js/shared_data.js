@@ -12,10 +12,10 @@
   const GEAR_SLOTS = ['weapon', 'armor', 'helmet', 'trinket'];
 
   const GEAR_SLOT_LABELS = {
-    weapon: { th: 'อาวุธ', en: 'Weapon', key: 'Q' },
-    armor:  { th: 'ชุดเกราะ', en: 'Armor', key: 'E' },
-    helmet: { th: 'หมวก', en: 'Helmet', key: 'R' },
-    trinket:{ th: 'ผ้าคลุม/ประดับ', en: 'Trinket', key: 'F' }
+    weapon: { th: 'อาวุธ', en: 'Weapon', key: 'KL', altKey: 'Q' },
+    armor:  { th: 'ชุดเกราะ', en: 'Armor', key: 'JKL', altKey: 'E' },
+    helmet: { th: 'หมวก', en: 'Helmet', key: 'JL', altKey: 'R' },
+    trinket:{ th: 'ผ้าคลุม/ประดับ', en: 'Trinket', key: 'JK', altKey: 'F' }
   };
 
   const RARITY_TIERS = {
