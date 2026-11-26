@@ -24,14 +24,13 @@ export class CharacterPreview3D {
     this.camera.position.set(0, 1.48, 4.35);
     this.camera.lookAt(0, 0.88, 0);
 
-    // Bright cheerful pastel studio lighting
-    const hemi = new THREE.HemisphereLight('#ffffff', '#bae6fd', 1.55);
-    const key = new THREE.DirectionalLight('#fffbeb', 2.25);
-    key.position.set(3.2, 5.4, 4.2);
-    const rim = new THREE.DirectionalLight('#38bdf8', 1.15);
+    const hemi = new THREE.HemisphereLight('#fff5ed', '#dbbdac', 1.45);
+    const key = new THREE.DirectionalLight('#fff1e3', 2.1);
+    key.position.set(-3.2, 4.4, 4.2);
+    const rim = new THREE.DirectionalLight('#c8d9f1', 1.0);
     rim.position.set(-3.4, 2.8, -3.2);
-    const fill = new THREE.DirectionalLight('#fde68a', 0.55);
-    fill.position.set(-2.2, 1.8, 3.0);
+    const fill = new THREE.DirectionalLight('#ffeadf', 0.9);
+    fill.position.set(2.2, 1.6, 3.5);
     this.scene.add(hemi, key, rim, fill);
 
     // Glossy arcade pedestal platform

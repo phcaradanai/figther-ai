@@ -8,7 +8,16 @@
 // ============================================================================
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { makeToonRamp } from './textures.js';
+
+// The Blender file stores a display arrangement. Each mesh's geometry is local
+// to its named socket, so actors can share geometry while wearing different gear.
+const workshop = await new GLTFLoader().loadAsync('/assets/models/hero-workshop.glb')
+  .then(gltf => gltf.scene)
+  .catch(error => { console.warn('Character workshop unavailable', error); return null; });
+const hairSwatch = new THREE.Color('#cfb390');
+const leatherSwatch = new THREE.Color('#92735f');
 
 // Nodes that move on their own (animated by clips or code). Everything else is
 // static relative to its nearest animated ancestor and gets merged into it.
@@ -58,7 +67,7 @@ const SKIN = '#fde3cf';
 const OUTLINE_COLOR = '#2b1b16';
 
 export const HERO_LOOK = {
-  knight:  { hair: '#d9a44e', hairStyle: 'short', sleeve: '#2d58a8', trim: '#e5b94c', boot: '#3c4a66', glove: '#d9d4c7', glow: '#60a5fa', style: 'shield' },
+  knight:  { hair: '#cfb390', hairStyle: 'ponytail', sleeve: '#2d58a8', trim: '#e5b94c', boot: '#3c4a66', glove: '#d9d4c7', glow: '#60a5fa', style: 'shield' },
   ninja:   { hair: '#2d2842', hairStyle: 'spiky', sleeve: '#2a243d', trim: '#8b5cf6', boot: '#272336', glove: '#2c2540', glow: '#a855f7', style: 'shinobi' },
   mage:    { hair: '#a64d32', hairStyle: 'wavy',  sleeve: '#9e262e', trim: '#e5b84b', boot: '#5c2620', glove: '#f5d8c0', glow: '#fb923c', style: 'pyro', robe: 0.16 },
   cowboy:  { hair: '#805336', hairStyle: 'wavy',  sleeve: '#e6d8be', trim: '#b87a3b', boot: '#6b4226', glove: '#7a4d2c', glow: '#fbbf24', style: 'twingun' },
@@ -109,11 +118,25 @@ function darker(hex, k) {
 class Builder {
   constructor() {
     this.materials = [];
-    this.toonMats = [];
     this.cache = new Map();
     this.glows = [];
     this.outlineMat = new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide });
     this.materials.push(this.outlineMat);
+  }
+  model(parent, name, opts = {}, tint, swatch) {
+    const piece = workshop.getObjectByName(name);
+    const key = `model|${piece.material.uuid}|${tint || ''}|${swatch?.getHexString() || ''}`;
+    let material = this.cache.get(key);
+    if (!material) {
+      material = piece.material.clone();
+      if (tint) {
+        const c = material.color.set(tint);
+        if (swatch) c.setRGB(c.r / swatch.r, c.g / swatch.g, c.b / swatch.b);
+      }
+      this.cache.set(key, material);
+      this.materials.push(material);
+    }
+    return this.part(parent, piece.geometry, material, { outline: 0, ...opts });
   }
   toon(color, opts = {}) {
     const key = `t${color}|${opts.side || 0}`;
@@ -121,7 +144,6 @@ class Builder {
     const m = new THREE.MeshToonMaterial({ color, gradientMap: RAMP, side: opts.side || THREE.FrontSide });
     this.cache.set(key, m);
     this.materials.push(m);
-    this.toonMats.push(m);
     return m;
   }
   basic(color, opts = {}) {
@@ -151,7 +173,7 @@ class Builder {
     else mesh.rotation.set(r[0], r[1], r[2]);
     mesh.scale.set(s[0], s[1], s[2]);
     mesh.castShadow = shadow;
-    mesh.userData.outline = outline;
+    mesh.userData.outline = workshop ? outline * 0.5 : outline;
     parent.add(mesh);
     return mesh;
   }
@@ -163,8 +185,8 @@ class Builder {
     const anchors = [root];
     root.traverse((o) => { if (o !== root && ANIMATED_NODES.has(o.name)) anchors.push(o); });
     const merged = {
-      toon: new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: RAMP }),
-      toon2: new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: RAMP, side: THREE.DoubleSide }),
+      toon: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.73, metalness: 0.045 }),
+      toon2: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.73, metalness: 0.045, side: THREE.DoubleSide }),
       basic: new THREE.MeshBasicMaterial({ vertexColors: true })
     };
     const keep = new Set([this.outlineMat]);
@@ -219,7 +241,7 @@ class Builder {
     }
     for (const m of this.materials) if (!keep.has(m)) m.dispose();
     this.materials = [...keep];
-    this.toonMats = this.materials.filter(m => m.isMeshToonMaterial);
+    this.litMaterials = this.materials.filter(m => m.isMeshToonMaterial || m.isMeshStandardMaterial);
     this.glows = this.glows.filter(m => keep.has(m));
   }
 
@@ -246,9 +268,28 @@ function alignQ(dir) {
 // ---------------------------------------------------------------------------
 const HEAD_R = 0.38;
 
+const HAIR_PIECES = { ponytail: 'Ponytail', wavy: 'Waves', long: 'LongLocks', bun: 'Topknot', braid: 'Braid', spiky: 'Spikes' };
+const FACE_PIECES = { ninja: 'FaceViolet', reaper: 'FaceViolet', mage: 'FaceEmber', samurai: 'FaceEmber', striker: 'FaceEmber', witch: 'FaceIce', cyborg: 'FaceIce' };
+
 function buildHead(b, head, heroId, helmetId) {
   const look = HERO_LOOK[heroId] || HERO_LOOK.knight;
   const c = new THREE.Vector3(0, 0.32, 0);
+  if (workshop) {
+    head.scale.setScalar(0.87);
+    b.model(head, FACE_PIECES[heroId] || 'Face');
+    b.model(head, 'EarsAndNeck');
+    const covered = helmetId !== 'knight' && !!HELMET_COVER[helmetId];
+    const hairRoot = node('hair', head, 0, 0, 0);
+    if (covered) hairRoot.scale.set(0.97, 0.97, 0.97);
+    for (const piece of ['Scalp', 'Nape', covered ? 'CroppedFringe' : 'SoftFringe']) {
+      b.model(hairRoot, piece, {}, look.hair, hairSwatch);
+    }
+    const extra = HAIR_PIECES[look.hairStyle];
+    if (extra && (!covered || ['Braid', 'LongLocks', 'Waves'].includes(extra))) {
+      b.model(hairRoot, extra, {}, look.hair, hairSwatch);
+    }
+    return c;
+  }
   const skin = b.toon(SKIN);
   b.part(head, G.sphere(HEAD_R, 28, 20), skin, { p: [c.x, c.y, c.z], outline: 0.035 });
   b.part(head, G.cyl(0.07, 0.08, 0.14, 10), skin, { p: [0, -0.02, 0], outline: 0 });
@@ -353,6 +394,10 @@ const brimGeo = (r) => G.cyl(r, r, 0.035, 28);
 
 const HELMETS = {
   knight(b, h, c) {
+    if (workshop) {
+      b.model(h, 'KnightDiadem', { p: [c.x, c.y - 0.32, c.z] });
+      return;
+    }
     b.part(h, domeGeo(), b.toon(STEEL), { p: [c.x, c.y + 0.02, c.z], r: [-0.35, 0, 0], outline: 0.03 });
     b.part(h, G.torus(0.435, 0.03, 6, 28), b.toon(GOLD), { p: [c.x, c.y + 0.1, c.z - 0.02], r: [Math.PI / 2 - 0.35, 0, 0], outline: 0 });
     b.part(h, G.sphere(0.1, 12, 10), b.toon('#2563eb'), { p: [c.x, c.y + 0.5, c.z - 0.1], r: [-0.7, 0, 0], s: [0.8, 2.6, 1.6] });
@@ -459,6 +504,11 @@ const ALONG_Z = [Math.PI / 2, 0, 0];
 const WEAPONS = {
   knight(b, H) {
     const w = mount(H.R, 0.35);
+    if (workshop) {
+      b.model(w, 'KnightSword');
+      b.model(H.L, 'KnightShield', { p: [0.105, -0.09, 0.02], r: [1.68, 0.22, -0.14], s: [0.87, 0.87, 0.87] });
+      return;
+    }
     b.part(w, G.cyl(0.03, 0.03, 0.24, 8), b.toon('#5b3a24'), { r: ALONG_Z });
     b.part(w, G.sphere(0.045, 10, 8), b.toon(GOLD), { p: [0, 0, -0.14] });
     b.part(w, G.box(0.32, 0.05, 0.06), b.toon(GOLD), { p: [0, 0, 0.13] });
@@ -578,7 +628,42 @@ function skirtGeo(len) {
   });
 }
 
+const COATS = {
+  cowboy: 'CowboyCoat', cyborg: 'CyborgCoat', mage: 'MageCoat', ninja: 'NinjaCoat',
+  reaper: 'ReaperCoat', samurai: 'SamuraiCoat', striker: 'StrikerCoat', viking: 'VikingCoat', witch: 'WitchCoat'
+};
+
+function dressArmor(b, R, armorId) {
+  const knight = armorId === 'knight';
+  const look = HERO_LOOK[armorId];
+  b.model(R.torso, knight ? 'KnightCuirass' : COATS[armorId]);
+  if (knight) b.model(R.hips, 'KnightFauld');
+  for (const [side, flip] of [['L', 1], ['R', -1]]) {
+    const opts = { s: [flip, 1, 1] };
+    if (knight) {
+      b.model(R['arm' + side], 'KnightPauldron', opts);
+      b.model(R['arm' + side], 'KnightSleeve', opts);
+      b.model(R['fore' + side], 'KnightVambrace', opts);
+      b.model(R['hand' + side], 'KnightGlove', opts);
+      b.model(R['leg' + side], 'KnightLeg', opts);
+      b.model(R['shin' + side], 'KnightGreave', opts);
+      b.model(R['foot' + side], 'KnightSabatons', opts);
+    } else {
+      b.model(R['arm' + side], 'TailoredSleeve', opts, look.sleeve);
+      b.model(R['fore' + side], 'FieldBracer', opts, armorId === 'cyborg' ? '#afb1b5' : null, leatherSwatch);
+      b.model(R['hand' + side], 'FieldGlove', opts, look.glove);
+      b.model(R['leg' + side], 'FieldTrousers', opts, darker(look.sleeve, 0.52));
+      b.model(R['shin' + side], 'FoldedBoot', opts, look.boot);
+      b.model(R['foot' + side], 'FieldShoe', opts, look.boot);
+    }
+  }
+}
+
 function buildArmor(b, R, armorId) {
+  if (workshop && HERO_LOOK[armorId]) {
+    dressArmor(b, R, armorId);
+    return;
+  }
   const L = armorId ? HERO_LOOK[armorId] : BARE;
   const look = armorId ? HERO_LOOK[armorId] : null;
   const cloth = b.toon(L.sleeve);
@@ -662,7 +747,15 @@ function star5(r) {
 }
 
 const TRINKETS = {
-  knight: (b, T, out) => { out.capes.push(cape(b, T, '#1e3a8a', GOLD, 0.52, 0.62, [0, 0.44, -0.16])); },
+  knight(b, T, out) {
+    if (workshop) {
+      const pivot = node('cape', T, 0, 0.44, -0.15);
+      b.model(pivot, 'KnightCape');
+      out.capes.push(pivot);
+    } else {
+      out.capes.push(cape(b, T, '#1e3a8a', GOLD, 0.52, 0.62, [0, 0.44, -0.16]));
+    }
+  },
   ninja: (b, T, out) => {
     b.part(T, G.torus(0.16, 0.055, 6, 18), b.toon('#6d28d9'), { p: [0, 0.47, 0], r: [Math.PI / 2, 0, 0], outline: 0.04 });
     const n = node('cape', T, 0.06, 0.46, -0.15);
@@ -773,6 +866,14 @@ export function buildGearItem(slot, heroId) {
     g.rotation.set(-0.9, 0, 0.5);
   } else if (slot === 'helmet') {
     HELMETS[heroId]?.(b, g, new THREE.Vector3(0, -0.15, 0));
+  } else if (slot === 'armor' && workshop && HERO_LOOK[heroId]) {
+    b.model(g, COATS[heroId] || 'KnightCuirass', { p: [0, -0.16, 0] });
+    if (heroId === 'knight') {
+      b.model(g, 'KnightFauld', { p: [0, -0.18, 0] });
+      for (const side of [-1, 1]) {
+        b.model(g, 'KnightPauldron', { p: [side * 0.25, 0.26, 0], s: [side, 1, 1] });
+      }
+    }
   } else if (slot === 'armor') {
     const L = HERO_LOOK[heroId] || BARE;
     b.part(g, G.capsule(0.165, 0.18), b.toon(L.sleeve), { p: [0, 0.12, 0], s: [1.15, 1, 0.88] });
@@ -1643,7 +1744,7 @@ export class ChibiView {
     if (b.invuln) { const k = (Math.floor(this.time * 12) % 2) * 0.25; er += k; eg += k; eb += k; }
     const f = this.flashT * this.flashT * 1.3;
     er += f; eg += f; eb += f;
-    for (const m of this.b.toonMats) m.emissive.setRGB(er, eg, eb);
+    for (const m of this.b.litMaterials) m.emissive.setRGB(er, eg, eb);
 
     // Stealth / wraith transparency
     this.setOpacity(b.stealth ? 0.28 : (b.wraith ? 0.5 : 1));
