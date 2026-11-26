@@ -1264,7 +1264,7 @@ const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:atta
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL'];
-const LOCOMOTION = new Set(['idle', 'run', 'jump', 'fall', 'dash', 'guard', 'skill', 'roll']);
+const LOCOMOTION = new Set(['idle', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
 function lerpAngle(a, b, t) {
@@ -1314,6 +1314,8 @@ export class ChibiView {
     this.opacityKey = 1;
     this.dashCount = 0;
     this.wasDashing = false;
+    this.rollCount = 0;
+    this.wasRolling = false;
     this.clipStart = 0;
     this.commitUntil = 0;
     this.kickR = 0;
@@ -1409,6 +1411,7 @@ export class ChibiView {
     if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
     if (pl.guarding || st === 'guard') return { name: 'guard', key: 'guard', fade: 0.1 };
     if (pl.isFlying) return { name: 'fly', key: 'fly', fade: 0.2 };
+    if (pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
     if (pl.isDashing) {
       if (pl.grounded && (this.style === 'gun' || this.style === 'twingun' || this.style === 'dual')) return { name: 'roll', key: `roll${this.dashCount}`, fade: 0.04 };
       return { name: 'dash', key: 'dash', fade: 0.08 };
@@ -1508,6 +1511,8 @@ export class ChibiView {
     // Animation state machine
     if (pl.isDashing && !this.wasDashing) this.dashCount++;
     this.wasDashing = !!pl.isDashing;
+    if (pl.isRolling && !this.wasRolling) this.rollCount++;
+    this.wasRolling = !!pl.isRolling;
     const want = this.pickClip(pl, speed);
     const trigger = `${want.name}|${want.key}`;
     const committed = this.time < this.commitUntil && LOCOMOTION.has(want.name) && want.name !== this.currentName;
@@ -1639,6 +1644,7 @@ export class ChibiView {
     const pulse = 0.5 + 0.5 * Math.sin(this.time * 10);
     if (b.superArmor) { er += 0.35 * pulse; eg += 0.25 * pulse; }
     if (b.berserk || b.asura) { er += 0.45 * pulse; eg += 0.04; }
+    if (pl.charging) { const ck = 0.25 + 0.3 * pulse; er += ck * 0.9; eg += ck * 0.8; eb += ck * 0.2; }
     if (frozen) { er += 0.15; eg += 0.35; eb += 0.55; }
     if (b.invuln) { const k = (Math.floor(this.time * 12) % 2) * 0.25; er += k; eg += k; eb += k; }
     const f = this.flashT * this.flashT * 1.3;

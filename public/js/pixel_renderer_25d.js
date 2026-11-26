@@ -229,14 +229,14 @@
           if (fx.damage >= 16) this.addShake(6);
         }
 
-        if (fx.text && (fx.type === 'ko' || fx.type === 'gear_break' || fx.type === 'parry')) {
+        if (fx.text && (fx.type === 'ko' || fx.type === 'gear_break' || fx.type === 'parry' || fx.type === 'clash' || fx.type === 'guard_break')) {
           this.floatingTexts.push({
             x: fx.x,
             y: fx.y + 0.8,
             z: fx.z,
             text: fx.text,
             color: fx.color || '#ffffff',
-            scale: fx.type === 'ko' || fx.type === 'gear_break' ? 1.35 : 1.05,
+            scale: (fx.type === 'ko' || fx.type === 'gear_break' || fx.type === 'clash' || fx.type === 'guard_break') ? 1.35 : 1.05,
             born: now,
             ttl: fx.type === 'ko' ? 1400 : 950
           });
@@ -245,12 +245,15 @@
         if (fx.type === 'skill_cast') {
           this.addShake(4);
         }
+        if (fx.type === 'clash' || fx.type === 'guard_break') {
+          this.addShake(6);
+        }
 
         if (fx.type === 'hero_swap') {
           this.activeFx.push({ ...fx, born: now, ttl: 450 });
         }
 
-        if (['slash', 'shockwave', 'meteor_strike', 'explosion', 'smoke', 'blade_storm', 'sakura_storm', 'blizzard', 'ice_tomb', 'ice_spikes', 'orbital_beam', 'aerial_laser', 'emp_dome', 'earthshatter', 'hundred_fists', 'scythe_reap', 'grave_chains', 'lasso', 'iaido_line', 'jumppad', 'air_jump', 'dash'].includes(fx.type)) {
+        if (['slash', 'shockwave', 'meteor_strike', 'explosion', 'smoke', 'blade_storm', 'sakura_storm', 'blizzard', 'ice_tomb', 'ice_spikes', 'orbital_beam', 'aerial_laser', 'emp_dome', 'earthshatter', 'hundred_fists', 'scythe_reap', 'grave_chains', 'lasso', 'iaido_line', 'jumppad', 'air_jump', 'dash', 'clash', 'guard_break'].includes(fx.type)) {
           this.activeFx.push({
             ...fx,
             born: now,
@@ -1942,6 +1945,20 @@
           ctx.lineWidth = 5;
           ctx.lineCap = 'round';
           ctx.stroke();
+        } else if (fx.type === 'clash' || fx.type === 'guard_break') {
+          const r = (18 + 34 * t) * p.scale;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.strokeStyle = fx.color || (fx.type === 'clash' ? '#fef08a' : '#facc15');
+          ctx.lineWidth = Math.max(2, 6 * (1 - t));
+          ctx.stroke();
+          for (let ray = 0; ray < 8; ray++) {
+            const ang = (ray / 8) * Math.PI * 2 + t * 0.4;
+            ctx.beginPath();
+            ctx.moveTo(p.x + Math.cos(ang) * r * 0.35, p.y + Math.sin(ang) * r * 0.35);
+            ctx.lineTo(p.x + Math.cos(ang) * r * 1.15, p.y + Math.sin(ang) * r * 1.15);
+            ctx.stroke();
+          }
         }
 
         ctx.restore();

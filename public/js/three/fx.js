@@ -1099,6 +1099,20 @@ export class FxSystem {
         if (fx.text) this.text(x, y + 0.6, z, fx.text, col, 'big');
         shake(4);
         break;
+      case 'clash':
+        this.flash(x, y, z, '#fef08a', 3.4, 0.24);
+        this.ring(x, y, z, 2.2, '#fde047', 0.35, { vertical: true });
+        this.sparks(x, y, z, 24, '#fef08a', { speed: 12, tile: 'star' });
+        this.text(x, y + 0.7, z, fx.text || 'CLASH!', col || '#fde047', 'big');
+        shake(6);
+        break;
+      case 'guard_break':
+        this.flash(x, y, z, '#facc15', 3.0, 0.24);
+        this.ring(x, g, z, 2.5, '#facc15', 0.42);
+        this.sparks(x, y, z, 22, '#facc15', { speed: 11, tile: 'star' });
+        this.text(x, y + 0.7, z, fx.text || 'GUARD BREAK!', col || '#facc15', 'big');
+        shake(7);
+        break;
       case 'block':
         this.flash(x, y, z, '#93c5fd', 1.6, 0.14);
         this.sparks(x, y, z, 8, '#bfdbfe', { speed: 6 });

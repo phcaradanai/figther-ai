@@ -23,6 +23,17 @@ const TARGET_HEIGHT_LIMIT = 3;
 const SKILL_TARGET_TIMEOUT = 4000;
 const SKILL_CHARGE_DEALT = 0.45;
 const SKILL_CHARGE_TAKEN = 0.30;
+const SKILL_IFRAME_MS = GAME_DATA.SKILL_IFRAME_MS || 350;
+const SWAP_COOLDOWN_MS = GAME_DATA.SWAP_COOLDOWN_MS || 1000;
+const DODGE_COST = 18;
+const DODGE_DURATION_MS = 320;
+const DODGE_COOLDOWN_MS = 260;
+const WAKEUP_WINDOW_MS = 450;
+const WAKEUP_BUFFER_MS = 240;
+const CLASH_WINDOW_MS = 200;
+const CANCEL_WINDOW_MS = 650;
+const MAX_JUGGLE_HITS = 5;
+const MAX_OTG_HITS = 2;
 
 function insideRect(area, x, z) {
   return x >= area.x && x <= area.x + area.w && z >= area.z && z <= area.z + area.d;
@@ -329,6 +340,8 @@ class GameRoom {
       jumpCount: 0,
       airDashCount: 0,
       dashUntil: 0,
+      dodgeUntil: 0,
+      lastDodgeAt: 0,
       isSprinting: false,
       sprintLocked: false,
       isFlying: false,
@@ -342,7 +355,21 @@ class GameRoom {
       comboStep: 0,
       lastComboTime: 0,
       lastAttackTime: 0,
+      lastHeavyTime: 0,
+      attackActiveUntil: 0,
+      attackHitLandedAt: 0,
       attackHeldAt: null,
+      chargingAttack: false,
+      pendingDashAttack: false,
+      airComboCount: 0,
+      juggleCount: 0,
+      otgCount: 0,
+      spikedUntil: 0,
+      knockdownLandedAt: 0,
+      wakeUpBufferedAt: 0,
+      wakeUpDirX: 0,
+      wakeUpDirZ: 0,
+      lastConditionMsgAt: 0,
       targeting: null,
       lastSwapTime: 0,
       state: 'idle', // 'idle', 'run', 'jump', 'attack', 'heavy', 'skill', 'guard', 'hurt', 'knockdown', 'frozen', 'dead'
@@ -351,6 +378,7 @@ class GameRoom {
       guarding: false,
       guardStartTime: 0,
       invulnUntil: Date.now() + 1500,
+      skillIframeUntil: 0,
       superArmorUntil: 0,
       stealthUntil: 0,
       speedBuffUntil: 0,
@@ -366,6 +394,7 @@ class GameRoom {
       rootUntil: 0,
       lastHitBy: null,
       lastHitTime: 0,
+      lastHitDamage: 0,
       respawnAt: 0,
       bouncedOnLava: false,
       nextShrineHealAt: 0,
@@ -448,6 +477,22 @@ class GameRoom {
     return GAME_DATA.HEROES[player.gear[slot]]?.skills[slot];
   }
 
+  getEffectiveMobility(player) {
+    const hero = GAME_DATA.HEROES[player.heroId] || GAME_DATA.HEROES.knight;
+    const base = hero.mobility || {};
+    const grant = this.equippedSkill(player, 'trinket')?.mobilityGrant || {};
+    const passive = this.equippedSkill(player, 'helmet')?.passive || {};
+    return {
+      ...base,
+      canFly: !!(base.canFly || grant.canFly),
+      canAirDash: !!(base.canAirDash || grant.canAirDash),
+      canRoll: !!(base.canRoll || grant.canRoll),
+      maxJumps: Math.max(base.maxJumps || 2, grant.minJumps || 0) + (passive.extraJumps ?? 0),
+      flyDrainPerSec: base.flyDrainPerSec ?? grant.flyDrainPerSec ?? 26,
+      moveSpeedMultiplier: passive.moveSpeedMultiplier ?? 1
+    };
+  }
+
   addSkillCharge(player, amount, now) {
     if (!player || player.state === 'dead' || amount <= 0) return;
     for (const slot of GAME_DATA.GEAR_SLOTS) {
@@ -502,6 +547,8 @@ class GameRoom {
 
   clearTargeting(player) {
     player.attackHeldAt = null;
+    player.chargingAttack = false;
+    player.pendingDashAttack = false;
     player.targeting = null;
   }
 
@@ -521,9 +568,12 @@ class GameRoom {
       const { slot, gearHeroId, expiresAt } = player.targeting;
       if (now >= expiresAt || player.gear[slot] !== gearHeroId) player.targeting = null;
     }
-    if (!player.targeting && player.attackHeldAt !== null &&
+    const hero = GAME_DATA.HEROES[player.heroId];
+    if (hero?.attackType === 'melee') {
+      player.chargingAttack = player.attackHeldAt !== null && (now - player.attackHeldAt >= GAME_DATA.MELEE_CHARGE_HOLD_MS);
+    } else if (!player.targeting && player.attackHeldAt !== null &&
         now - player.attackHeldAt >= GAME_DATA.RANGED_AIM_HOLD_MS) {
-      const range = GAME_DATA.HEROES[player.heroId].basicAttack.range;
+      const range = hero.basicAttack.range;
       player.targeting = { mode: 'ranged', range, targetId: null };
     }
     if (!player.targeting) return null;
@@ -544,20 +594,42 @@ class GameRoom {
     if (target) {
       player.targeting.targetId = target.id;
       this.faceTarget(player, target);
+    } else if (!current && player.targeting.mode === 'ranged' && distance > 0) {
+      player.facing = Math.atan2(dz, dx);
+      player.input.facing = player.facing;
     }
   }
 
   handleAttackInput(player, phase, isDashAttack) {
+    const now = Date.now();
     const isJumpAttack = !player.grounded;
+    const isRanged = GAME_DATA.HEROES[player.heroId].attackType === 'ranged';
     if (phase === 'release') {
       if (player.attackHeldAt === null) return;
-      const target = this.updateTargeting(player, Date.now());
-      this.clearTargeting(player);
-      this.performBasicAttack(player, isDashAttack, isJumpAttack, target);
-    } else if (phase === 'press' && GAME_DATA.HEROES[player.heroId].attackType === 'ranged') {
+      const heldMs = now - player.attackHeldAt;
+      const wasDash = isDashAttack || player.pendingDashAttack;
+      if (isRanged) {
+        const target = this.updateTargeting(player, now);
+        const isCharged = heldMs >= GAME_DATA.RANGED_CHARGE_HOLD_MS;
+        this.clearTargeting(player);
+        this.performBasicAttack(player, wasDash, isJumpAttack, target, isCharged);
+      } else {
+        this.clearTargeting(player);
+        if (heldMs >= GAME_DATA.MELEE_CHARGE_HOLD_MS) {
+          this.performHeavyAttack(player, true);
+        }
+      }
+    } else if (phase === 'press' && isRanged) {
       if (!this.canAttack(player) || player.attackHeldAt !== null) return;
       player.targeting = null;
-      player.attackHeldAt = Date.now();
+      player.attackHeldAt = now;
+      player.pendingDashAttack = !!isDashAttack;
+    } else if (phase === 'press') {
+      this.clearTargeting(player);
+      if (this.canAttack(player)) {
+        player.attackHeldAt = now;
+      }
+      this.performBasicAttack(player, isDashAttack, isJumpAttack);
     } else {
       this.clearTargeting(player);
       this.performBasicAttack(player, isDashAttack, isJumpAttack);
@@ -569,7 +641,7 @@ class GameRoom {
     const now = Date.now();
     if (player.state === 'dead') return;
     if (!GAME_DATA.HEROES[newHeroId] || player.heroId === newHeroId) return;
-    if (now - player.lastSwapTime < 1500) {
+    if (now - player.lastSwapTime < SWAP_COOLDOWN_MS) {
       this.emitFx('text', player.x, player.y + 1.8, player.z, { text: 'รอคูลดาวน์สลับฮีโร่!', color: '#94a3b8' });
       return;
     }
@@ -578,6 +650,7 @@ class GameRoom {
       return;
     }
 
+    const wasMidCombo = ['attack', 'heavy', 'skill'].includes(player.state);
     const hpRatio = player.hp / player.maxHp;
     const newHero = GAME_DATA.HEROES[newHeroId];
     player.heroId = newHeroId;
@@ -585,6 +658,11 @@ class GameRoom {
     player.maxHp = newHero.maxHp;
     player.hp = Math.max(10, Math.round(newHero.maxHp * hpRatio));
     player.lastSwapTime = now;
+    player.lastAttackTime = 0;
+    player.lastHeavyTime = 0;
+    player.comboStep = 0;
+    player.attackActiveUntil = 0;
+    player.animSkillId = null;
 
     // Swap the hero's own gear while retaining acquired gear and elapsed charge.
     for (const slot of GAME_DATA.GEAR_SLOTS) {
@@ -595,12 +673,19 @@ class GameRoom {
       }
     }
 
+    if (!player.grounded) {
+      player.vy = Math.max(player.vy, 4.8);
+      player.airComboCount = 0;
+      player.jumpCount = Math.min(player.jumpCount, 1);
+    }
+
     // Mid-combo Relay Shockwave (pops nearby enemies up slightly for combo continuation!)
     player.state = 'idle';
-    player.stateUntil = now + 150;
+    player.stateUntil = now + 80;
     this.emitFx('hero_swap', player.x, player.y, player.z, {
       color: newHero.color,
-      heroName: newHero.nameTh
+      heroName: newHero.nameTh,
+      text: wasMidCombo ? 'SWAP CANCEL!' : undefined
     });
 
     for (const other of this.players.values()) {
@@ -644,11 +729,15 @@ class GameRoom {
     return true;
   }
 
-  // Mix & Match gear swap from My Item inventory (supports all 4 gear slots)
+  // Mix & Match gear swap from My Item inventory (non-weapon gear only; weapon belongs to hero)
   equipGear(player, slot, gearHeroId) {
     const now = Date.now();
     if (player.state === 'dead') return false;
     if (!GAME_DATA.GEAR_SLOTS.includes(slot) || !GAME_DATA.HEROES[gearHeroId]) return false;
+    if (slot === 'weapon' && gearHeroId !== player.heroId) {
+      this.emitFx('text', player.x, player.y + 1.8, player.z, { text: 'อาวุธประจำตัวเปลี่ยนข้ามฮีโร่ไม่ได้!', color: '#f87171' });
+      return false;
+    }
     if (player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen') {
       this.emitFx('text', player.x, player.y + 1.8, player.z, { text: 'เปลี่ยนเกียร์ขณะถูกโจมตีไม่ได้!', color: '#f87171' });
       return false;
@@ -691,12 +780,16 @@ class GameRoom {
     return true;
   }
 
-  // Apply Damage, Guard Check, Perfect Parry, Knockback, and Lost Saga Gear Strip!
+  // Apply Damage, Guard Check, Just Guard, Knockback, Skill I-Frames, OTG & Juggle!
   applyDamage(attacker, victim, opts = {}) {
     const now = Date.now();
     if (!victim || victim.state === 'dead') return false;
     if (now < victim.invulnUntil || now < victim.wraithUntil) {
       this.emitFx('text', victim.x, victim.y + 1.5, victim.z, { text: 'MISS / อมตะ', color: '#94a3b8' });
+      return false;
+    }
+    if (now < victim.skillIframeUntil && !opts.pierceSkillIframe) {
+      this.emitFx('text', victim.x, victim.y + 1.5, victim.z, { text: 'I-FRAME! อมตะสกิล', color: '#38bdf8' });
       return false;
     }
 
@@ -711,10 +804,23 @@ class GameRoom {
       root = false,
       lifesteal = 0,
       stripChance = 0,
+      otg = false,
+      spike = false,
+      knockdown = false,
       skillNameTh = 'โจมตี',
       dirX = null,
       dirZ = null
     } = opts;
+
+    let effectiveLaunchY = launchY;
+    let effectiveStunMs = stunMs;
+    let forceHurt = false;
+    if (victim.state === 'knockdown' && victim.grounded) {
+      if (!otg || victim.otgCount >= MAX_OTG_HITS) return false;
+      victim.otgCount++;
+      effectiveLaunchY = Math.max(effectiveLaunchY, 7.2);
+      forceHurt = true;
+    }
 
     // Direction vector from attacker to victim
     let dx = dirX !== null ? dirX : (victim.x - (attacker ? attacker.x : victim.x));
@@ -723,49 +829,64 @@ class GameRoom {
     dx /= len;
     dz /= len;
 
-    // Check Guard / Perfect Counter
-    if (victim.guarding && !guardBreak && victim.state !== 'hurt' && victim.state !== 'knockdown' && victim.state !== 'frozen') {
-      // Check if attack is roughly from the front
+    // Check Guard / Just Guard (Grounded front guard only; airborne cannot guard)
+    if (victim.guarding && victim.grounded && victim.state !== 'hurt' && victim.state !== 'knockdown' && victim.state !== 'frozen') {
       const faceX = Math.cos(victim.facing);
       const faceZ = Math.sin(victim.facing);
       const dot = (-dx) * faceX + (-dz) * faceZ;
       if (dot > -0.25) {
-        const guardDuration = now - victim.guardStartTime;
-        if (guardDuration < 260 && attacker) {
-          // PERFECT GUARD / COUNTER!
-          this.emitFx('parry', victim.x, victim.y + 1.2, victim.z, {
-            text: 'PERFECT GUARD!',
-            color: '#38bdf8',
+        if (guardBreak) {
+          victim.guarding = false;
+          effectiveStunMs = Math.max(effectiveStunMs, 1150);
+          forceHurt = true;
+          this.emitFx('guard_break', victim.x, victim.y + 1.2, victim.z, {
+            text: 'GUARD BREAK!',
+            color: '#facc15',
             heroId: victim.heroId,
-            playerId: victim.id,
-            facing: victim.facing,
-            originX: victim.x,
-            originY: victim.y,
-            originZ: victim.z
+            playerId: victim.id
           });
-          attacker.state = 'hurt';
-          attacker.stateUntil = now + 900;
-          attacker.vx = -dx * 6.0;
-          attacker.vz = -dz * 6.0;
-          return false;
         } else {
-          // Normal Block reduces damage by 80%
-          const chip = Math.max(1, Math.round(damage * 0.2));
-          this.chargeFromDamage(attacker, victim, Math.min(chip, victim.hp - 1), now);
-          victim.hp = Math.max(1, victim.hp - chip);
-          victim.vx = dx * (knockback * 0.35);
-          victim.vz = dz * (knockback * 0.35);
-          this.emitFx('block', victim.x, victim.y + 1.0, victim.z, {
-            text: `BLOCK (-${chip})`,
-            color: '#60a5fa',
-            heroId: victim.heroId,
-            playerId: victim.id,
-            facing: victim.facing,
-            originX: victim.x,
-            originY: victim.y,
-            originZ: victim.z
-          });
-          return false;
+          const guardDuration = now - victim.guardStartTime;
+          if (guardDuration < 260 && attacker) {
+            // JUST GUARD / COUNTER!
+            victim.lastAttackTime = 0;
+            this.addSkillCharge(victim, 8, now);
+            this.emitFx('parry', victim.x, victim.y + 1.2, victim.z, {
+              text: 'JUST GUARD!',
+              color: '#38bdf8',
+              heroId: victim.heroId,
+              playerId: victim.id,
+              facing: victim.facing,
+              originX: victim.x,
+              originY: victim.y,
+              originZ: victim.z
+            });
+            if (distXZ(attacker, victim) <= 4.2 && Math.abs(attacker.y - victim.y) <= 2.5) {
+              attacker.state = 'hurt';
+              attacker.stateUntil = now + 900;
+              attacker.vx = -dx * 6.0;
+              attacker.vz = -dz * 6.0;
+            }
+            return false;
+          } else {
+            // Normal Block reduces damage by 80%
+            const chip = Math.max(1, Math.round(damage * 0.2));
+            this.chargeFromDamage(attacker, victim, Math.min(chip, victim.hp - 1), now);
+            victim.hp = Math.max(1, victim.hp - chip);
+            victim.vx = dx * (knockback * 0.35);
+            victim.vz = dz * (knockback * 0.35);
+            this.emitFx('block', victim.x, victim.y + 1.0, victim.z, {
+              text: `BLOCK (-${chip})`,
+              color: '#60a5fa',
+              heroId: victim.heroId,
+              playerId: victim.id,
+              facing: victim.facing,
+              originX: victim.x,
+              originY: victim.y,
+              originZ: victim.z
+            });
+            return false;
+          }
         }
       }
     }
@@ -778,8 +899,10 @@ class GameRoom {
     this.chargeFromDamage(attacker, victim, Math.min(finalDmg, victim.hp), now);
     victim.hp -= finalDmg;
     if (attacker) {
+      attacker.attackHitLandedAt = now;
       victim.lastHitBy = attacker.id;
       victim.lastHitTime = now;
+      victim.lastHitDamage = finalDmg;
       attacker.comboCount = (attacker.comboCount || 0) + 1;
       if (lifesteal > 0 || now < attacker.berserkUntil) {
         const heal = Math.max(2, Math.round(finalDmg * (lifesteal || 0.35)));
@@ -801,13 +924,23 @@ class GameRoom {
     }
 
     // Apply Knockback & Stun unless victim has Super Armor
+    const wasAirborne = !victim.grounded;
     const hasSuperArmor = now < victim.superArmorUntil || now < victim.berserkUntil;
     if (!hasSuperArmor || freeze) {
       victim.vx = dx * knockback * 2.2;
       victim.vz = dz * knockback * 2.2;
-      if (launchY > 0) {
-        victim.vy = launchY;
+      if (spike && wasAirborne) {
+        victim.vy = -13.5;
+        victim.spikedUntil = now + 900;
+      } else if (effectiveLaunchY > 0) {
+        if (wasAirborne && victim.juggleCount < MAX_JUGGLE_HITS) {
+          victim.vy = Math.max(victim.vy * 0.3, effectiveLaunchY * 0.88);
+        } else {
+          victim.vy = effectiveLaunchY;
+        }
         victim.grounded = false;
+      } else if (wasAirborne && !freeze && victim.juggleCount < MAX_JUGGLE_HITS) {
+        victim.vy = Math.max(victim.vy, 5.0);
       } else if (Math.abs(knockback) >= 6.5) {
         victim.vy = Math.max(victim.vy, 6.2);
         victim.grounded = false;
@@ -815,21 +948,39 @@ class GameRoom {
 
       if (freeze) {
         victim.state = 'frozen';
-        victim.frozenUntil = now + Math.max(1400, stunMs);
+        victim.frozenUntil = now + Math.max(1400, effectiveStunMs);
         victim.stateUntil = victim.frozenUntil;
         this.emitFx('freeze', victim.x, victim.y + 1.0, victim.z, { text: 'FROZEN! แช่แข็ง!', color: '#67e8f9' });
-      } else if (Math.abs(knockback) >= 7.0 || launchY >= 8.5) {
+      } else if (spike && wasAirborne) {
+        victim.state = 'hurt';
+        victim.stateUntil = now + Math.max(700, effectiveStunMs);
+      } else if (wasAirborne && !hasSuperArmor) {
+        victim.juggleCount++;
+        if (victim.juggleCount >= MAX_JUGGLE_HITS) {
+          victim.state = 'knockdown';
+          victim.stateUntil = now + Math.max(950, effectiveStunMs);
+          victim.invulnUntil = Math.max(victim.invulnUntil, now + 350);
+        } else {
+          victim.state = 'hurt';
+          victim.stateUntil = now + Math.max(520, effectiveStunMs);
+        }
+      } else if (forceHurt) {
+        victim.state = 'hurt';
+        victim.stateUntil = now + Math.max(550, effectiveStunMs);
+      } else if (knockdown || Math.abs(knockback) >= 7.0 || effectiveLaunchY >= 8.5) {
         victim.state = 'knockdown';
-        victim.stateUntil = now + Math.max(950, stunMs);
+        victim.stateUntil = now + Math.max(victim.grounded ? 1200 : 950, effectiveStunMs);
+        if (victim.grounded) victim.knockdownLandedAt = now;
       } else {
         victim.state = 'hurt';
-        victim.stateUntil = now + stunMs;
+        victim.stateUntil = now + effectiveStunMs;
       }
     }
 
     this.emitFx('hit', victim.x, victim.y + 1.1, victim.z, {
       damage: finalDmg,
       guardBreak,
+      text: forceHurt && otg ? 'OTG!' : undefined,
       color: guardBreak ? '#facc15' : '#f87171'
     });
 
@@ -911,16 +1062,34 @@ class GameRoom {
     player.jumpCount = 0;
     player.airDashCount = 0;
     player.dashUntil = 0;
+    player.dodgeUntil = 0;
+    player.lastDodgeAt = 0;
     player.isSprinting = false;
     player.sprintLocked = false;
     player.isFlying = false;
     player.flyUntil = 0;
     player.hoverUntil = 0;
     player.flyExhausted = false;
+    player.attackActiveUntil = 0;
+    player.lastAttackTime = 0;
+    player.lastHeavyTime = 0;
+    player.attackHitLandedAt = 0;
+    player.chargingAttack = false;
+    player.pendingDashAttack = false;
+    player.airComboCount = 0;
+    player.juggleCount = 0;
+    player.otgCount = 0;
+    player.spikedUntil = 0;
+    player.knockdownLandedAt = 0;
+    player.wakeUpBufferedAt = 0;
+    player.wakeUpDirX = 0;
+    player.wakeUpDirZ = 0;
+    player.lastConditionMsgAt = 0;
     player.state = 'idle';
     this.clearTargeting(player);
     player.stateUntil = 0;
     player.invulnUntil = Date.now() + 2000;
+    player.skillIframeUntil = 0;
     player.frozenUntil = 0;
     player.burnUntil = 0;
     player.rootUntil = 0;
@@ -928,6 +1097,7 @@ class GameRoom {
     player.nextShrineHealAt = 0;
     player.lastHitBy = null;
     player.lastHitTime = 0;
+    player.lastHitDamage = 0;
     // Restore default gear for current hero on respawn
     player.gear = {
       weapon: player.heroId,
@@ -945,14 +1115,116 @@ class GameRoom {
 
   // ==========================================================================
   // LOST SAGA MOBILITY: Multi-Jump (Double/Triple Jump), Flight/Hover Mode,
-  // Ground Dash, Flash Step, Tumble Roll, and Air Dash (with Mobility Gauge!)
+  // Ground Dash, Roll/Dodge, Quick Wake-Up, Flash Step, and Air Dash
   // ==========================================================================
-  performJumpOrFly(player) {
+  performQuickWakeUp(player, dirX = 0, dirZ = 0) {
     const now = Date.now();
-    if (player.state === 'dead' || player.state === 'frozen' || player.state === 'knockdown' || player.state === 'hurt') return;
+    if (player.state !== 'knockdown') return false;
+    if (!player.grounded) {
+      player.wakeUpBufferedAt = now;
+      player.wakeUpDirX = dirX || 0;
+      player.wakeUpDirZ = dirZ || 0;
+      return false;
+    }
+    if (now - (player.knockdownLandedAt || 0) > WAKEUP_WINDOW_MS) return false;
+
+    player.state = 'idle';
+    player.stateUntil = 0;
+    player.juggleCount = 0;
+    player.otgCount = 0;
+    player.wakeUpBufferedAt = 0;
+    player.invulnUntil = Math.max(player.invulnUntil, now + 450);
+    player.dodgeUntil = now + 300;
+    player.vy = 5.2;
+    player.grounded = false;
+
+    let dx = dirX || player.input.mx || 0;
+    let dz = dirZ || player.input.mz || 0;
+    const len = Math.hypot(dx, dz);
+    if (len > 0.1) {
+      dx /= len;
+      dz /= len;
+      player.facing = Math.atan2(dz, dx);
+    } else {
+      dx = -Math.cos(player.facing);
+      dz = -Math.sin(player.facing);
+    }
+    player.vx = dx * 7.8;
+    player.vz = dz * 7.8;
 
     const hero = GAME_DATA.HEROES[player.heroId] || GAME_DATA.HEROES.knight;
-    const mob = hero.mobility || {};
+    this.emitFx('dash', player.x, player.y + 0.4, player.z, {
+      color: hero.accentColor,
+      heroId: player.heroId,
+      playerId: player.id,
+      facing: player.facing,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
+      isRoll: true,
+      text: 'QUICK WAKE-UP!'
+    });
+    return true;
+  }
+
+  performDodge(player, dirXOverride = null, dirZOverride = null) {
+    const now = Date.now();
+    if (!player.grounded) return false;
+    if (['dead', 'frozen', 'knockdown', 'hurt'].includes(player.state)) return false;
+    if (now - player.lastDodgeAt < DODGE_COOLDOWN_MS || now < player.dodgeUntil) return false;
+
+    const mob = this.getEffectiveMobility(player);
+    if (!mob.canRoll) return false;
+    if (player.mobilityGauge < DODGE_COST) return false;
+
+    const hero = GAME_DATA.HEROES[player.heroId] || GAME_DATA.HEROES.knight;
+    player.mobilityGauge = Math.max(0, player.mobilityGauge - DODGE_COST);
+    player.dodgeUntil = now + DODGE_DURATION_MS;
+    player.lastDodgeAt = now;
+    player.dashUntil = Math.max(player.dashUntil, now + DODGE_DURATION_MS);
+    player.invulnUntil = Math.max(player.invulnUntil, now + DODGE_DURATION_MS);
+    player.guarding = false;
+
+    let dx = dirXOverride !== null ? dirXOverride : (player.input.mx || 0);
+    let dz = dirZOverride !== null ? dirZOverride : (player.input.mz || 0);
+    if (Math.hypot(dx, dz) < 0.1) {
+      dx = Math.cos(player.facing);
+      dz = Math.sin(player.facing);
+    } else {
+      const len = Math.hypot(dx, dz) || 1;
+      dx /= len;
+      dz /= len;
+      player.facing = Math.atan2(dz, dx);
+    }
+
+    const rollSpeed = hero.speed * 2.1;
+    player.vx = dx * rollSpeed;
+    player.vz = dz * rollSpeed;
+
+    this.emitFx('dash', player.x, player.y + 0.4, player.z, {
+      color: hero.accentColor,
+      heroId: player.heroId,
+      playerId: player.id,
+      facing: player.facing,
+      originX: player.x,
+      originY: player.y,
+      originZ: player.z,
+      isRoll: true,
+      isAir: false
+    });
+    return true;
+  }
+
+  performJumpOrFly(player) {
+    const now = Date.now();
+    if (player.state === 'knockdown') {
+      this.performQuickWakeUp(player, player.input.mx, player.input.mz);
+      return;
+    }
+    if (player.state === 'dead' || player.state === 'frozen' || player.state === 'hurt') return;
+
+    const hero = GAME_DATA.HEROES[player.heroId] || GAME_DATA.HEROES.knight;
+    const mob = this.getEffectiveMobility(player);
 
     // 1. First Jump from Ground
     if (player.grounded) {
@@ -1005,8 +1277,8 @@ class GameRoom {
       return;
     }
 
-    // 3. Double Jump / Triple Jump (Ninja has 3 jumps, others have 2 jumps!)
-    const maxJumps = (mob.maxJumps || 2) + (this.equippedSkill(player, 'helmet')?.passive?.extraJumps ?? 0);
+    // 3. Double Jump / Triple Jump (Ninja has 3 jumps, Striker helmet grants +1!)
+    const maxJumps = mob.maxJumps || 2;
     if (player.jumpCount < maxJumps) {
       const cost = mob.airJumpCost || 22;
       if (player.mobilityGauge >= cost) {
@@ -1042,7 +1314,7 @@ class GameRoom {
     if (now < player.dashUntil - 100) return;
 
     const hero = GAME_DATA.HEROES[player.heroId] || GAME_DATA.HEROES.knight;
-    const mob = hero.mobility || {};
+    const mob = this.getEffectiveMobility(player);
 
     // Check Air Dash eligibility if airborne
     if (!player.grounded) {
@@ -1108,16 +1380,67 @@ class GameRoom {
     });
   }
 
+  tryWeaponClash(attacker, target, now, refundAttacker = false) {
+    if (!attacker || !target || !this.areEnemies(attacker, target) || target.state === 'dead') return false;
+    const hA = GAME_DATA.HEROES[attacker.heroId];
+    const hT = GAME_DATA.HEROES[target.heroId];
+    if (hA?.attackType !== 'melee' || hT?.attackType !== 'melee') return false;
+    if (now >= (target.attackActiveUntil || 0)) return false;
+    if (distXZ(attacker, target) > 3.2 || Math.abs(attacker.y - target.y) > 2.3) return false;
+
+    const dx = target.x - attacker.x;
+    const dz = target.z - attacker.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const nx = dx / len;
+    const nz = dz / len;
+    const faceA = Math.cos(attacker.facing) * nx + Math.sin(attacker.facing) * nz;
+    const faceT = Math.cos(target.facing) * (-nx) + Math.sin(target.facing) * (-nz);
+    if (len > 1.2 && (faceA <= -0.1 || faceT <= -0.1)) return false;
+
+    if (refundAttacker && attacker.lastHitDamage > 0) {
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + attacker.lastHitDamage);
+      attacker.lastHitDamage = 0;
+    }
+    attacker.attackActiveUntil = 0;
+    target.attackActiveUntil = 0;
+    attacker.lastAttackTime = 0;
+    target.lastAttackTime = 0;
+    attacker.state = 'hurt';
+    target.state = 'hurt';
+    attacker.stateUntil = now + 260;
+    target.stateUntil = now + 260;
+    attacker.vx = -nx * 6.2;
+    attacker.vz = -nz * 6.2;
+    target.vx = nx * 6.2;
+    target.vz = nz * 6.2;
+    this.addSkillCharge(attacker, 5, now);
+    this.addSkillCharge(target, 5, now);
+    this.emitFx('clash', (attacker.x + target.x) * 0.5, Math.max(attacker.y, target.y) + 1.1, (attacker.z + target.z) * 0.5, {
+      text: 'CLASH!',
+      color: '#fde047'
+    });
+    return true;
+  }
+
   // ==========================================================================
-  // COMBAT ACTIONS: Basic Attack (J), Ranged Aim (Hold J), Heavy Attack (K),
-  // Jump and Sprint Attacks, and Gear Skills (Q/E/R/F)
+  // COMBAT ACTIONS: Basic Attack (J), Ranged Aim/Charge (Hold J), Heavy Attack
+  // / Air Spike (K), Jump and Dash Attacks, and Gear Skills (Q/E/R/F)
   // ==========================================================================
-  performBasicAttack(player, isDashAttack = false, isJumpAttack = false, lockedTarget = null) {
+  performBasicAttack(player, isDashAttack = false, isJumpAttack = false, lockedTarget = null, isCharged = false) {
     const now = Date.now();
+    const hero = GAME_DATA.HEROES[player.heroId];
+    if (player.state === 'hurt' && player.lastHitBy && now - player.lastHitTime <= 80 && hero.attackType === 'melee') {
+      const prevAttacker = this.players.get(player.lastHitBy);
+      if (prevAttacker && now < (prevAttacker.attackActiveUntil || 0)) {
+        if (distXZ(player, prevAttacker) <= hero.basicAttack.range) {
+          this.faceTarget(player, prevAttacker);
+        }
+        if (this.tryWeaponClash(player, prevAttacker, now, true)) return;
+      }
+    }
     if (!this.canAttack(player)) return;
     if (now < player.stateUntil && player.state === 'skill') return;
 
-    const hero = GAME_DATA.HEROES[player.heroId];
     const cd = hero.basicAttack.cooldown;
     if (now - player.lastAttackTime < cd) return;
 
@@ -1126,28 +1449,55 @@ class GameRoom {
     player.stealthUntil = 0;
 
     // Advance combo step (1 -> 2 -> 3/4)
-    if (now - player.lastComboTime > 900) {
-      player.comboStep = 0;
+    if (isDashAttack && !isJumpAttack) {
+      player.comboStep = 1;
+    } else {
+      if (now - player.lastComboTime > 900) {
+        player.comboStep = 0;
+      }
+      player.comboStep = (player.comboStep % hero.basicAttack.comboHits) + 1;
     }
-    player.comboStep = (player.comboStep % hero.basicAttack.comboHits) + 1;
     player.lastComboTime = now;
 
-    const isFinisher = player.comboStep === hero.basicAttack.comboHits || isDashAttack || isJumpAttack;
+    const isComboFinisher = !isDashAttack && !isJumpAttack && player.comboStep === hero.basicAttack.comboHits;
+    const isFinisher = isComboFinisher || isDashAttack || isJumpAttack;
     player.state = 'attack';
     player.stateUntil = now + Math.round(cd * 0.85);
 
     const melee = hero.attackType === 'melee';
-    const range = hero.basicAttack.range * (melee && isDashAttack ? 1.25 : 1);
-    const target = lockedTarget || this.findTarget(player, range, melee ? 2.3 : TARGET_HEIGHT_LIMIT, now);
+    const range = hero.basicAttack.range * (melee && isDashAttack ? 1.3 : 1);
+    const heightLim = melee ? (isJumpAttack ? 2.7 : 2.3) : TARGET_HEIGHT_LIMIT;
+    const target = lockedTarget || this.findTarget(player, range, heightLim, now);
     this.faceTarget(player, target);
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
 
     // Slight forward step on melee swings
     if (melee) {
-      const lunge = isDashAttack ? 7.5 : (isFinisher ? 4.2 : 2.4);
+      player.attackActiveUntil = now + CLASH_WINDOW_MS;
+      const lunge = isDashAttack ? 8.5 : (isComboFinisher ? 4.2 : 2.4);
       player.vx = dirX * lunge;
       player.vz = dirZ * lunge;
+
+      let dmg = Math.round(hero.basicAttack.damage * (isComboFinisher ? 1.35 : isDashAttack ? 1.2 : isJumpAttack ? 1.15 : 1.0));
+      let kb = hero.basicAttack.knockback * (isComboFinisher ? 1.7 : 0.85);
+      let launchY = (isComboFinisher && player.heroId === 'striker') ? 7.5 : 0;
+      let stunMs = isComboFinisher ? 650 : 380;
+      let isSpike = false;
+
+      if (isDashAttack && !isJumpAttack) {
+        kb = 3.8;
+        stunMs = 750;
+      } else if (isJumpAttack) {
+        player.airComboCount = (player.airComboCount || 0) + 1;
+        if (player.airComboCount <= 2) {
+          player.vy = Math.max(player.vy, 3.8);
+        }
+        isSpike = player.airComboCount >= 2;
+        kb = isSpike ? 4.2 : 2.2;
+        launchY = isSpike ? 0 : 7.4;
+        stunMs = isSpike ? 750 : 620;
+      }
 
       this.emitFx('slash', player.x + dirX * 1.1, player.y + 0.9, player.z + dirZ * 1.1, {
         facing: player.facing,
@@ -1159,27 +1509,27 @@ class GameRoom {
         originZ: player.z,
         weaponType: hero.weaponType,
         comboStep: player.comboStep,
-        isFinisher
+        isFinisher,
+        isDashAttack: isDashAttack && !isJumpAttack
       });
 
-      const dmg = Math.round(hero.basicAttack.damage * (isFinisher ? 1.35 : 1.0));
-      const kb = hero.basicAttack.knockback * (isFinisher ? 1.7 : 0.85);
-      const launchY = (isFinisher && player.heroId === 'striker') ? 7.5 : (isJumpAttack ? 5.5 : 0);
-
-      for (const target of this.players.values()) {
-        if (!this.areEnemies(player, target) || target.state === 'dead') continue;
-        // Check knocked-down targets (Striker & Jump attacks can hit grounded!)
-        if (distXZ(player, target) <= range && Math.abs(player.y - target.y) <= 2.3) {
-          const toX = target.x - player.x;
-          const toZ = target.z - player.z;
+      for (const foe of this.players.values()) {
+        if (!this.areEnemies(player, foe) || foe.state === 'dead') continue;
+        if (distXZ(player, foe) <= range && Math.abs(player.y - foe.y) <= heightLim) {
+          const toX = foe.x - player.x;
+          const toZ = foe.z - player.z;
           const dist = Math.hypot(toX, toZ) || 1;
           const dot = (toX / dist) * dirX + (toZ / dist) * dirZ;
           if (dot > 0.1 || dist < 1.2) {
-            this.applyDamage(player, target, {
+            if (this.tryWeaponClash(player, foe, now)) break;
+            this.applyDamage(player, foe, {
               damage: dmg,
               knockback: kb,
               launchY,
-              stunMs: isFinisher ? 650 : 380,
+              spike: isSpike,
+              otg: isJumpAttack,
+              knockdown: isComboFinisher,
+              stunMs,
               skillNameTh: hero.nameTh
             });
           }
@@ -1206,6 +1556,10 @@ class GameRoom {
       }
     } else {
       // Ranged Basic Attack (Mage, Cowboy, Witch, Cyborg)
+      if (isDashAttack && !isJumpAttack) {
+        player.vx = dirX * 5.0;
+        player.vz = dirZ * 5.0;
+      }
       const projSpeed = player.heroId === 'cowboy' ? 22 : (player.heroId === 'cyborg' ? 20 : 16);
       const projType = player.heroId === 'mage' ? 'fireball'
         : player.heroId === 'witch' ? 'icebolt'
@@ -1228,7 +1582,7 @@ class GameRoom {
         originY: player.y,
         originZ: player.z,
         comboStep: player.comboStep,
-        isFinisher,
+        isFinisher: isFinisher || isCharged,
         color: hero.accentColor
       });
 
@@ -1241,35 +1595,42 @@ class GameRoom {
         vy: projSpeed * Math.sin(shotPitch),
         vz: dirZ * speedXZ,
         targetId: lockedTarget?.id,
-        radius: 0.65,
-        damage: Math.round(hero.basicAttack.damage * (isFinisher ? 1.3 : 1.0)),
-        knockback: hero.basicAttack.knockback * (isFinisher ? 1.5 : 0.9),
+        radius: isCharged ? 0.85 : 0.65,
+        damage: Math.round(hero.basicAttack.damage * (isCharged ? 1.4 : isComboFinisher ? 1.3 : isDashAttack ? 1.15 : 1.0)),
+        knockback: hero.basicAttack.knockback * (isCharged ? 1.6 : isFinisher ? 1.5 : 0.9),
+        launchY: isCharged ? 6.0 : 0,
+        stunMs: isCharged ? 800 : (isDashAttack ? 650 : 450),
+        guardBreak: isCharged,
+        knockdown: isComboFinisher,
+        otg: isJumpAttack,
         color: hero.accentColor,
         ttl: Math.round((hero.basicAttack.range / projSpeed) * 1000),
-        burn: player.heroId === 'mage' && isFinisher,
-        freeze: player.heroId === 'witch' && isFinisher,
+        burn: player.heroId === 'mage' && (isFinisher || isCharged),
+        freeze: player.heroId === 'witch' && (isFinisher || isCharged),
         skillNameTh: hero.nameTh
       });
     }
   }
 
-  // Heavy Attack (Right Click / K)
-  performHeavyAttack(player) {
+  // Heavy Attack (Right Click / K / Hold J Release) & Air Spike (Airborne K)
+  performHeavyAttack(player, fromCharge = false) {
     const now = Date.now();
     if (!this.canAttack(player)) return;
-    if (now - player.lastAttackTime < 550) return;
-
     const hero = GAME_DATA.HEROES[player.heroId];
     const heavy = hero.heavyAttack;
+    if (!fromCharge && (now - (player.lastHeavyTime || 0) < 550 || now - player.lastAttackTime < hero.basicAttack.cooldown)) return;
+
     player.lastAttackTime = now;
+    player.lastHeavyTime = now;
     player.state = 'heavy';
     player.stateUntil = now + 520;
     player.guarding = false;
     player.stealthUntil = 0;
     this.clearTargeting(player);
 
-    const range = player.heroId === 'ninja' ? 6.5 : heavy.range;
-    const target = this.findTarget(player, range, 2.5, now);
+    const isAirSpike = !player.grounded;
+    const range = isAirSpike ? Math.max(2.8, heavy.range * 0.85) : (player.heroId === 'ninja' ? 6.5 : heavy.range);
+    const target = this.findTarget(player, range, isAirSpike ? 3.0 : 2.5, now);
     this.faceTarget(player, target);
     const dirX = Math.cos(player.facing);
     const dirZ = Math.sin(player.facing);
@@ -1282,8 +1643,44 @@ class GameRoom {
       originY: player.y,
       originZ: player.z,
       color: hero.accentColor,
-      text: heavy.nameTh.split(' ')[0]
+      text: isAirSpike ? 'SPIKE!' : heavy.nameTh.split(' ')[0]
     });
+
+    if (isAirSpike) {
+      player.vy = Math.max(player.vy, 2.0);
+      if (hero.attackType === 'melee') player.attackActiveUntil = now + CLASH_WINDOW_MS;
+      this.emitFx('heavy_impact', player.x + dirX * 1.1, player.y + 0.5, player.z + dirZ * 1.1, {
+        facing: player.facing,
+        heroId: player.heroId,
+        playerId: player.id,
+        originX: player.x,
+        originY: player.y,
+        originZ: player.z,
+        color: hero.accentColor,
+        text: 'SPIKE!'
+      });
+      for (const t of this.players.values()) {
+        if (!this.areEnemies(player, t) || t.state === 'dead') continue;
+        const d = distXZ(player, t);
+        if (d <= range && Math.abs(player.y - t.y) <= 3.0) {
+          const toX = t.x - player.x;
+          const toZ = t.z - player.z;
+          const dot = (toX / (d || 1)) * dirX + (toZ / (d || 1)) * dirZ;
+          if (dot > -0.1 || d < 1.6) {
+            this.applyDamage(player, t, {
+              damage: Math.round(heavy.damage * 0.95),
+              knockback: 3.5,
+              spike: true,
+              otg: true,
+              stunMs: 850,
+              guardBreak: true,
+              skillNameTh: `${heavy.nameTh} (Air Spike)`
+            });
+          }
+        }
+      }
+      return;
+    }
 
     // Special hero-specific heavy attack implementations
     if (player.heroId === 'ninja') {
@@ -1336,6 +1733,7 @@ class GameRoom {
 
     if (player.heroId === 'samurai') {
       // Iaido Flash Cut: Dash through enemies in a line!
+      player.attackActiveUntil = now + CLASH_WINDOW_MS;
       const startX = player.x, startZ = player.z;
       player.x += dirX * 4.8;
       player.z += dirZ * 4.8;
@@ -1359,9 +1757,12 @@ class GameRoom {
             this.applyDamage(player, t, {
               damage: heavy.damage,
               knockback: heavy.knockback,
-              launchY: 7.0,
+              launchY: heavy.launchY || 9.2,
               stunMs: heavy.stunMs,
               guardBreak: true,
+              otg: !!heavy.otg,
+              dirX,
+              dirZ,
               skillNameTh: heavy.nameTh
             });
           }
@@ -1394,6 +1795,7 @@ class GameRoom {
     }
 
     // Cone / AoE Heavy Attacks (Knight Shield Bash, Mage Dragon Pillar, Witch Freeze Breath, Viking Whirlwind, Striker Tiger Uppercut, Reaper Soul Hook)
+    player.attackActiveUntil = now + CLASH_WINDOW_MS;
     player.vx = dirX * 5.0;
     player.vz = dirZ * 5.0;
     if (player.heroId === 'striker') {
@@ -1420,12 +1822,14 @@ class GameRoom {
         const dot = (toX / (d || 1)) * dirX + (toZ / (d || 1)) * dirZ;
         // Viking Whirlwind hits 360 degrees; others hit forward arc
         if (player.heroId === 'viking' || dot > 0.0 || d < 1.5) {
+          if (this.tryWeaponClash(player, t, now)) break;
           this.applyDamage(player, t, {
             damage: heavy.damage,
             knockback: heavy.knockback,
             launchY: heavy.launchY || (heavy.knockback > 6 ? 6.5 : 0),
             stunMs: heavy.stunMs,
             guardBreak: true,
+            otg: !!heavy.otg,
             freeze: !!heavy.freeze,
             burn: player.heroId === 'mage',
             skillNameTh: heavy.nameTh
@@ -1461,11 +1865,29 @@ class GameRoom {
     rechargeSkillGauge(gauge, skill, now);
     if (gauge.charge < skill.gaugeCost || now < gauge.nextUseAt) return;
 
-    // Can this skill be cast while stunned/hurt/frozen? (Many Armor skills can!)
+    // Enforce Ground / Air / Down conditions before spending gauge
     const isIncapacitated = player.state === 'hurt' || player.state === 'knockdown' || player.state === 'frozen';
-    if (isIncapacitated && !skill.usableWhileHit) {
+    const conds = skill.conditions || (skill.usableWhileHit ? ['ground', 'air', 'down'] : ['ground', 'air']);
+    const allowDown = skill.usableWhileHit || conds.includes('down');
+    let conditionFailMsg = null;
+    if (isIncapacitated) {
+      if (!allowDown) return;
+    } else if (!player.grounded && !conds.includes('air')) {
+      conditionFailMsg = 'สกิลนี้ใช้ได้เฉพาะบนพื้น!';
+    } else if (player.grounded && !conds.includes('ground')) {
+      conditionFailMsg = 'สกิลนี้ใช้ได้เฉพาะกลางอากาศ!';
+    }
+    if (conditionFailMsg) {
+      if (!player.isBot && now - (player.lastConditionMsgAt || 0) > 800) {
+        player.lastConditionMsgAt = now;
+        this.emitFx('text', player.x, player.y + 1.8, player.z, { text: conditionFailMsg, color: '#fbbf24' });
+      }
       return;
     }
+
+    // Animation Cancel: canceling out of a hit-confirmed attack/heavy into a skill
+    const isAnimCancel = (player.state === 'attack' || player.state === 'heavy')
+      && (now - (player.attackHitLandedAt || 0) <= CANCEL_WINDOW_MS);
 
     let target;
     if (skill.confirmTarget && !player.isBot) {
@@ -1487,6 +1909,11 @@ class GameRoom {
 
     this.clearTargeting(player);
     this.faceTarget(player, target);
+    if (isAnimCancel) {
+      player.lastAttackTime = 0;
+      player.lastHeavyTime = 0;
+      player.attackActiveUntil = 0;
+    }
     gauge.charge -= skill.gaugeCost;
     gauge.nextUseAt = now + (skill.repeatMs ?? 550);
     if (isIncapacitated) {
@@ -1498,6 +1925,7 @@ class GameRoom {
       player.frozenUntil = 0;
       player.rootUntil = 0;
     }
+    player.skillIframeUntil = Math.max(player.skillIframeUntil, now + (skill.iframeMs ?? SKILL_IFRAME_MS));
     player.state = 'skill';
     player.stateUntil = now + 550;
     player.animSkillId = skill.id;
@@ -1519,6 +1947,9 @@ class GameRoom {
       color: skill.color,
       facing: player.facing
     });
+    if (isAnimCancel) {
+      this.emitFx('text', player.x, player.y + 1.9, player.z, { text: 'CANCEL!', color: '#38bdf8' });
+    }
 
     // Execute specific skill logic among the 40 skills
     switch (skill.id) {
@@ -1540,6 +1971,7 @@ class GameRoom {
           knockback: 8.5,
           launchY: 9.5,
           guardBreak: true,
+          otg: !!skill.otg,
           color: '#fbbf24',
           ttl: 900,
           skillNameTh: skill.nameTh
@@ -1550,7 +1982,7 @@ class GameRoom {
         player.superArmorUntil = now + 5000;
         this.emitFx('shockwave', player.x, player.y + 0.5, player.z, { radius: 4.0, color: '#60a5fa', fromSkill: 'knight_armor' });
         this.hitAoE(player, player.x, player.y, player.z, 3.8, {
-          damage: 15, knockback: 7.5, launchY: 6.0, stunMs: 900, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 15, knockback: 7.5, launchY: 6.0, stunMs: 900, guardBreak: true, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1608,7 +2040,7 @@ class GameRoom {
           playerId: player.id
         });
         this.hitAoE(player, player.x, player.y, player.z, 3.5, {
-          damage: 12, knockback: 5.0, stunMs: 1400, skillNameTh: skill.nameTh
+          damage: 12, knockback: 5.0, stunMs: 1400, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1676,7 +2108,7 @@ class GameRoom {
           originZ: tz
         });
         this.hitAoE(player, tx, player.y, tz, 4.5, {
-          damage: 30, knockback: 9.0, launchY: 11.0, stunMs: 1200, burn: true, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 30, knockback: 9.0, launchY: 11.0, stunMs: 1200, burn: true, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         this.hazards.push({
           id: nextEntityId++,
@@ -1705,7 +2137,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, player.x, player.y, player.z, 4.4, {
-          damage: 19, knockback: 8.5, launchY: 7.5, burn: true, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 19, knockback: 8.5, launchY: 7.5, burn: true, guardBreak: true, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1713,7 +2145,7 @@ class GameRoom {
         player.orbitSpheresUntil = now + 6000;
         break;
       }
-      case 'mage_trinket': { // Flame Blink Warp
+      case 'mage_trinket': { // Flame Blink Warp (homing target warp when enemy in range)
         const startX = player.x, startZ = player.z;
         this.emitFx('shockwave', startX, player.y + 0.5, startZ, {
           radius: 2.8,
@@ -1730,8 +2162,16 @@ class GameRoom {
         this.hitAoE(player, player.x, player.y, player.z, 2.8, {
           damage: 12, knockback: 5.0, burn: true, skillNameTh: skill.nameTh
         });
-        player.x += dirX * 6.0;
-        player.z += dirZ * 6.0;
+        if (target) {
+          const ang = Math.atan2(target.z - player.z, target.x - player.x);
+          player.x = target.x - Math.cos(ang) * 1.3;
+          player.z = target.z - Math.sin(ang) * 1.3;
+          player.y = target.y;
+          this.faceTarget(player, target);
+        } else {
+          player.x += dirX * 6.0;
+          player.z += dirZ * 6.0;
+        }
         this.emitFx('shockwave', player.x, player.y + 0.5, player.z, {
           radius: 2.8,
           color: '#ef4444',
@@ -1795,7 +2235,7 @@ class GameRoom {
           startZ: player.z
         });
         this.hitAoE(player, tx, player.y, tz, 4.0, {
-          damage: 25, knockback: 8.5, launchY: 10.5, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 25, knockback: 8.5, launchY: 10.5, guardBreak: true, otg: !!skill.otg, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1883,7 +2323,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, player.x, player.y, player.z, 4.4, {
-          damage: 22, knockback: 7.5, launchY: 9.5, stunMs: 1300, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 22, knockback: 7.5, launchY: 9.5, stunMs: 1300, guardBreak: true, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1909,7 +2349,7 @@ class GameRoom {
         player.vz = dirZ * 7.5;
         player.grounded = false;
         this.hitAoE(player, player.x + dirX * 1.8, player.y, player.z + dirZ * 1.8, 3.2, {
-          damage: 21, knockback: 5.5, launchY: 11.5, stunMs: 1000, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 21, knockback: 5.5, launchY: 11.5, stunMs: 1000, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1964,7 +2404,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, player.x, player.y, player.z, 4.0, {
-          damage: 16, knockback: 6.0, freeze: true, stunMs: 1800, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 16, knockback: 6.0, freeze: true, stunMs: 1800, guardBreak: true, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -1982,7 +2422,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitLine(player, 7.5, 2.4, {
-          damage: 23, knockback: 6.5, launchY: 11.0, freeze: true, stunMs: 1500, guardBreak: true,
+          damage: 23, knockback: 6.5, launchY: 11.0, freeze: true, stunMs: 1500, guardBreak: true, otg: !!skill.otg,
           dirX, dirZ, skillNameTh: skill.nameTh
         });
         break;
@@ -2037,6 +2477,7 @@ class GameRoom {
               knockback: -6.5, // Pull inward!
               stunMs: 1500,
               guardBreak: true,
+              pierceSkillIframe: true,
               skillNameTh: skill.nameTh
             });
           }
@@ -2087,7 +2528,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, tx, ty, tz, 3.6, {
-          damage: 22, knockback: 7.5, launchY: 7.5, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 22, knockback: 7.5, launchY: 7.5, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2110,7 +2551,7 @@ class GameRoom {
           originZ: tz
         });
         this.hitAoE(player, tx, player.y, tz, 4.6, {
-          damage: 28, knockback: 12.5, launchY: 10.0, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 28, knockback: 12.5, launchY: 10.0, stunMs: 1200, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2130,7 +2571,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, player.x, player.y, player.z, 3.5, {
-          damage: 14, knockback: 6.5, skillNameTh: skill.nameTh
+          damage: 14, knockback: 6.5, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2198,7 +2639,7 @@ class GameRoom {
       case 'striker_armor': { // Sway & Liver Blow
         player.invulnUntil = now + 700;
         this.hitAoE(player, player.x + dirX * 1.5, player.y, player.z + dirZ * 1.5, 3.2, {
-          damage: 20, knockback: 4.5, stunMs: 2000, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 20, knockback: 4.5, stunMs: 2000, guardBreak: true, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2215,7 +2656,7 @@ class GameRoom {
           originZ: player.z
         });
         this.hitAoE(player, player.x, player.y, player.z, 4.0, {
-          damage: 18, knockback: 2.5, launchY: 12.5, stunMs: 1200, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 18, knockback: 2.5, launchY: 12.5, stunMs: 1200, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2263,7 +2704,7 @@ class GameRoom {
           color: '#9333ea'
         });
         this.hitAoE(player, player.x, player.y, player.z, 3.6, {
-          damage: 15, knockback: 4.0, lifesteal: 0.8, skillNameTh: skill.nameTh
+          damage: 15, knockback: 4.0, lifesteal: 0.8, pierceSkillIframe: true, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2305,7 +2746,7 @@ class GameRoom {
           color: '#d946ef'
         });
         this.hitAoE(player, tx, player.y, tz, 4.0, {
-          damage: 19, knockback: -4.0, root: true, stunMs: 1400, guardBreak: true, skillNameTh: skill.nameTh
+          damage: 19, knockback: -4.0, root: true, stunMs: 1400, guardBreak: true, otg: !!skill.otg, skillNameTh: skill.nameTh
         });
         break;
       }
@@ -2587,6 +3028,9 @@ class GameRoom {
       // Recover from temporary states
       if ((p.state === 'hurt' || p.state === 'knockdown' || p.state === 'frozen' || p.state === 'attack' || p.state === 'heavy' || p.state === 'skill') && now >= p.stateUntil) {
         p.state = 'idle';
+        p.juggleCount = 0;
+        p.otgCount = 0;
+        p.airComboCount = 0;
       }
 
       // Periodic Burn DoT
@@ -2606,10 +3050,10 @@ class GameRoom {
       }
 
       const hero = GAME_DATA.HEROES[p.heroId] || GAME_DATA.HEROES.knight;
-      const mob = hero.mobility || {};
+      const mob = this.getEffectiveMobility(p);
       const aimTarget = this.updateTargeting(p, now);
       const canMove = p.state !== 'hurt' && p.state !== 'knockdown' && p.state !== 'frozen' && now >= p.rootUntil;
-      const isBurstDashing = now < p.dashUntil;
+      const isBurstDashing = now < p.dashUntil || now < p.dodgeUntil;
       // Hold-Shift sprint: faster run that drains the mobility gauge (stamina).
       // Running it dry locks sprint until the gauge refills to SPRINT_RESUME.
       if (p.sprintLocked && p.mobilityGauge >= SPRINT_RESUME) p.sprintLocked = false;
@@ -2620,9 +3064,11 @@ class GameRoom {
       const onIce = support?.finish === 'ice';
 
       if (canMove) {
-        let moveSpeed = hero.speed * (this.equippedSkill(p, 'helmet')?.passive?.moveSpeedMultiplier ?? 1);
+        let moveSpeed = hero.speed * mob.moveSpeedMultiplier;
         if (now < p.speedBuffUntil) moveSpeed *= 1.38;
-        if (isBurstDashing) {
+        if (now < p.dodgeUntil) {
+          moveSpeed *= 1.9;
+        } else if (isBurstDashing) {
           moveSpeed *= (mob.dashSpeedMult || 1.7);
         } else if (p.isSprinting) {
           moveSpeed *= 1 + ((mob.dashSpeedMult || 1.7) - 1) * SPRINT_SPEED_SHARE;
@@ -2663,10 +3109,10 @@ class GameRoom {
         p.vz *= drag;
       }
 
-      // Gear hover is paid for at cast time. Native flight uses the mobility gauge.
+      // Gear hover is paid for at cast time. Native / cloak-granted flight uses the mobility gauge.
       const gearHover = now < p.hoverUntil;
       const nativeFlight = mob.canFly && !p.flyExhausted && p.mobilityGauge > 0 &&
-        (now < p.flyUntil || (p.input.jumpHeld && p.jumpCount >= 1 && p.y > 0.5));
+        (now < p.flyUntil || (p.input.jumpHeld && (p.jumpCount >= 1 || p.vy < -1.0)));
       if (!p.grounded && canMove && (gearHover || nativeFlight)) {
         p.isFlying = true;
 
@@ -2708,21 +3154,45 @@ class GameRoom {
       if (p.z !== nextZ) p.vz = 0;
       p.y = nextY;
 
-      // Platform Floor Collision
+      // Platform Floor Collision & Ground Bounce / Quick Wake-Up
+      const wasGrounded = p.grounded;
       const floor = this.floorPlatformAt(p.x, p.z, previousY, FLOOR_EPSILON, approach);
       const descendingStair = approach && floor && previousY > floor.y && previousY - floor.y <= MAX_STAIR_RISE
         && (crossesStairFace(support, p, approach, true) || crossesStairFace(floor, approach, p, false));
       if (floor && (p.y <= floor.y || descendingStair)) {
-        p.y = floor.y;
-        p.vy = 0;
-        p.grounded = true;
-        p.jumpCount = 0;
-        p.airDashCount = 0;
-        p.isFlying = false;
-        p.flyUntil = 0;
-        p.hoverUntil = 0;
-        p.flyExhausted = false;
-        p.bouncedOnLava = false;
+        if (now < p.spikedUntil && p.state !== 'dead') {
+          p.y = floor.y + 0.05;
+          p.vy = 8.4;
+          p.grounded = false;
+          p.spikedUntil = 0;
+          p.state = 'hurt';
+          p.stateUntil = now + 750;
+          p.juggleCount = 0;
+          this.emitFx('shockwave', p.x, floor.y + 0.1, p.z, { radius: 2.2, color: '#fbbf24' });
+          this.emitFx('text', p.x, p.y + 1.5, p.z, { text: 'GROUND BOUNCE!', color: '#f59e0b' });
+        } else {
+          p.y = floor.y;
+          p.vy = 0;
+          p.grounded = true;
+          p.jumpCount = 0;
+          p.airDashCount = 0;
+          p.airComboCount = 0;
+          p.isFlying = false;
+          p.flyUntil = 0;
+          p.hoverUntil = 0;
+          p.flyExhausted = false;
+          p.bouncedOnLava = false;
+          if (p.state !== 'hurt' && p.state !== 'knockdown') {
+            p.juggleCount = 0;
+            p.otgCount = 0;
+          }
+          if (!wasGrounded && p.state === 'knockdown') {
+            p.knockdownLandedAt = now;
+            if (now - (p.wakeUpBufferedAt || 0) <= WAKEUP_BUFFER_MS) {
+              this.performQuickWakeUp(p, p.wakeUpDirX, p.wakeUpDirZ);
+            }
+          }
+        }
       } else {
         p.grounded = false;
       }
@@ -2828,6 +3298,8 @@ class GameRoom {
             launchY: pr.launchY || 0,
             stunMs: pr.stunMs || 450,
             guardBreak: !!pr.guardBreak,
+            knockdown: !!pr.knockdown,
+            otg: !!pr.otg,
             burn: !!pr.burn,
             freeze: !!pr.freeze,
             dirX: pr.vx,
@@ -2920,6 +3392,12 @@ class GameRoom {
           0, gauge.nextUseAt - now, (skill.gaugeCost - gauge.charge) * skill.cooldownMs / 100
         ));
       }
+      const hero = GAME_DATA.HEROES[p.heroId] || GAME_DATA.HEROES.knight;
+      let chargePct = 0;
+      if (p.attackHeldAt !== null) {
+        const req = hero.attackType === 'ranged' ? GAME_DATA.RANGED_CHARGE_HOLD_MS : GAME_DATA.MELEE_CHARGE_HOLD_MS;
+        chargePct = Math.min(100, Math.round(((now - p.attackHeldAt) / req) * 100));
+      }
       playersPayload.push({
         id: p.id,
         name: p.name,
@@ -2940,22 +3418,26 @@ class GameRoom {
         maxMobilityGauge: p.maxMobilityGauge,
         jumpCount: p.jumpCount,
         isFlying: !!p.isFlying,
-        isDashing: now < p.dashUntil,
+        isDashing: now < p.dashUntil && now >= p.dodgeUntil,
+        isRolling: now < p.dodgeUntil,
         isSprinting: !!p.isSprinting,
+        charging: !!p.chargingAttack,
+        chargePct,
         kills: p.kills,
         deaths: p.deaths,
         score: p.score,
         state: p.state,
         animSkillId: p.animSkillId,
-        targeting: p.targeting && { mode: p.targeting.mode, targetId: p.targeting.targetId, slot: p.targeting.slot },
+        targeting: p.targeting && { mode: p.targeting.mode, targetId: p.targeting.targetId, slot: p.targeting.slot, range: p.targeting.range },
         comboStep: p.comboStep,
         guarding: p.guarding,
         gear: p.gear,
         skillGauges,
         cooldowns,
-        swapCooldownMs: Math.max(0, 1500 - (now - (p.lastSwapTime || 0))),
+        swapCooldownMs: Math.max(0, SWAP_COOLDOWN_MS - (now - (p.lastSwapTime || 0))),
         buffs: {
-          invuln: now < p.invulnUntil,
+          invuln: now < p.invulnUntil || now < p.skillIframeUntil,
+          skillIframe: now < p.skillIframeUntil,
           superArmor: now < p.superArmorUntil,
           stealth: now < p.stealthUntil,
           berserk: now < p.berserkUntil,
@@ -3058,6 +3540,8 @@ function isValidClientMessage(msg) {
       return ['mx', 'mz', 'facing'].every(optionalNumber)
         && ['guard', 'jumpHeld', 'sprinting'].every(optionalBoolean);
     case 'dash':
+    case 'dodge':
+    case 'wakeup':
       return ['dx', 'dz'].every(key => msg[key] === null || optionalNumber(key));
     case 'attack':
       return optionalBoolean('isDash') && (msg.phase === undefined || ['press', 'release'].includes(msg.phase));
@@ -3069,7 +3553,7 @@ function isValidClientMessage(msg) {
     case 'drop_gear':
       return msg.slot !== 'weapon' && GAME_DATA.GEAR_SLOTS.includes(msg.slot);
     case 'equip_gear':
-      return GAME_DATA.GEAR_SLOTS.includes(msg.slot) && isId(msg.heroId, GAME_DATA.HEROES);
+      return msg.slot !== 'weapon' && GAME_DATA.GEAR_SLOTS.includes(msg.slot) && isId(msg.heroId, GAME_DATA.HEROES);
     case 'swap_hero':
       return isId(msg.heroId, GAME_DATA.HEROES);
     case 'add_bot':
@@ -3182,6 +3666,22 @@ wss.on('connection', (ws) => {
           currentPlayer,
           typeof msg.dx === 'number' ? msg.dx : null,
           typeof msg.dz === 'number' ? msg.dz : null
+        );
+        break;
+      }
+      case 'dodge': {
+        currentRoom.performDodge(
+          currentPlayer,
+          typeof msg.dx === 'number' ? msg.dx : null,
+          typeof msg.dz === 'number' ? msg.dz : null
+        );
+        break;
+      }
+      case 'wakeup': {
+        currentRoom.performQuickWakeUp(
+          currentPlayer,
+          typeof msg.dx === 'number' ? msg.dx : 0,
+          typeof msg.dz === 'number' ? msg.dz : 0
         );
         break;
       }

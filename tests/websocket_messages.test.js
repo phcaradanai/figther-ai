@@ -285,7 +285,7 @@ test('held ranged fire can switch enemies and homing gear only fires on confirma
   assert.ok(local(cast).cooldowns.helmet > 0);
 });
 
-test('Mix & Match equip_gear validates inputs and equips cross-hero gear with skill cast support', { timeout: 10000 }, async t => {
+test('Mix & Match equip_gear validates inputs, keeps weapon hero-locked, and transfers cloak mobility', { timeout: 10000 }, async t => {
   const server = await startServer(t);
   const client = await server.connect();
   client.send({ type: 'join_room', roomId: 'MIX-MATCH', heroId: 'knight', mapId: 'sky_temple' });
@@ -293,11 +293,12 @@ test('Mix & Match equip_gear validates inputs and equips cross-hero gear with sk
   const local = msg => msg.players.find(p => p.id === clientId);
   await client.waitFor(msg => msg.type === 'state' && local(msg).grounded);
 
-  // Invalid slot or prototype hero names must be ignored safely
+  // Invalid slot, prototype hero names, or cross-hero weapon transfer must be ignored safely
   for (const bad of [
     { type: 'equip_gear', slot: 'boots', heroId: 'ninja' },
     { type: 'equip_gear', slot: 'helmet', heroId: '__proto__' },
-    { type: 'equip_gear', slot: 'armor', heroId: ['witch'] }
+    { type: 'equip_gear', slot: 'armor', heroId: ['witch'] },
+    { type: 'equip_gear', slot: 'weapon', heroId: 'samurai' }
   ]) {
     client.send(bad);
     await client.barrier();
@@ -305,23 +306,24 @@ test('Mix & Match equip_gear validates inputs and equips cross-hero gear with sk
   const unchanged = await client.waitFor(msg => msg.type === 'state' && local(msg).heroId === 'knight');
   assert.deepEqual(local(unchanged).gear, { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' });
 
-  // Equip Cyborg trinket (jetpack flight) + Striker passive helmet + Samurai weapon on Knight
+  // Equip Cyborg trinket (jetpack flight + glide) + Striker passive helmet on Knight
   client.send({ type: 'equip_gear', slot: 'trinket', heroId: 'cyborg' });
   client.send({ type: 'equip_gear', slot: 'helmet', heroId: 'striker' });
-  client.send({ type: 'equip_gear', slot: 'weapon', heroId: 'samurai' });
   const mixed = await client.waitFor(msg => msg.type === 'state' &&
     local(msg).gear.trinket === 'cyborg' &&
-    local(msg).gear.helmet === 'striker' &&
-    local(msg).gear.weapon === 'samurai');
+    local(msg).gear.helmet === 'striker');
   assert.equal(local(mixed).heroId, 'knight');
+  assert.equal(local(mixed).gear.weapon, 'knight');
   assert.equal(local(mixed).skillGauges.helmet, null); // Striker helmet is passive
   assert.equal(local(mixed).skillGauges.trinket, 100);
   assert.equal(typeof local(mixed).swapCooldownMs, 'number');
 
-  // Cast mixed Cyborg trinket skill as Knight
-  client.send({ type: 'skill', slot: 'trinket' });
-  const flying = await client.waitFor(msg => msg.type === 'state' && local(msg).animSkillId === 'cyborg_trinket');
-  assert.equal(local(flying).isFlying, true);
+  // Knight gains cloak-granted glide when holding Jump in mid-air
+  client.send({ type: 'jump' });
+  client.send({ type: 'input', jumpHeld: true });
+  const gliding = await client.waitFor(msg => msg.type === 'state' && !local(msg).grounded && local(msg).isFlying === true);
+  assert.equal(local(gliding).isFlying, true);
+  client.send({ type: 'input', jumpHeld: false });
 
   // Mixed non-weapon gear persists when swapping heroes
   client.send({ type: 'swap_hero', heroId: 'mage' });
@@ -762,4 +764,253 @@ test('both rooftop staircases can be climbed and the catwalk gap can be jumped',
   west.send({ type: 'input', mx: 0 });
   east.send({ type: 'input', mx: 1 });
   await east.observe(p => p.x > 22.1 && p.y === 0 && p.grounded, 4500);
+});
+
+test('skill conditions enforce ground/air posture and startup i-frames dodge attacks', { timeout: 12000 }, async t => {
+  const [caster, attacker] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 1.0, z: 0 }], 'knight');
+  await Promise.all([
+    caster.observe(p => p.grounded && !p.buffs.invuln),
+    attacker.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+
+  // Knight helmet (Lionheart Warcry) is ground-only: casting while airborne must not spend gauge
+  caster.send({ type: 'jump' });
+  await caster.observe(p => !p.grounded);
+  caster.send({ type: 'skill', slot: 'helmet' });
+  await caster.barrier();
+  const airborne = caster.player(await caster.observe(p => !p.grounded));
+  assert.equal(airborne.skillGauges.helmet, 100);
+  assert.notEqual(airborne.animSkillId, 'knight_helmet');
+
+  // Landing allows casting a skill, granting startup i-frames that dodge an attack
+  caster.messages.length = 0;
+  await caster.observe(p => p.grounded);
+  caster.send({ type: 'swap_hero', heroId: 'samurai' });
+  const ready = await caster.observe((p, m) => p.heroId === 'samurai' && p.grounded && attacker.player(m)?.grounded);
+  const attState = attacker.player(ready);
+  const casState = caster.player(ready);
+  attacker.send({ type: 'input', facing: Math.atan2(casState.z - attState.z, casState.x - attState.x) });
+  await attacker.barrier();
+
+  caster.send({ type: 'skill', slot: 'helmet' });
+  const casting = await caster.observe(p => p.animSkillId === 'samurai_helmet' && p.buffs.skillIframe);
+  assert.ok(caster.player(casting).skillGauges.helmet < 100);
+  assert.equal(caster.player(casting).buffs.invuln, true);
+
+  caster.messages.length = 0;
+  attacker.send({ type: 'attack', phase: 'press' });
+  const dodged = await caster.observe((p, m) => m.fx.some(f => f.type === 'text' && f.text.includes('I-FRAME')));
+  assert.equal(caster.player(dodged).hp, caster.player(dodged).maxHp);
+});
+
+test('hold-J melee charge triggers guard break and shatters a guarding opponent', { timeout: 12000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: -0.6, z: 0 }, { x: 0.9, z: 0 }], 'knight');
+  const ready = await attacker.observe((p, m) => p.grounded && !p.buffs.invuln &&
+    defender.player(m)?.grounded && !defender.player(m).buffs.invuln);
+  const att = attacker.player(ready);
+  const def = defender.player(ready);
+
+  defender.send({ type: 'input', facing: Math.atan2(att.z - def.z, att.x - def.x), guard: true });
+  await defender.observe(p => p.guarding === true);
+  // Let the 260ms Just Guard window expire so defender holds a normal Guard
+  await new Promise(r => setTimeout(r, 300));
+
+  attacker.send({ type: 'attack', phase: 'press' });
+  await attacker.observe(p => p.charging === true);
+  defender.messages.length = 0;
+  attacker.send({ type: 'attack', phase: 'release' });
+
+  const broken = await defender.observe((p, m) => m.fx.some(f => f.type === 'guard_break'));
+  assert.equal(defender.player(broken).guarding, false);
+  assert.ok(defender.player(broken).hp < defender.player(broken).maxHp);
+});
+
+test('guard roll grants invulnerability on agile heroes and ignores heavy tanks without cloak', { timeout: 10000 }, async t => {
+  const [agile, tank] = await arenaClients(t, 'sky_temple', [{ x: -3, z: 0 }, { x: 3, z: 0 }], 'ninja');
+  tank.send({ type: 'swap_hero', heroId: 'knight' });
+  await Promise.all([
+    agile.observe(p => p.grounded && !p.buffs.invuln),
+    tank.observe(p => p.heroId === 'knight' && p.grounded && !p.buffs.invuln)
+  ]);
+
+  agile.send({ type: 'dodge', dx: 1, dz: 0 });
+  const rolling = agile.player(await agile.observe(p => p.isRolling === true));
+  assert.equal(rolling.buffs.invuln, true);
+  assert.ok(rolling.mobilityGauge < 100);
+
+  tank.send({ type: 'dodge', dx: 1, dz: 0 });
+  await tank.barrier();
+  const stillTank = tank.player(await tank.observe(p => p.heroId === 'knight'));
+  assert.equal(stillTank.isRolling, false);
+  assert.equal(stillTank.mobilityGauge, 100);
+
+  // Equipping Ninja cloak grants Roll/Dodge to Knight
+  tank.send({ type: 'equip_gear', slot: 'trinket', heroId: 'ninja' });
+  await tank.observe(p => p.gear.trinket === 'ninja');
+  tank.send({ type: 'dodge', dx: 1, dz: 0 });
+  const tankRolled = tank.player(await tank.observe(p => p.isRolling === true));
+  assert.equal(tankRolled.isRolling, true);
+});
+
+test('combo finisher knocks down, grounded knockdown blocks non-OTG hits, and Quick Wake-Up escapes', { timeout: 14000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: -0.4, z: 0 }, { x: 0.4, z: 0 }], 'reaper');
+  await Promise.all([
+    attacker.observe(p => p.grounded && !p.buffs.invuln),
+    defender.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+
+  // Close in until inside melee range between hits and land 3-hit basic combo finisher -> grounded knockdown
+  for (let hit = 1; hit <= 3; hit++) {
+    attacker.messages.length = 0;
+    const snap = await attacker.observe(() => true);
+    const att = attacker.player(snap);
+    const def = defender.player(snap);
+    const ang = Math.atan2(def.z - att.z, def.x - att.x);
+    if (Math.hypot(def.x - att.x, def.z - att.z) > 1.8) {
+      attacker.send({ type: 'input', mx: Math.cos(ang), mz: Math.sin(ang), facing: ang });
+      attacker.messages.length = 0;
+      await attacker.observe((p, m) => Math.hypot(p.x - defender.player(m).x, p.z - defender.player(m).z) <= 1.8);
+      attacker.send({ type: 'input', mx: 0, mz: 0, facing: ang });
+      await attacker.barrier();
+    } else {
+      attacker.send({ type: 'input', mx: 0, mz: 0, facing: ang });
+    }
+    attacker.send({ type: 'attack' });
+    await attacker.observe(p => p.comboStep === hit);
+    if (hit < 3) await new Promise(r => setTimeout(r, 290));
+  }
+  const kdState = await defender.observe(p => p.state === 'knockdown' && p.grounded);
+  const kdHp = defender.player(kdState).hp;
+
+  // Non-OTG basic attack against grounded knockdown deals 0 damage
+  await new Promise(r => setTimeout(r, 290));
+  attacker.send({ type: 'attack' });
+  await attacker.barrier();
+  defender.messages.length = 0;
+  const afterNonOtg = defender.player(await defender.observe(p => p.state === 'knockdown'));
+  assert.equal(afterNonOtg.hp, kdHp);
+
+  // Heavy attack (Reaper Soul Hook has otg: true) chains after basic cooldown and hits OTG while grounded knockdown lasts!
+  await new Promise(r => setTimeout(r, 290));
+  defender.messages.length = 0;
+  attacker.send({ type: 'heavy' });
+  const otgHit = await defender.observe((p, m) => p.hp < kdHp && m.fx.some(f => f.type === 'hit' && f.text === 'OTG!'));
+  assert.ok(defender.player(otgHit).hp < kdHp);
+
+  // Quick Wake-Up buffered right before knockdown landing
+  attacker.send({ type: 'swap_hero', heroId: 'viking' });
+  await attacker.observe(p => p.heroId === 'viking');
+  await defender.observe(p => p.state === 'idle' && p.grounded);
+  attacker.messages.length = 0;
+  const preSkill = await attacker.observe(() => true);
+  const aPos = attacker.player(preSkill);
+  const dPos = defender.player(preSkill);
+  const sAng = Math.atan2(dPos.z - aPos.z, dPos.x - aPos.x);
+  if (Math.hypot(dPos.x - aPos.x, dPos.z - aPos.z) > 4.0) {
+    attacker.send({ type: 'input', mx: Math.cos(sAng), mz: Math.sin(sAng), facing: sAng });
+    attacker.messages.length = 0;
+    await attacker.observe((p, m) => Math.hypot(p.x - defender.player(m).x, p.z - defender.player(m).z) <= 3.0);
+    attacker.send({ type: 'input', mx: 0, mz: 0, facing: sAng });
+  } else {
+    attacker.send({ type: 'input', facing: sAng });
+  }
+  await attacker.barrier();
+  attacker.send({ type: 'skill', slot: 'weapon' });
+  await defender.observe(p => p.state === 'knockdown' && !p.grounded && p.vy <= -4.5);
+  defender.messages.length = 0;
+  defender.send({ type: 'wakeup', dx: 1, dz: 0 });
+  const woken = defender.player(await defender.observe((p, m) => m.fx.some(f => f.type === 'dash' && f.text === 'QUICK WAKE-UP!')));
+  assert.notEqual(woken.state, 'knockdown');
+  assert.equal(woken.buffs.invuln, true);
+});
+
+test('simultaneous melee swings clash with zero damage and Just Guard charges skill gauge', { timeout: 14000 }, async t => {
+  const [p1, p2] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.4, z: 0 }], 'samurai');
+  const ready = await p1.observe((p, m) => p.grounded && !p.buffs.invuln &&
+    p2.player(m)?.grounded && !p2.player(m).buffs.invuln);
+  const a = p1.player(ready);
+  const b = p2.player(ready);
+
+  p1.send({ type: 'input', facing: Math.atan2(b.z - a.z, b.x - a.x) });
+  p2.send({ type: 'input', facing: Math.atan2(a.z - b.z, a.x - b.x) });
+  p1.messages.length = 0;
+  p2.messages.length = 0;
+  await Promise.all([p1.observe(() => true), p2.observe(() => true)]);
+
+  p1.messages.length = 0;
+  p1.send({ type: 'attack', phase: 'press' });
+  p2.send({ type: 'attack', phase: 'press' });
+  const clashed = await p1.observe((p, m) => m.fx.some(f => f.type === 'clash'));
+  assert.equal(p1.player(clashed).hp, p1.player(clashed).maxHp);
+  assert.equal(p2.player(clashed).hp, p2.player(clashed).maxHp);
+
+  // Spend p2's helmet gauge first and wait for skill startup i-frames to finish before Just Guarding
+  p1.messages.length = 0;
+  p2.messages.length = 0;
+  await Promise.all([
+    p1.observe(p => p.state === 'idle' && p.grounded),
+    p2.observe(p => p.state === 'idle' && p.grounded)
+  ]);
+  p2.send({ type: 'skill', slot: 'helmet' });
+  await p2.observe(p => p.skillGauges.helmet < 50);
+  p2.messages.length = 0;
+  await p2.observe(p => p.state === 'idle' && !p.buffs.skillIframe);
+
+  // Close the Clash knockback gap and let momentum settle before testing Just Guard
+  p1.messages.length = 0;
+  const sepSnap = await p1.observe(() => true);
+  const w1 = p1.player(sepSnap);
+  const w2 = p2.player(sepSnap);
+  if (Math.hypot(w2.x - w1.x, w2.z - w1.z) > 1.6) {
+    const walkAng = Math.atan2(w2.z - w1.z, w2.x - w1.x);
+    p1.send({ type: 'input', mx: Math.cos(walkAng), mz: Math.sin(walkAng), facing: walkAng });
+    p1.messages.length = 0;
+    await p1.observe((p, m) => Math.hypot(p.x - p2.player(m).x, p.z - p2.player(m).z) <= 1.6);
+    p1.send({ type: 'input', mx: 0, mz: 0, facing: walkAng });
+    await new Promise(r => setTimeout(r, 120));
+  }
+
+  p2.messages.length = 0;
+  const preSnap = await p2.observe(() => true);
+  const s1 = p1.player(preSnap);
+  const s2 = p2.player(preSnap);
+  const preCharge = s2.skillGauges.helmet;
+  p1.send({ type: 'input', facing: Math.atan2(s2.z - s1.z, s2.x - s1.x) });
+  p2.send({ type: 'input', facing: Math.atan2(s1.z - s2.z, s1.x - s2.x), guard: true });
+  p2.messages.length = 0;
+  await p2.observe(p => p.guarding === true);
+  p1.send({ type: 'attack', phase: 'press' });
+
+  const parried = await p2.observe((p, m) => m.fx.some(f => f.type === 'parry' && f.text === 'JUST GUARD!'));
+  assert.equal(p2.player(parried).hp, p2.player(parried).maxHp);
+  assert.ok(p2.player(parried).skillGauges.helmet >= preCharge + 7);
+});
+
+test('hero swap cancels attack recovery and air heavy spikes airborne targets into ground bounce', { timeout: 14000 }, async t => {
+  const [attacker, defender] = await arenaClients(t, 'sky_temple', [{ x: 0, z: 0 }, { x: 0.7, z: 0 }], 'samurai');
+  await Promise.all([
+    attacker.observe(p => p.grounded && !p.buffs.invuln),
+    defender.observe(p => p.grounded && !p.buffs.invuln)
+  ]);
+
+  // Mid-attack Hero Swap Cancel resets attack cooldown immediately
+  attacker.send({ type: 'attack', phase: 'press' });
+  await attacker.observe(p => p.state === 'attack');
+  attacker.send({ type: 'swap_hero', heroId: 'striker' });
+  const swapped = await attacker.observe((p, m) => p.heroId === 'striker' && m.fx.some(f => f.type === 'hero_swap' && f.text === 'SWAP CANCEL!'));
+  assert.equal(attacker.player(swapped).heroId, 'striker');
+
+  // Striker trinket (Seismic Ground Stomp) launches defender high, then Striker jumps and Air Heavy spikes into Ground Bounce
+  await defender.observe(p => p.grounded && p.state === 'idle');
+  attacker.send({ type: 'skill', slot: 'trinket' });
+  await defender.observe(p => !p.grounded && p.vy > 5);
+  attacker.messages.length = 0;
+  attacker.send({ type: 'jump' });
+  await attacker.observe(p => !p.grounded);
+  defender.messages.length = 0;
+  attacker.send({ type: 'heavy' });
+
+  await defender.observe((p, m) => m.fx.some(f => f.type === 'heavy_impact' && f.text === 'SPIKE!'));
+  const bounced = await defender.observe((p, m) => m.fx.some(f => f.type === 'text' && f.text === 'GROUND BOUNCE!'));
+  assert.ok(defender.player(bounced).vy > 4);
 });

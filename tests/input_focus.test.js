@@ -250,3 +250,68 @@ test('modular window hotkeys toggle pop-ups without blocking combat keys or firi
   client.keyUp('KeyW');
   client.keyUp('KeyJ');
 });
+
+test('holding Guard (L) plus a direction key performs a Roll/Dodge without triggering Dash', async () => {
+  const client = await createClient();
+  const start = client.packets.length;
+  client.keyDown('KeyL');
+  client.keyDown('KeyD');
+  const sent = client.packets.slice(start);
+  assert.equal(sent.some(p => p.type === 'dash'), false);
+  const dodge = sent.find(p => p.type === 'dodge');
+  assert.ok(dodge);
+  assert.equal(dodge.dx, 1);
+  assert.equal(dodge.dz, 0);
+  client.keyUp('KeyD');
+  client.keyUp('KeyL');
+});
+
+test('double-tap plus hold sustains sprint until movement stops or focus is lost', async () => {
+  const client = await createClient();
+  client.keyDown('KeyD');
+  client.keyUp('KeyD');
+  client.advance(100);
+  client.keyDown('KeyD');
+  client.tick();
+  assert.equal(client.input().sprinting, true);
+  assert.equal(client.input().mx, 1);
+  client.keyUp('KeyD');
+  client.tick();
+  assert.equal(client.input().sprinting, false);
+});
+
+test('pressing a direction key during knockdown sends a Quick Wake-Up', async () => {
+  const client = await createClient();
+  const dispatchMsg = (payload) => client.socket.dispatchEvent(
+    Object.assign(new Event('message'), { data: JSON.stringify(payload) })
+  );
+  dispatchMsg({ type: 'welcome', clientId: 'p1', rooms: [], lanAddresses: [] });
+  dispatchMsg({
+    type: 'state',
+    roomId: 'LAN-1',
+    mapId: 'sky_temple',
+    mode: 'ffa',
+    players: [{
+      id: 'p1',
+      name: 'Tester',
+      heroId: 'knight',
+      x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
+      facing: 0, grounded: true, hp: 80, maxHp: 125,
+      state: 'knockdown',
+      gear: { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' },
+      skillGauges: { weapon: 100, armor: 100, helmet: 100, trinket: 100 },
+      cooldowns: { weapon: 0, armor: 0, helmet: 0, trinket: 0 }
+    }],
+    projectiles: [],
+    droppedGears: [],
+    hazards: [],
+    fx: [],
+    killFeed: []
+  });
+  client.keyDown('KeyD');
+  const wake = client.packets.find(p => p.type === 'wakeup');
+  assert.ok(wake);
+  assert.equal(wake.dx, 1);
+  assert.equal(wake.dz, 0);
+  client.keyUp('KeyD');
+});

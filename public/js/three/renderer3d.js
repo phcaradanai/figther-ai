@@ -725,15 +725,25 @@ export class ThreeRenderer {
   // ------------------------------------------------------------------ camera
   updateCamera(dt, me) {
     const target = this._v.set(0, 0, 0);
-    if (me) target.set(me.x, Math.max(-3, Math.min(6, me.y)) * 0.6, me.z);
+    let desiredDist = this.camDist;
+    if (me) {
+      target.set(me.x, Math.max(-3, Math.min(6, me.y)) * 0.6, me.z);
+      if (me.targeting?.mode === 'ranged') {
+        const f = me.facing || 0;
+        target.x += Math.cos(f) * 2.2;
+        target.z += Math.sin(f) * 2.2;
+        desiredDist = Math.max(16, this.camDist - 2.5);
+      }
+    }
     if (me && this.centerCameraOnNextFrame) {
       this.camTarget.copy(target);
       this.centerCameraOnNextFrame = false;
     } else {
       this.camTarget.lerp(target, 1 - Math.exp(-dt * 4.5));
     }
-    const horiz = this.camDist * Math.cos(CAM_PITCH);
-    const vert = this.camDist * Math.sin(CAM_PITCH);
+    this._activeCamDist = (this._activeCamDist ?? this.camDist) + (desiredDist - (this._activeCamDist ?? this.camDist)) * (1 - Math.exp(-dt * 6));
+    const horiz = this._activeCamDist * Math.cos(CAM_PITCH);
+    const vert = this._activeCamDist * Math.sin(CAM_PITCH);
     const t = this.camTarget;
     this.camera.position.set(t.x + horiz * COS45, t.y + vert, t.z + horiz * COS45);
     this.shake *= Math.exp(-dt * 9);
@@ -754,12 +764,49 @@ export class ThreeRenderer {
     return { x: (v.x + 1) * 0.5 * this.width, y: (1 - v.y) * 0.5 * this.height };
   }
 
-  drawTargetReticle(player, mode) {
+  drawTargetReticle(player, mode, me = null) {
+    const ctx = this.octx;
+    const pulse = 1 + Math.sin(this.time * 10) * 0.08;
+    const color = mode === 'skill' ? '#fbbf24' : '#67e8f9';
+
+    // Ground lock ring beneath target
+    const gy = this.stage?.floorY(player.x, player.z, player.y + 0.2) ?? player.y;
+    const groundPt = this.toScreen(player.x, gy + 0.05, player.z);
+    if (groundPt) {
+      ctx.save();
+      ctx.translate(groundPt.x, groundPt.y);
+      ctx.scale(1, 0.58);
+      ctx.beginPath();
+      ctx.arc(0, 0, 26 * pulse, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Dotted aim line from shooter to target
+    if (me) {
+      const fromPt = this.toScreen(me.x, me.y + 1.0, me.z);
+      const toPt = this.toScreen(player.x, player.y + 1.0, player.z);
+      if (fromPt && toPt) {
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.lineDashOffset = -this.time * 36;
+        ctx.beginPath();
+        ctx.moveTo(fromPt.x, fromPt.y);
+        ctx.lineTo(toPt.x, toPt.y);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = mode === 'skill' ? 'rgba(251, 191, 36, 0.7)' : 'rgba(103, 232, 249, 0.7)';
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+
     const point = this.toScreen(player.x, player.y + 1.15, player.z);
     if (!point) return;
     const { x, y } = point;
-    const ctx = this.octx;
-    const radius = mode === 'skill' ? 21 : 16;
+    const radius = (mode === 'skill' ? 21 : 16) * pulse;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     for (let i = 0; i < 4; i++) {
@@ -772,8 +819,74 @@ export class ThreeRenderer {
     ctx.strokeStyle = 'rgba(18, 14, 25, 0.9)';
     ctx.stroke();
     ctx.lineWidth = 1.8;
-    ctx.strokeStyle = mode === 'skill' ? '#fbbf24' : '#67e8f9';
+    ctx.strokeStyle = color;
     ctx.stroke();
+  }
+
+  drawFreeAimReticle(me) {
+    const ctx = this.octx;
+    const f = me.facing || 0;
+    const dist = (me.targeting?.range || 8) * 0.65;
+    const tx = me.x + Math.cos(f) * dist;
+    const tz = me.z + Math.sin(f) * dist;
+    const ty = this.stage?.floorY(tx, tz, me.y + 1.5) ?? me.y;
+    const fromPt = this.toScreen(me.x, me.y + 1.0, me.z);
+    const groundPt = this.toScreen(tx, ty + 0.08, tz);
+    if (!groundPt) return;
+
+    if (fromPt) {
+      ctx.save();
+      ctx.setLineDash([5, 6]);
+      ctx.lineDashOffset = -this.time * 32;
+      ctx.beginPath();
+      ctx.moveTo(fromPt.x, fromPt.y);
+      ctx.lineTo(groundPt.x, groundPt.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(103, 232, 249, 0.65)';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(groundPt.x, groundPt.y);
+    ctx.scale(1, 0.6);
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.moveTo(-26, 0);
+    ctx.lineTo(26, 0);
+    ctx.moveTo(0, -26);
+    ctx.lineTo(0, 26);
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = 'rgba(18, 14, 25, 0.85)';
+    ctx.stroke();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#67e8f9';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawHomingIndicator(target, keyLabel) {
+    const pt = this.toScreen(target.x, target.y + 2.65, target.z);
+    if (!pt) return;
+    const ctx = this.octx;
+    const pulse = 1 + Math.sin(this.time * 9) * 0.1;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 13 * pulse, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(18, 14, 25, 0.9)';
+    ctx.stroke();
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#fbbf24';
+    ctx.stroke();
+    ctx.font = '900 10px "Segoe UI", Tahoma, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeText(`[${keyLabel}]`, pt.x, pt.y + 3.5);
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(`[${keyLabel}]`, pt.x, pt.y + 3.5);
+    ctx.restore();
   }
 
   drawOverlay(state, localId) {
@@ -785,10 +898,57 @@ export class ThreeRenderer {
 
     if (state) {
       const me = state.players.find(p => p.id === localId);
+      if (me?.targeting?.mode === 'ranged' && !me.targeting.targetId) {
+        this.drawFreeAimReticle(me);
+      }
+
+      // Passive overhead homing lock-on indicator for ready homing skills
+      if (me && !me.targeting && me.state !== 'dead') {
+        for (const slot of this.GAME_DATA.GEAR_SLOTS) {
+          const heroId = me.gear?.[slot];
+          const skill = heroId ? this.GAME_DATA.HEROES[heroId]?.skills?.[slot] : null;
+          if (!skill?.homingIndicator || !skill.aimRange) continue;
+          const charge = me.skillGauges?.[slot] ?? 0;
+          const cdMs = me.cooldowns?.[slot] || 0;
+          if (charge < (skill.gaugeCost ?? 100) || cdMs > 0) continue;
+
+          let best = null;
+          let bestDist = Infinity;
+          for (const cand of state.players) {
+            if (cand.id === me.id || cand.state === 'dead' || cand.buffs?.stealth) continue;
+            if (state.mode === 'team' && me.team > 0 && cand.team === me.team) continue;
+            if (Math.abs(me.y - cand.y) > 3) continue;
+            const d = Math.hypot(cand.x - me.x, cand.z - me.z);
+            if (d <= skill.aimRange && d < bestDist) {
+              bestDist = d;
+              best = cand;
+            }
+          }
+          if (best) {
+            this.drawHomingIndicator(best, this.GAME_DATA.GEAR_SLOT_LABELS[slot]?.key || slot.toUpperCase());
+            break;
+          }
+        }
+      }
+
+      if (me && me.chargePct > 25 && me.state !== 'dead') {
+        const cpt = this.toScreen(me.x, me.y + 1.2, me.z);
+        if (cpt) {
+          const pct = Math.min(1, me.chargePct / 100);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cpt.x, cpt.y, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = pct >= 1 ? '#facc15' : '#38bdf8';
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
       for (const pl of state.players) {
         if (pl.state === 'dead') continue;
         if (pl.buffs?.stealth && pl.id !== localId) continue;
-        if (pl.id === me?.targeting?.targetId) this.drawTargetReticle(pl, me.targeting.mode);
+        if (pl.id === me?.targeting?.targetId) this.drawTargetReticle(pl, me.targeting.mode, me);
         const s = this.toScreen(pl.x, pl.y + 2.25, pl.z);
         if (!s) continue;
         const isMe = pl.id === localId;

@@ -92,12 +92,12 @@
     </div>
     <div class="glossy-panel quick-keys-box">
       <div class="quick-keys-row">
-        <span><kbd>WASD</kbd> เดิน</span>
-        <span><kbd>J</kbd> ตี/เล็ง</span>
-        <span><kbd>K</kbd> หนัก</span>
-        <span><kbd>L</kbd> กัน</span>
-        <span><kbd>Space</kbd> โดด</span>
-        <span><kbd>G</kbd> เก็บ</span>
+        <span><kbd>WASD</kbd> เดิน/ดับเบิลแท็บแดช</span>
+        <span><kbd>J</kbd> ตี/ค้างชาร์จ·เล็ง</span>
+        <span><kbd>K</kbd> หนัก/ตบพื้น</span>
+        <span><kbd>L</kbd> กัน/กลิ้งหลบ</span>
+        <span><kbd>Space</kbd> โดด/ร่อน/ลุกเร็ว</span>
+        <span><kbd>QERF</kbd> สกิล · <kbd>1-0</kbd> สลับฮีโร่</span>
       </div>
     </div>
   </aside>
@@ -156,6 +156,7 @@
             <div class="skill-meta">
               <div class="skill-name" id="skillName_weapon">คลื่นดาบเอ็กซ์คาลิเบอร์</div>
               <div class="skill-gear-owner" id="skillOwner_weapon">อาวุธ · อัศวิน</div>
+              <div class="skill-cond-row" id="skillCond_weapon"></div>
               <div class="skill-charge-row">
                 <progress id="skillGauge_weapon" max="100" value="100" aria-label="เกจอาวุธ"></progress>
                 <span id="skillCharge_weapon">พร้อม</span>
@@ -175,6 +176,7 @@
             <div class="skill-meta">
               <div class="skill-name" id="skillName_armor">ปราการศักดิ์สิทธิ์</div>
               <div class="skill-gear-owner" id="skillOwner_armor">สวนกลับตอนโดนตี</div>
+              <div class="skill-cond-row" id="skillCond_armor"></div>
               <div class="skill-charge-row">
                 <progress id="skillGauge_armor" max="100" value="100" aria-label="เกจชุดเกราะ"></progress>
                 <span id="skillCharge_armor">พร้อม</span>
@@ -194,6 +196,7 @@
             <div class="skill-meta">
               <div class="skill-name" id="skillName_helmet">คำรามราชสีห์</div>
               <div class="skill-gear-owner" id="skillOwner_helmet">หมวก · อัศวิน</div>
+              <div class="skill-cond-row" id="skillCond_helmet"></div>
               <div class="skill-charge-row">
                 <progress id="skillGauge_helmet" max="100" value="100" aria-label="เกจหมวก"></progress>
                 <span id="skillCharge_helmet">พร้อม</span>
@@ -213,6 +216,7 @@
             <div class="skill-meta">
               <div class="skill-name" id="skillName_trinket">พุ่งชนโล่ราชรถ</div>
               <div class="skill-gear-owner" id="skillOwner_trinket">ผ้าคลุม · อัศวิน</div>
+              <div class="skill-cond-row" id="skillCond_trinket"></div>
               <div class="skill-charge-row">
                 <progress id="skillGauge_trinket" max="100" value="100" aria-label="เกจผ้าคลุม"></progress>
                 <span id="skillCharge_trinket">พร้อม</span>
@@ -348,15 +352,15 @@
           <div class="controls-card">
             <div class="controls-card-title">🎮 คู่มือปุ่มควบคุม (ซ้อมคอมโบใน HQ ได้เลย!)</div>
             <div class="controls-grid">
-              <span><kbd>WASD</kbd> เคลื่อนที่</span>
-              <span><kbd>Shift</kbd> วิ่งเร็ว · ดับเบิลแท็บ แดช</span>
-              <span><kbd>J</kbd> โจมตี / ค้างเล็งสายยิง</span>
-              <span><kbd>K</kbd> โจมตีหนักทะลวงการ์ด</span>
-              <span><kbd>L</kbd> ตั้งการ์ด / Perfect Guard</span>
-              <span><kbd>Space</kbd> กระโดด / บิน</span>
-              <span><kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd><kbd>F</kbd> สกิลเกียร์ 4 ช่อง</span>
-              <span><kbd>1</kbd>-<kbd>0</kbd> สลับฮีโร่ 10 ตัวทันที</span>
-              <span><kbd>G</kbd> เก็บเกียร์ · คลิกขวาช่องเกียร์เพื่อถอด</span>
+              <span><kbd>WASD</kbd> เคลื่อนที่ · ดับเบิลแท็บ วิ่งเร็ว/แดช</span>
+              <span><kbd>Shift</kbd> วิ่งเร็ว · <kbd>C</kbd>/<kbd>Alt</kbd> แดช</span>
+              <span><kbd>J</kbd> คอมโบ/แดชตี/กลางอากาศ · ค้าง <kbd>J</kbd> ชาร์จ/เล็งยิง (ลูกศรเปลี่ยนเป้า)</span>
+              <span><kbd>K</kbd> ท่าหนักทะลวงการ์ด / ตบลงพื้นกลางอากาศ (Spike)</span>
+              <span><kbd>L</kbd> ตั้งการ์ด / Just Guard · <kbd>L</kbd>+ทิศทาง กลิ้งหลบ</span>
+              <span><kbd>Space</kbd> กระโดดหลายชั้น/ร่อน-บิน · กดตอนล้มเพื่อลุกเร็ว</span>
+              <span><kbd>Q</kbd><kbd>E</kbd><kbd>R</kbd><kbd>F</kbd> สกิลเกียร์ 4 ช่อง (ตัดท่าได้ / อมตะสั้น)</span>
+              <span><kbd>1</kbd>-<kbd>0</kbd> สลับฮีโร่กลางคอมโบ 10 ตัวทันที</span>
+              <span><kbd>G</kbd> เก็บเกียร์ · คลิกขวาช่องเกียร์เพื่อถอด (ยกเว้นอาวุธ)</span>
             </div>
           </div>
         </div>

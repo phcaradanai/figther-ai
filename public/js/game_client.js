@@ -110,6 +110,14 @@ window.startArenaGame = function (renderer) {
         case 'dash':
           this.tone(480, 190, 0.12, 'sawtooth', 0.08);
           break;
+        case 'clash':
+          this.tone(920, 420, 0.16, 'triangle', 0.12);
+          this.tone(1280, 660, 0.12, 'sine', 0.08);
+          break;
+        case 'guard_break':
+          this.tone(180, 55, 0.24, 'sawtooth', 0.13);
+          this.tone(520, 140, 0.18, 'square', 0.09);
+          break;
       }
     }
   }
@@ -170,6 +178,7 @@ window.startArenaGame = function (renderer) {
   let lastTapKey = null;
   let lastTapTime = 0;
   let isDashReady = false;
+  let doubleTapSprinting = false;
   const arrowDirections = {
     ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]
   };
@@ -662,6 +671,12 @@ window.startArenaGame = function (renderer) {
           sendSwapHero(hero.id);
           sfx.playUi('equip');
           showToast(`เปลี่ยนฮีโร่เป็น ${hero.nameTh}!`, 'success');
+        } else if (invCategory === 'weapon') {
+          previewLoadout.heroId = hero.id;
+          previewLoadout.gear.weapon = hero.id;
+          sendSwapHero(hero.id);
+          sfx.playUi('equip');
+          showToast(`อาวุธเป็นสกิลประจำตัวฮีโร่ — สลับเป็น ${hero.nameTh} เพื่อใช้อาวุธนี้!`, 'info');
         } else {
           // Immediately dress 3D preview on click!
           previewLoadout.gear[invCategory] = hero.id;
@@ -711,8 +726,9 @@ window.startArenaGame = function (renderer) {
     const pick = () => heroes[Math.floor(Math.random() * heroes.length)].id;
     const nextHero = pick();
     previewLoadout.heroId = nextHero;
+    previewLoadout.gear.weapon = nextHero;
     sendSwapHero(nextHero);
-    for (const slot of GAME_DATA.GEAR_SLOTS) {
+    for (const slot of ['armor', 'helmet', 'trinket']) {
       const candidates = heroes.filter(h => itemStatuses[`gear:${slot}:${h.id}`] !== 'expired');
       const chosen = (candidates[Math.floor(Math.random() * candidates.length)] || heroes[0]).id;
       previewLoadout.gear[slot] = chosen;
@@ -727,7 +743,8 @@ window.startArenaGame = function (renderer) {
 
   document.getElementById('btnResetSet')?.addEventListener('click', () => {
     const hId = previewLoadout.heroId;
-    for (const slot of GAME_DATA.GEAR_SLOTS) {
+    previewLoadout.gear.weapon = hId;
+    for (const slot of ['armor', 'helmet', 'trinket']) {
       previewLoadout.gear[slot] = hId;
       sendEquipGear(slot, hId);
     }
@@ -1159,6 +1176,7 @@ window.startArenaGame = function (renderer) {
         const keyEl = document.getElementById(`skillKey_${slot}`);
         const nameEl = document.getElementById(`skillName_${slot}`);
         const ownerEl = document.getElementById(`skillOwner_${slot}`);
+        const condEl = document.getElementById(`skillCond_${slot}`);
         const gauge = document.getElementById(`skillGauge_${slot}`);
         const chargeEl = document.getElementById(`skillCharge_${slot}`);
         const imgEl = document.getElementById(`skillImg_${slot}`);
@@ -1186,11 +1204,28 @@ window.startArenaGame = function (renderer) {
         }
         prevSkillReady[slot] = ready;
 
+        const conds = skill?.conditions || [];
+        const isIncap = me.state === 'hurt' || me.state === 'knockdown' || me.state === 'frozen';
+        let condBlocked = false;
+        let counterHighlight = false;
+        if (skill && !passive) {
+          if (isIncap) {
+            condBlocked = !(skill.usableWhileHit || conds.includes('down'));
+            counterHighlight = !condBlocked && ready;
+          } else if (!me.grounded) {
+            condBlocked = !conds.includes('air');
+          } else {
+            condBlocked = !conds.includes('ground');
+          }
+        }
+
         card.classList.toggle('targeting', aiming);
         card.classList.toggle('stripped', !skill);
         card.classList.toggle('stolen', stolen);
         card.classList.toggle('passive', passive);
         card.classList.toggle('ready', ready || passive);
+        card.classList.toggle('cond-blocked', condBlocked);
+        card.classList.toggle('cond-counter-ready', counterHighlight);
 
         // Icon artwork & color-coded rarity/mix badges
         if (imgEl) {
@@ -1230,8 +1265,19 @@ window.startArenaGame = function (renderer) {
         if (centerEl) {
           if (!skill) centerEl.textContent = 'หลุด!';
           else if (passive || ready) centerEl.textContent = '';
-          else if (cdMs > 0) centerEl.textContent = `${(cdMs / 1000).toFixed(1)}s`;
+          else if (charge >= (skill?.gaugeCost ?? 100) && cdMs > 0) centerEl.textContent = `${(cdMs / 1000).toFixed(1)}s`;
           else centerEl.textContent = `${charge ?? 0}%`;
+        }
+
+        if (condEl) {
+          if (!skill) {
+            condEl.innerHTML = '';
+          } else {
+            const condNames = { ground: 'พื้น', air: 'อากาศ', down: 'ล้มสวน', passive: 'ติดตัว' };
+            condEl.innerHTML = conds.map(c =>
+              `<span class="cond-pill ${c === 'down' ? 'cond-down' : c === 'passive' ? 'cond-passive' : ''}">${condNames[c] || c}</span>`
+            ).join('');
+          }
         }
 
         keyEl.textContent = passive ? 'ติดตัว' : slotLabel.key;
@@ -1325,7 +1371,7 @@ window.startArenaGame = function (renderer) {
   }
 
   function isSprintHeld() {
-    return !!(keys['ShiftLeft'] || keys['ShiftRight']);
+    return !!(keys['ShiftLeft'] || keys['ShiftRight'] || (doubleTapSprinting && !keys['KeyL']));
   }
 
   function sendBasicAttack(phase) {
@@ -1389,15 +1435,33 @@ window.startArenaGame = function (renderer) {
     const isMoveKey = isArrow ? !activeTargeting() : ['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(code);
     if (isArrow && !isMoveKey) lastTapKey = null;
     if (!wasPressed && isMoveKey) {
-      const now = performance.now();
-      if (lastTapKey === code && now - lastTapTime < 280) triggerDash();
-      lastTapKey = code;
-      lastTapTime = now;
+      const meState = interpPlayers.get(localClientId)?.state;
+      if (meState === 'knockdown') {
+        const mv = getCurrentWorldMove();
+        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'wakeup', dx: mv.mx, dz: mv.mz }));
+      } else if (keys['KeyL']) {
+        const mv = getCurrentWorldMove();
+        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'dodge', dx: mv.mx, dz: mv.mz }));
+        lastTapKey = null;
+      } else {
+        const now = performance.now();
+        if (lastTapKey === code && now - lastTapTime < 280) {
+          doubleTapSprinting = true;
+          triggerDash();
+        }
+        lastTapKey = code;
+        lastTapTime = now;
+      }
     }
 
     if (!wasPressed && (code === 'KeyC' || code === 'AltLeft')) {
       e.preventDefault();
-      triggerDash();
+      if (keys['KeyL']) {
+        const mv = getCurrentWorldMove();
+        if (ws?.readyState === 1) ws.send(JSON.stringify({ type: 'dodge', dx: mv.mx, dz: mv.mz }));
+      } else {
+        triggerDash();
+      }
       return;
     }
     if (code === 'Escape') {
@@ -1478,6 +1542,7 @@ window.startArenaGame = function (renderer) {
     lastTapKey = null;
     lastTapTime = 0;
     isDashReady = false;
+    doubleTapSprinting = false;
     localFacing = null;
 
     if (ws && ws.readyState === 1) {
@@ -1522,9 +1587,11 @@ window.startArenaGame = function (renderer) {
     const mv = getCurrentWorldMove();
     if (mv.ix === 0 && mv.iz === 0) {
       isDashReady = false;
+      doubleTapSprinting = false;
     }
 
     const guard = !!keys['KeyL'];
+    if (guard) doubleTapSprinting = false;
     const jumpHeld = !!keys['Space'];
     const sprinting = isSprintHeld();
 
