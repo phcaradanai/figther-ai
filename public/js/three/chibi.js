@@ -49,6 +49,8 @@ const SKINNED_HEROES = {
     otherHelmetOffset: [0, 0.03, 0.01],
     // Cape hem below the last cape bone, in that bone's space.
     capeTip: [0.003, -0.289, -0.105],
+    // Clips baked from other sources (tools/rig/bake-mixamo.mjs), preferred over code clips.
+    bakedClips: { dead: '/assets/anims/knight/dead.json' },
     capeBones: [
       { name: 'cape1', weight: 0.22 },
       { name: 'cape2', weight: 0.38 },
@@ -61,13 +63,18 @@ const FORCE_STEP = typeof location !== 'undefined' ? (Number(new URLSearchParams
 const skinnedEntries = !SKIP_SKINNED
   ? await Promise.all(Object.entries(SKINNED_HEROES).map(async ([id, spec]) => {
     try {
-      const [gltf, gearGltf] = await Promise.all([
+      const [gltf, gearGltf, baked] = await Promise.all([
         gltfLoader.loadAsync(spec.url),
         spec.gearUrl
           ? gltfLoader.loadAsync(spec.gearUrl).catch(error => { console.warn(`Gear model unavailable for ${id}:`, error); return null; })
-          : Promise.resolve(null)
+          : Promise.resolve(null),
+        Promise.all(Object.entries(spec.bakedClips || {}).map(([name, url]) => fetch(url)
+          .then(response => (response.ok ? response.json() : Promise.reject(new Error(`${response.status} ${url}`))))
+          .then(data => [name, data])
+          .catch(error => { console.warn(`Baked clip ${name} unavailable for ${id}:`, error); return null; })))
       ]);
-      return [id, { spec, scene: gltf.scene, gearScene: gearGltf?.scene || null, animations: gltf.animations || [] }];
+      const bakedClips = Object.fromEntries(baked.filter(Boolean));
+      return [id, { spec, scene: gltf.scene, gearScene: gearGltf?.scene || null, animations: gltf.animations || [], bakedClips }];
     } catch (error) {
       console.warn(`Skinned model unavailable for ${id}:`, error);
       return [id, null];
@@ -1361,6 +1368,13 @@ function makeClip(name, keys, joints = JOINTS) {
   return new THREE.AnimationClip(name, times[times.length - 1], tracks);
 }
 
+// Keyframes baked by tools/rig/bake-mixamo.mjs: local joint quaternions and the hips position.
+function bakedClip(name, data) {
+  const tracks = Object.entries(data.rotations).map(([joint, values]) => new THREE.QuaternionKeyframeTrack(`${joint}.quaternion`, data.times, values));
+  tracks.push(new THREE.VectorKeyframeTrack('hips.position', data.times, data.hips));
+  return new THREE.AnimationClip(name, data.duration, tracks);
+}
+
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
 const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airSpike']);
 const makeKnightClip = (name, keys) => makeClip(name, keys, KNIGHT_JOINTS);
@@ -1819,6 +1833,7 @@ function clipsFor(style, skinnedKnight) {
       Object.assign(clips, buildKnightLocomotion(makeKnightClip, ready, pose));
       const idle = knightIdle(ready, pose);
       Object.assign(clips, buildKnightAttacks(makeKnightClip, idle, pose), buildKnightSkills(makeKnightClip, idle, pose));
+      for (const [name, data] of Object.entries(SKINNED_MODELS.knight?.bakedClips || {})) clips[name] = bakedClip(name, data);
       // Every action must own the wrist tracks so crossfades can reset them.
       for (const clip of Object.values(clips)) {
         if (clip.tracks.some(track => track.name === 'handR.quaternion')) continue;

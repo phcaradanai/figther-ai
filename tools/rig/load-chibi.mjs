@@ -25,9 +25,9 @@ async function importViews() {
     }
   };
   globalThis.fetch = async (request, options) => {
-    const url = new URL(request instanceof NativeRequest ? request.url : request);
+    const url = new URL(request instanceof NativeRequest ? request.url : request, origin);
     if (url.protocol === 'blob:') return nativeFetch(request, options);
-    if (url.origin !== origin || !url.pathname.startsWith('/assets/models/')) {
+    if (url.origin !== origin || !/^\/assets\/(models|anims)\//.test(url.pathname)) {
       throw new Error(`Unexpected motion fixture asset: ${url}`);
     }
     const bytes = await readFile(new URL('../../public' + url.pathname, import.meta.url));

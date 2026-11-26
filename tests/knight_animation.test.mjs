@@ -300,6 +300,25 @@ test('Knight gear skills hit their poses when their effects land', t => {
   assert.ok(shield().z - chest > 0.3, `shield only ${(shield().z - chest).toFixed(2)} ahead of the chest`);
 });
 
+test('Knight death is the baked fall and comes to rest on top of the floor', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  advance(knight, {}, 20);
+  advance(knight, { state: 'dead' }, 150);
+  assert.equal(knight.currentName, 'dead');
+  assert.ok(knight.current.getClip().duration > 1.5, 'the baked death clip should be loaded');
+  const point = new Vector3();
+  const hips = knight.R.hips.getWorldPosition(point).y;
+  assert.ok(hips < 0.35, `hips rest ${hips.toFixed(2)} above the floor`);
+  let lowest = Infinity;
+  knight.root.traverse(o => {
+    if (!o.isMesh || o.name === 'KnightCape' || !o.geometry?.attributes.position) return;
+    const positions = o.geometry.attributes.position;
+    for (let i = 0; i < positions.count; i += 8) lowest = Math.min(lowest, o.localToWorld(o.getVertexPosition(i, point)).y);
+  });
+  assert.ok(lowest > -0.04, `the lying Knight sinks ${lowest.toFixed(3)} into the floor`);
+});
+
 test('skinned Knight plays the dodge while guard is held and restarts on a second jump', t => {
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());

@@ -136,3 +136,20 @@ The skinned Knight now has a clip for each case:
 
 `ChibiView.strikeClip()` chooses between the ground and air clip when a strike starts, and the strike keeps that clip through a landing. Air strikes are excluded from the floor contact pass. The count of air strikes resets once the Knight is grounded and not attacking. The blade accent now fires on the contact of whichever swing started with the server's slash event, on the ground or in the air.
 
+## Mixamo clips (2026-11-26)
+
+The pipeline has two steps. [mixamo_to_glb.py](../../tools/rig/mixamo_to_glb.py) runs in headless Blender and converts Mixamo FBX files to GLB. Some Mixamo FBX files use properties three.js's FBXLoader cannot read, which is why Blender does the conversion. Then [bake-mixamo.mjs](../../tools/rig/bake-mixamo.mjs) retargets each clip onto the skinned Knight and scores it on the real rig. Clips listed in its `BAKE` table are written to `public/assets/anims/knight/` as the game's own keyframes, and `SKINNED_HEROES.knight.bakedClips` loads them in place of the code clips.
+
+The retarget takes each Mixamo bone's world rotation relative to its T-pose and applies it to the matching Knight bone in the same reference pose. `Spine2` drives `torso`. Hips height scales by the ratio of the two rigs' hip heights. The bake then keeps the lying Knight on top of the floor. It searches each frame for the smallest hips lift, chest raise and chin tuck that clears the body and helmet, then turns the wrists so the sword and shield rest on the floor. The cape's cloth stays above the feet line. Keep the FBX and GLB sources out of the repo.
+
+Score of the Lite Sword and Shield Pack against the Knight's own clips:
+
+| Mixamo clip | Result | Reason |
+| --- | --- | --- |
+| death | **Used as `dead`**, at 1.25× speed | Staggers back and falls flat in 1.9 s, inside the 3 s respawn. The old clip just folded down and sank 0.4 into the floor. |
+| attack, attack (2)–(4) | Not used | Fastest blade at 0.33–1.17 s against the 0.12 s contact the server needs. attack and attack (4) put the blade through the helmet for 42 and 25 frames. |
+| block idle, block, block (2) | Not used | The shield ends up facing the Knight's right side, not forward. block and block (2) are moves into and out of a block, not a hit being absorbed. |
+| idle | Not used | Holds the shield edge-on. |
+| run, run (2) | Not used | Realistic jog instead of the Tree of Savior run. |
+| strafe, turn, draw sword, sheath sword | Not used | No matching game state. |
+

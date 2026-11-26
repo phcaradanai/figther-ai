@@ -13,6 +13,7 @@ const LEG_SOFTNESS = 0.45; // share of a leg overlap resolved per pass
 const MAX_LIFT = 1.45;  // radians from hanging straight down, about the torso's side axis
 const MAX_SWAY = 0.3;   // radians sideways
 const SUBSTEP = 1 / 120;
+const FLOOR = 0.03;      // the strand stays this far above the feet line (render root)
 const FOLLOW = 26;      // per second: how fast the bones take up the strand's shape
 
 const _inverse = new Matrix4();
@@ -157,7 +158,11 @@ export class CapeCloth {
         }
       }
     }
-    for (let i = 1; i < local.length; i++) this.points[i].copy(local[i]).applyMatrix4(this.torso.matrixWorld).sub(root);
+    for (let i = 1; i < local.length; i++) {
+      this.points[i].copy(local[i]).applyMatrix4(this.torso.matrixWorld).sub(root);
+      // A Knight lying on its back must not push the cloth through the floor.
+      if (this.points[i].y < FLOOR) this.points[i].y = FLOOR;
+    }
   }
 
   // Place point i from its parent at the segment length, within the swing limits,
