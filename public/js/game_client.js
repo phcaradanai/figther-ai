@@ -76,6 +76,68 @@ window.startArenaGame = function (renderer) {
         osc.stop(now + duration);
       } catch (e) {}
     }
+    // A second of white noise, shared by every swoosh and crack.
+    noiseBuffer() {
+      if (!this.noise) {
+        const length = this.ctx.sampleRate;
+        this.noise = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
+        const data = this.noise.getChannelData(0);
+        for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+      }
+      return this.noise;
+    }
+    // Filtered noise whose pass band sweeps from f0 to f1: the body of a blade swoosh.
+    burst(duration, f0, f1, q, vol, type = 'bandpass') {
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.noiseBuffer();
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = type;
+        filter.Q.value = q;
+        filter.frequency.setValueAtTime(f0, now);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(40, f1), now + duration);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(vol, now + Math.min(0.025, duration * 0.3));
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        source.start(now, Math.random() * 0.5);
+        source.stop(now + duration + 0.02);
+      } catch (e) {}
+    }
+    // Each call is a few percent off pitch so repeated strikes do not machine-gun.
+    jitter() {
+      return 0.94 + Math.random() * 0.12;
+    }
+    swordSwing(finisher) {
+      const k = this.jitter();
+      if (finisher) {
+        this.burst(0.24, 520 * k, 2100 * k, 0.8, 0.15);
+        this.tone(150 * k, 70, 0.2, 'sine', 0.07);
+      } else {
+        this.burst(0.15, 760 * k, 3600 * k, 1.0, 0.11);
+      }
+    }
+    // Weight, a crack of noise and two inharmonic metal partials.
+    strike(strong) {
+      const k = this.jitter();
+      this.tone(strong ? 150 * k : 190 * k, 48, strong ? 0.2 : 0.12, 'sine', strong ? 0.2 : 0.15);
+      this.burst(strong ? 0.1 : 0.06, 5200, 1400, 0.7, strong ? 0.17 : 0.12, 'highpass');
+      this.tone(1850 * k, 1500 * k, strong ? 0.22 : 0.14, 'triangle', strong ? 0.06 : 0.045);
+      this.tone(2710 * k, 2200 * k, strong ? 0.16 : 0.1, 'sine', 0.032);
+    }
+    // A hit taken on the shield: a dull clank with a short ring.
+    clank(sharp) {
+      const k = this.jitter();
+      this.tone(sharp ? 1250 * k : 820 * k, sharp ? 1100 * k : 700 * k, sharp ? 0.4 : 0.26, 'triangle', 0.1);
+      this.tone(sharp ? 1980 * k : 1330 * k, 1500 * k, 0.22, 'sine', 0.05);
+      this.tone(130 * k, 55, 0.1, 'sine', 0.12);
+      this.burst(0.05, 3800, 2000, 0.8, 0.1, 'bandpass');
+    }
     playUi(kind) {
       this.init();
       if (kind === 'click') this.tone(540, 760, 0.06, 'triangle', 0.05);
@@ -83,15 +145,27 @@ window.startArenaGame = function (renderer) {
       else if (kind === 'buy') this.tone(520, 1040, 0.2, 'triangle', 0.09);
       else if (kind === 'warn') this.tone(240, 150, 0.12, 'sawtooth', 0.06);
     }
-    playFx(type) {
+    playFx(type, fx) {
       this.init();
       switch (type) {
         case 'slash':
+          if (fx?.weaponType === 'broadsword') {
+            this.swordSwing(!!fx.isFinisher);
+            break;
+          }
+          this.tone(420, 140, 0.09, 'sawtooth', 0.06);
+          break;
         case 'muzzle':
           this.tone(420, 140, 0.09, 'sawtooth', 0.06);
           break;
         case 'hit':
-          this.tone(200, 65, 0.11, 'square', 0.08);
+          this.strike((fx?.damage || 0) >= 18);
+          break;
+        case 'block':
+          this.clank(false);
+          break;
+        case 'parry':
+          this.clank(true);
           break;
         case 'heavy_cast':
         case 'heavy_impact':
@@ -133,6 +207,8 @@ window.startArenaGame = function (renderer) {
   }
 
   const sfx = new SoundFX();
+  // The 3D renderer may hold a hit until the blade lands; it calls this at that moment.
+  if (typeof renderer.releaseHits === 'function') renderer.onHit = fx => sfx.playFx('hit', fx);
 
   // --------------------------------------------------------------------------
   // CLIENT STATE, CATALOG OWNERSHIP & INTERPOLATION BUFFER
@@ -1287,7 +1363,11 @@ window.startArenaGame = function (renderer) {
 
     if (state.fx && state.fx.length > 0) {
       renderer.processServerFx?.(state.fx);
-      state.fx.forEach(f => sfx.playFx(f.type));
+      // The 3D renderer shows a Knight's hit on the blade's contact frame, so it
+      // plays the hit sound itself (renderer.onHit) at that moment.
+      state.fx.forEach(f => {
+        if (!(f.type === 'hit' && renderer.onHit)) sfx.playFx(f.type, f);
+      });
     }
 
     const activeIds = new Set();

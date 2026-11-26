@@ -285,6 +285,7 @@ export class ThreeRenderer {
         if (clip === 'attack3') { shooter.view.kick(false); shooter.view.kick(true); }
         else shooter.view.kick(clip === 'attack2');
       }
+      if (fx.type === 'hit') this.onHit?.(fx);
       if (fx.type === 'hit' || fx.type === 'parry' || fx.type === 'block') {
         const victim = this.nearestPlayer(fx.x, fx.y - 1.1, fx.z, 1.8);
         if (victim) {
