@@ -3,6 +3,7 @@
 // painterly platforms, and a canvas overlay for nameplates and damage numbers.
 // ============================================================================
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -68,6 +69,13 @@ export class ThreeRenderer {
     this.renderer = r;
 
     this.scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(r);
+    const roomEnv = new RoomEnvironment();
+    this.envRT = pmrem.fromScene(roomEnv, 0.04);
+    this.scene.environment = this.envRT.texture;
+    this.scene.environmentIntensity = 0.72;
+    roomEnv.dispose();
+    pmrem.dispose();
     this.camera = new THREE.PerspectiveCamera(FOV, window.innerWidth / window.innerHeight, 0.5, 300);
 
     this.hemi = new THREE.HemisphereLight('#fff5e0', '#a7bfd9', 1.3);

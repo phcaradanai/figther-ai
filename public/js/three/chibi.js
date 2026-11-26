@@ -20,22 +20,39 @@ const workshopPromise = gltfLoader.loadAsync('/assets/models/hero-workshop.glb')
   .then(gltf => gltf.scene)
   .catch(error => { console.warn('Character workshop unavailable', error); return null; });
 
-// Opt-in skinned hero models (?skinned=1): each GLB carries a HeroRig matching
-// chibi.js bone names. Slots listed in `fused` are already sculpted into the
-// body mesh and skip rigid gear attachments.
+// Skinned hero models: each GLB carries a HeroRig matching chibi.js bone names
+// (plus optional cape chain bones). Loaded by default; pass ?skinned=0 to disable.
 const SKINNED_HEROES = {
   knight: {
-    url: '/assets/models/hero-test-adventurer.glb',
-    hipHeight: 0.8,
-    fused: ['weapon', 'trinket', 'helmet']
+    url: '/assets/models/hero-knight.glb',
+    gearUrl: '/assets/models/knight-gear.glb',
+    hipHeight: 0.78,
+    alignArms: true,
+    fused: ['trinket'],
+    helmetMesh: 'KnightHelmet',
+    swordMesh: 'KnightSword',
+    shieldMesh: 'KnightShield',
+    swordMount: { p: [0, -0.085, 0.02], tilt: 0.35 },
+    otherHelmetScale: 0.56,
+    otherHelmetOffset: [0, 0.03, 0.01],
+    capeBones: [
+      { name: 'cape1', weight: 0.35 },
+      { name: 'cape2', weight: 0.35 },
+      { name: 'cape3', weight: 0.25 }
+    ]
   }
 };
-const USE_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '1';
-const skinnedEntries = USE_SKINNED
+const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
+const skinnedEntries = !SKIP_SKINNED
   ? await Promise.all(Object.entries(SKINNED_HEROES).map(async ([id, spec]) => {
     try {
-      const gltf = await gltfLoader.loadAsync(spec.url);
-      return [id, { spec, scene: gltf.scene, animations: gltf.animations || [] }];
+      const [gltf, gearGltf] = await Promise.all([
+        gltfLoader.loadAsync(spec.url),
+        spec.gearUrl
+          ? gltfLoader.loadAsync(spec.gearUrl).catch(error => { console.warn(`Gear model unavailable for ${id}:`, error); return null; })
+          : Promise.resolve(null)
+      ]);
+      return [id, { spec, scene: gltf.scene, gearScene: gearGltf?.scene || null, animations: gltf.animations || [] }];
     } catch (error) {
       console.warn(`Skinned model unavailable for ${id}:`, error);
       return [id, null];
@@ -162,6 +179,18 @@ class Builder {
         const c = material.color.set(tint);
         if (swatch) c.setRGB(c.r / swatch.r, c.g / swatch.g, c.b / swatch.b);
       }
+      this.cache.set(key, material);
+      this.materials.push(material);
+    }
+    return this.part(parent, piece.geometry, material, { outline: 0, ...opts });
+  }
+  glbPart(parent, scene, name, opts = {}) {
+    const piece = scene?.getObjectByName(name);
+    if (!piece?.isMesh) return null;
+    const key = `glb|${piece.material.uuid}`;
+    let material = this.cache.get(key);
+    if (!material) {
+      material = piece.material.clone();
       this.cache.set(key, material);
       this.materials.push(material);
     }
@@ -897,7 +926,7 @@ function buildRig(b, heroId, gear) {
 }
 
 function buildSkinnedRig(b, heroId, gear, model) {
-  const { spec, scene: srcScene } = model;
+  const { spec, scene: srcScene, gearScene } = model;
   const root = new THREE.Group();
   const body = node('body', root, 0, 0, 0);
   const R = { root, body };
@@ -927,21 +956,49 @@ function buildSkinnedRig(b, heroId, gear, model) {
   rigScale.scale.setScalar(s);
   body.add(rigScale);
 
-  // Rebuild bones with identity rest rotations in model axes so chibi.js clips
-  // (which author absolute quaternions around an identity rest pose) drive them directly.
+  // For A-pose models, align arm bind orientations to their actual rest limb direction relative to
+  // canonical straight-down (0, -1, 0) so chibi.js absolute clip rotations drive A-pose arms cleanly.
+  const restWorldQ = new Map();
+  if (spec.alignArms) {
+    const down = new THREE.Vector3(0, -1, 0);
+    for (const side of ['L', 'R']) {
+      const arm = origByName.get('arm' + side);
+      const fore = origByName.get('fore' + side);
+      const hand = origByName.get('hand' + side);
+      if (arm && fore) {
+        const du = worldPos.get(fore).clone().sub(worldPos.get(arm)).normalize();
+        restWorldQ.set(arm, new THREE.Quaternion().setFromUnitVectors(down, du));
+      }
+      if (fore && hand) {
+        const df = worldPos.get(hand).clone().sub(worldPos.get(fore)).normalize();
+        const qf = new THREE.Quaternion().setFromUnitVectors(down, df);
+        restWorldQ.set(fore, qf);
+        restWorldQ.set(hand, qf.clone());
+      }
+    }
+  }
+
+  // Rebuild bones with canonical rest orientations in model axes so chibi.js clips drive them directly.
+  const identityQ = new THREE.Quaternion();
+  const invQ = new THREE.Quaternion();
   const newBones = new Map();
   const byName = new Map();
   cloned.traverse((o) => {
     if (!o.isBone) return;
     const wp = worldPos.get(o);
+    const wq = restWorldQ.get(o) || identityQ;
     const nb = new THREE.Bone();
     nb.name = o.name;
     const parentBone = o.parent?.isBone ? o.parent : null;
     if (parentBone && newBones.has(parentBone)) {
-      nb.position.copy(wp).sub(worldPos.get(parentBone)).divideScalar(s);
+      const pwq = restWorldQ.get(parentBone) || identityQ;
+      invQ.copy(pwq).invert();
+      nb.position.copy(wp).sub(worldPos.get(parentBone)).applyQuaternion(invQ).divideScalar(s);
+      nb.quaternion.copy(invQ).multiply(wq);
       newBones.get(parentBone).add(nb);
     } else {
       nb.position.copy(wp).divideScalar(s);
+      nb.quaternion.copy(wq);
       rigScale.add(nb);
     }
     newBones.set(o, nb);
@@ -960,7 +1017,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
   }
 
   // Move skinned meshes directly under body with identity transforms and rebind to the
-  // identity-rest bones. Attached bind mode re-inverts mesh.matrixWorld each frame so
+  // canonical bones. Attached bind mode re-inverts mesh.matrixWorld each frame so
   // squash & stretch and root motion apply once.
   const rebindQueue = [];
   for (const { mesh, bindWorld } of skinnedMeshes) {
@@ -1000,13 +1057,39 @@ function buildSkinnedRig(b, heroId, gear, model) {
     parent.add(g);
     return g;
   };
-  if (!fused.has('helmet') && gear.helmet && HELMETS[gear.helmet]) {
-    HELMETS[gear.helmet](b, unscaled(R.head), new THREE.Vector3(0, 0.32, 0));
+  if (!fused.has('helmet') && gear.helmet) {
+    if (gear.helmet === heroId && spec.helmetMesh && gearScene) {
+      b.glbPart(unscaled(R.head), gearScene, spec.helmetMesh);
+    } else if (HELMETS[gear.helmet]) {
+      const hWrap = unscaled(R.head);
+      if (spec.otherHelmetScale) hWrap.scale.multiplyScalar(spec.otherHelmetScale);
+      if (spec.otherHelmetOffset) hWrap.position.set(...spec.otherHelmetOffset).divideScalar(s);
+      HELMETS[gear.helmet](b, hWrap, new THREE.Vector3(0, 0.32, 0));
+    }
   }
-  if (!fused.has('weapon') && gear.weapon && WEAPONS[gear.weapon]) {
-    WEAPONS[gear.weapon](b, { R: unscaled(R.handR), L: unscaled(R.handL), foreL: unscaled(R.foreL) });
+  if (!fused.has('weapon') && gear.weapon) {
+    if (gear.weapon === heroId && gearScene && (spec.swordMesh || spec.shieldMesh)) {
+      if (spec.swordMesh) {
+        const sm = spec.swordMount || { p: [0, -0.03, 0], tilt: 0.35 };
+        const w = mount(unscaled(R.handR), sm.tilt);
+        w.position.set(sm.p[0], sm.p[1], sm.p[2]);
+        b.glbPart(w, gearScene, spec.swordMesh);
+      }
+      if (spec.shieldMesh) {
+        b.glbPart(unscaled(R.handL), gearScene, spec.shieldMesh);
+      }
+    } else if (WEAPONS[gear.weapon]) {
+      WEAPONS[gear.weapon](b, { R: unscaled(R.handR), L: unscaled(R.handL), foreL: unscaled(R.foreL) });
+    }
   }
   const extras = { capes: [], orbiters: [], thrusters: [] };
+  for (const cb of spec.capeBones || []) {
+    const bone = byName.get(cb.name);
+    if (bone) {
+      bone.userData.capeScale = cb.weight;
+      extras.capes.push(bone);
+    }
+  }
   if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket]) {
     TRINKETS[gear.trinket](b, unscaled(R.torso), extras);
   }
@@ -1018,14 +1101,28 @@ function buildSkinnedRig(b, heroId, gear, model) {
 export function buildGearItem(slot, heroId) {
   const b = new Builder();
   const g = new THREE.Group();
+  const skinned = SKINNED_MODELS[heroId];
+  const gearScene = skinned?.gearScene;
   if (slot === 'weapon') {
     const hR = node('h', g, -0.12, 0, 0);
     const hL = node('h', g, 0.12, 0, 0);
     const fL = node('f', g, 0.25, 0.1, 0);
-    WEAPONS[heroId]?.(b, { R: hR, L: hL, foreL: fL });
+    if (gearScene && (skinned.spec.swordMesh || skinned.spec.shieldMesh)) {
+      if (skinned.spec.swordMesh) {
+        const w = mount(hR, skinned.spec.swordMount?.tilt ?? 0.35);
+        b.glbPart(w, gearScene, skinned.spec.swordMesh);
+      }
+      if (skinned.spec.shieldMesh) b.glbPart(hL, gearScene, skinned.spec.shieldMesh);
+    } else {
+      WEAPONS[heroId]?.(b, { R: hR, L: hL, foreL: fL });
+    }
     g.rotation.set(-0.9, 0, 0.5);
   } else if (slot === 'helmet') {
-    HELMETS[heroId]?.(b, g, new THREE.Vector3(0, -0.15, 0));
+    if (gearScene && skinned.spec.helmetMesh) {
+      b.glbPart(g, gearScene, skinned.spec.helmetMesh, { p: [0, -0.22, 0] });
+    } else {
+      HELMETS[heroId]?.(b, g, new THREE.Vector3(0, -0.15, 0));
+    }
   } else if (slot === 'armor' && workshop && HERO_LOOK[heroId]) {
     b.model(g, COATS[heroId] || 'KnightCuirass', { p: [0, -0.16, 0] });
     if (heroId === 'knight') {
@@ -1884,7 +1981,7 @@ export class ChibiView {
     this.capeVel += (capeTarget - this.capeAng) * 60 * dt;
     this.capeVel *= Math.exp(-dt * 7);
     this.capeAng += this.capeVel * dt;
-    for (const c of this.R.extras.capes) c.rotation.x = this.capeAng;
+    for (const c of this.R.extras.capes) c.rotation.x = this.capeAng * (c.userData.capeScale ?? 1);
     for (let i = 0; i < this.R.extras.orbiters.length; i++) {
       const o = this.R.extras.orbiters[i];
       o.position.y += (0.72 + Math.sin(this.time * 2.4 + i) * 0.07 - o.position.y) * Math.min(1, dt * 10);

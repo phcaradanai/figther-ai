@@ -3,6 +3,7 @@
 // Reuses ChibiView so any hero + mixed weapon/armor/helmet/trinket renders live.
 // ============================================================================
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { ChibiView, SKILL_ANIM } from './chibi.js';
 
 export class CharacterPreview3D {
@@ -20,6 +21,13 @@ export class CharacterPreview3D {
     this.renderer.toneMappingExposure = 1.06;
 
     this.scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const roomEnv = new RoomEnvironment();
+    this.envRT = pmrem.fromScene(roomEnv, 0.04);
+    this.scene.environment = this.envRT.texture;
+    this.scene.environmentIntensity = 0.85;
+    roomEnv.dispose();
+    pmrem.dispose();
     this.camera = new THREE.PerspectiveCamera(31, 1, 0.2, 40);
     this.camera.position.set(0, 1.48, 4.35);
     this.camera.lookAt(0, 0.88, 0);
@@ -239,6 +247,7 @@ export class CharacterPreview3D {
   dispose() {
     this.setActive(false);
     if (this.view) this.view.dispose();
+    this.envRT?.dispose();
     this.renderer.dispose();
   }
 }

@@ -13,30 +13,36 @@ existing animation clips. Do not reuse the old procedural look; quality is what 
   `tools/rig/` scripts, output `public/assets/models/hero-test-adventurer.glb` (1.9 MB,
   26k tris, 1K JPEG textures, 15-joint skin). Posed renders with the game's own knight
   poses looked clean (no tearing at shoulders/elbows/hips/knees).
-- **Skinned model loader** (`public/js/three/chibi.js`, behind `?skinned=1`): loads
-  `SKINNED_HEROES` (currently `knight` → `public/assets/models/hero-test-adventurer.glb`,
-  `hipHeight: 0.8`, `fused: ['weapon','trinket','helmet']`), rebuilds identity-rest
-  `THREE.Bone`s under `body > rigScale(s = hipHeight / 0.62)`, rebinds `SkinnedMesh`es
-  in attached bind mode with cloned materials + skeleton disposal, skips fused rigid slots
-  and wraps non-fused slots in `1/s` unscaled groups, skips `SkinnedMesh` in
-  `Builder.bake()` while keeping materials, and falls back to procedural `buildRig` when
-  `gear.armor !== heroId`. Verified live in browser (idle, basic attacks, Q/E/R/F skills
-  + Super Armor emissive tint, My Item 3D preview, mixed-armor fallback, and default
-  non-skinned mode).
+- **Skinned knight shipped as default** (`public/assets/models/hero-knight.glb` 2.26 MB,
+  26k tris, 18-joint rig; `public/assets/models/knight-gear.glb` 1.09 MB: `KnightHelmet`,
+  `KnightSword`, `KnightShield`; `public/js/three/chibi.js`):
+  - A-pose arm rest-orientation alignment (`alignArms: true`) in `buildSkinnedRig` so
+    existing `chibi.js` straight-down clips drive 49° A-pose arms cleanly without shoulder
+    offset or elbow drift.
+  - Skinned 3-bone cape chain (`cape1` → `cape2` → `cape3`, topologically isolated from
+    legs/arms via BFS + two-pass bone-heat binding so there is zero leg/elbow spiking)
+    driven by `ChibiView`'s cape spring (`capeScale: 0.35 / 0.35 / 0.25`).
+  - Modular gear attachments via `Builder.glbPart()` (`KnightHelmet` on `head`,
+    `KnightSword` on `handR`, `KnightShield` on `handL`, plus `buildGearItem` dropped loot
+    on the floor); supports dropping/picking up helmet, mixing other heroes' helmets
+    (`otherHelmetScale: 0.56`), and procedural fallback when `gear.armor !== heroId`.
+  - Pass `?skinned=0` to disable skinned heroes for A/B comparison.
+  - Added `RoomEnvironment` PMREM IBL in `public/js/three/renderer3d.js` (`0.72`) and
+    `public/js/three/preview3d.js` (`0.85`) so metallic PBR steel and gold gleam brightly
+    instead of rendering dark.
+  - Verified live in browser at default `/` (idle, guard, basic attacks, Q/E/R/F skills +
+    Super Armor emissive, helmet drop & pickup, My Item 3D turntable, mixed Samurai helmet,
+    Ninja armor fallback + Reset Set, 0 console/network errors).
 - Blender MCP connects once Blender's window is open (the add-on auto-starts its server),
   but all AI generators are off. The user generates models themselves on
-  https://hy3d.tencent.ai/ and hands over GLBs. Source test files: `D:\3D-Models\*.glb`
-  (`bc111a...` = adventurer used for the test, `c5376b...` = girl mid-walk (hard to rig),
-  `1127c3...` = katana).
+  https://hy3d.tencent.ai/ and hands over GLBs. Source files: `D:\3D-Models\*.glb` and
+  `art/blender/source/knight/*.glb` (untracked in main checkout).
 
 ## Not done (next steps, in order)
 
-1. When the user delivers the real knight (`art/source/knight/body.glb` + helmet/sword/
-   shield GLBs; prompts were given in chat: A-pose, no weapon/helmet/cape), run the
-   pipeline on it, attach sword/shield to `handR`/`handL` and the helmet to `head`, build
-   a skinned cape on its own bone(s), then make skinned the default for the knight.
-2. Later: author better knight animations (Blender actions exported into the GLB and
-   preferred over the code clips by name), then the other 9 heroes.
+1. Author bespoke knight animations (Blender actions exported into the GLB and preferred
+   over the code clips by name).
+2. Repeat the skinned body + modular gear pipeline for the other 9 heroes.
 
 ## Pipeline (Blender 5.2, headless; `blender = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"`)
 
@@ -62,7 +68,7 @@ blender -b <work2.blend> --python tools/rig/rig_export.py -- public/assets/model
 - `rig_pose_test.py` converts chibi.js pose tables (three.js Euler XYZ, model axes) to
   Blender pose bones; `hipHeight` is the model's pelvis height (adventurer 0.80).
 
-## Game loader design (implemented behind `?skinned=1`)
+## Game loader design (implemented — default for knight; `?skinned=0` disables)
 
 Exported bones carry Blender's rest orientations, but chibi.js clips set absolute joint
 quaternions assuming an **identity rest** in model axes, plus `hips.position = (0, hipsY, 0)`
