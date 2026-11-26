@@ -2394,6 +2394,8 @@ export class ChibiView {
   // `release` gets any hits held for this swing when it never reaches its contact frame.
   queueBladeAccent(event, emit, release) {
     if (!this.skinnedKnight || !this.swordTrail) return false;
+    // A swing that never reached contact must not swallow the hits it was holding.
+    if (this.bladeAccent) this.bladeAccent.release?.(this.bladeAccent.held);
     this.bladeAccent = { event, emit, release, queued: this.time, expires: this.time + 0.42, held: [] };
     return true;
   }
@@ -2735,9 +2737,14 @@ export class ChibiView {
     const grounded = !!pl.grounded;
     if (grounded && !this.wasGrounded) {
       this.squash = 1;
-      if (env.fx) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 5, 0.8);
+      if (env.fx && this.skinnedKnight) {
+        // A harder landing throws a bigger, paler cloud (pale enough to read on stone).
+        const hard = Math.max(0.35, this.landingStrength);
+        env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 3 + Math.round(6 * hard), 0.7 + 0.8 * hard, '#f4ecd9');
+      } else if (env.fx) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 5, 0.8);
     } else if (!grounded && this.wasGrounded && (pl.vy || 0) > 1) {
       this.stretch = 1;
+      if (env.fx && this.skinnedKnight) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 3, 0.65, '#f4ecd9');
     }
     this.wasGrounded = grounded;
     this.squash = Math.max(0, this.squash - dt * 6);
