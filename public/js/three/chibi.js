@@ -38,8 +38,8 @@ const SKINNED_HEROES = {
     helmetMesh: 'KnightHelmet',
     swordMesh: 'KnightSword',
     shieldMesh: 'KnightShield',
-    swordMount: { p: [0.001, -0.091, 0.026], tilt: 0.28 },
-    swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.15] },
+    swordMount: { p: [0.029, -0.090, 0.006], rx: 0.38 },
+    swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
     capeBones: [
@@ -1112,6 +1112,8 @@ function buildSkinnedRig(b, heroId, gear, model) {
   if (spec.headScale && spec.headScale !== 1 && R.head) {
     R.head.scale.setScalar(spec.headScale);
   }
+  R.rigScale = s;
+  R.restFootY = origByName.get('footL') ? worldPos.get(origByName.get('footL')).y : 0.135;
 
   // Rigid attachments under bones need a 1/s child wrapper because bones inherit rigScale = s.
   const fused = new Set(spec.fused || []);
@@ -1135,8 +1137,16 @@ function buildSkinnedRig(b, heroId, gear, model) {
     if (gear.weapon === heroId && gearScene && (spec.swordMesh || spec.shieldMesh)) {
       if (spec.swordMesh) {
         const sm = spec.swordMount || { p: [0, -0.03, 0], tilt: 0.35 };
-        const w = mount(unscaled(R.handR), sm.tilt);
-        w.position.set(sm.p[0], sm.p[1], sm.p[2]);
+        const parent = unscaled(R.handR);
+        let w;
+        if (sm.rx !== undefined) {
+          // Direct anatomically aligned fist grip (handle passes through curled fist, not extending out fingertips)
+          w = node('swordMount', parent, sm.p[0], sm.p[1], sm.p[2]);
+          w.rotation.set(sm.rx, sm.ry || 0, sm.rz || 0);
+        } else {
+          w = mount(parent, sm.tilt);
+          w.position.set(sm.p[0], sm.p[1], sm.p[2]);
+        }
         const swScale = spec.swordScale || 1;
         if (swScale !== 1) w.scale.setScalar(swScale);
         b.glbPart(w, gearScene, spec.swordMesh, { painterly: !!spec.painterly });
@@ -1221,7 +1231,7 @@ export function buildGearItem(slot, heroId) {
 // ---------------------------------------------------------------------------
 // ANIMATION CLIPS (data-driven poses, eased keyframes)
 // ---------------------------------------------------------------------------
-const JOINTS = ['hips', 'torso', 'head', 'armL', 'foreL', 'armR', 'foreR', 'legL', 'shinL', 'legR', 'shinR'];
+const JOINTS = ['hips', 'torso', 'head', 'armL', 'foreL', 'armR', 'foreR', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 
 const READY = {
   blade: { armR: [-0.35, 0, -0.2], foreR: [-0.95, 0, 0], armL: [-0.15, 0, 0.22], foreL: [-0.55, 0, 0] },
@@ -1245,14 +1255,14 @@ const READY = {
   },
   fist:  { armR: [-0.45, 0, -0.3], foreR: [-1.9, 0, 0], armL: [-0.55, 0, 0.3], foreL: [-1.9, 0, 0], torso: [0.12, 0.15, 0] },
   shield: {
-    // Classic Tree of Savior Swordsman/Peltasta 3/4 stance: wide athletic footing,
-    // shield held upright beside the left flank, sword relaxed diagonally down-out to the right
-    hips: [0.03, 0.28, 0],
-    torso: [0.05, 0.14, -0.02], head: [-0.04, -0.36, 0.01],
+    // Firmly grounded Tree of Savior Swordsman 3/4 stance: both boots flat on the floor (sole=0.000),
+    // upright kite shield on left flank, pronated clenched fist gripping broadsword cleanly to the right
+    hips: [0, 0.24, 0],
+    torso: [0.05, 0.14, -0.015], head: [-0.04, -0.34, 0.01],
     armL: [-0.58, 0, 0.18], foreL: [-1.15, 0, 0],
-    armR: [0.22, 0, -0.56], foreR: [-0.30, 0, 0],
-    legL: [-0.30, 0.12, 0.15], shinL: [0.36, 0, 0],
-    legR: [0.28, -0.10, -0.16], shinR: [0.30, 0, 0], hipsY: 0.565
+    armR: [0.14, 0, -0.46], foreR: [-0.26, 0, 0],
+    legL: [-0.39, 0.10, 0.08], shinL: [0.39, 0, 0], footL: [0.0, 0, -0.08],
+    legR: [0.31, -0.14, -0.08], shinR: [0.23, 0, 0], footR: [-0.54, 0, 0.08], hipsY: 0.594
   }
 };
 const KNEEL = { legL: [-1.45, 0, 0.14], shinL: [1.5, 0, 0], legR: [0.25, 0, -0.12], shinR: [1.55, 0, 0], hipsY: 0.37 };
@@ -1332,31 +1342,30 @@ function buildClips(style) {
   const lunge = { legL: [-0.45, 0, 0.05], shinL: [0.35, 0, 0], legR: [0.4, 0, -0.05], shinR: [0.25, 0, 0], hipsY: 0.57 };
 
   // Locomotion
-  // Idle: organic multi-phase breathing & weight shift (shield style matches ToS Swordsman poise)
+  // Idle: firmly planted feet on floor (sole=0.000, zero slide) with calm organic warrior breathing
   if (style === 'shield') {
-    const shIdle0 = P({
-      hips: [0.02, 0.28, 0.015], torso: [0.04, 0.15, -0.025], head: [-0.05, -0.37, 0.015], hipsY: 0.570,
-      armL: [-0.56, 0, 0.19], foreL: [-1.12, 0, 0],
-      armR: [0.20, 0, -0.55], foreR: [-0.28, 0, 0]
+    const shIdleHi = P({
+      hips: [0, 0.24, 0], torso: [0.04, 0.15, -0.015], head: [-0.04, -0.35, 0.01], hipsY: 0.594,
+      armL: [-0.56, 0, 0.19], foreL: [-1.13, 0, 0],
+      armR: [0.12, 0, -0.45], foreR: [-0.24, 0, 0],
+      legL: [-0.39, 0.10, 0.08], shinL: [0.39, 0, 0], footL: [0.0, 0, -0.08],
+      legR: [0.31, -0.14, -0.08], shinR: [0.23, 0, 0], footR: [-0.54, 0, 0.08]
     });
-    const shIdle1 = P({
-      hips: [0.04, 0.26, -0.012], torso: [0.07, 0.13, 0.010], head: [-0.03, -0.34, -0.010], hipsY: 0.552,
-      armL: [-0.62, 0, 0.16], foreL: [-1.19, 0, 0],
-      armR: [0.25, 0, -0.59], foreR: [-0.34, 0, 0],
-      legL: [-0.34, 0.12, 0.16], shinL: [0.43, 0, 0], legR: [0.32, -0.10, -0.17], shinR: [0.37, 0, 0]
+    const shIdleMid = P({
+      hips: [0, 0.24, 0], torso: [0.06, 0.14, 0.008], head: [-0.03, -0.34, -0.006], hipsY: 0.590,
+      armL: [-0.59, 0, 0.17], foreL: [-1.16, 0, 0],
+      armR: [0.15, 0, -0.47], foreR: [-0.27, 0, 0],
+      legL: [-0.46, 0.10, 0.08], shinL: [0.51, 0, 0], footL: [-0.05, 0, -0.08],
+      legR: [0.25, -0.14, -0.08], shinR: [0.36, 0, 0], footR: [-0.61, 0, 0.08]
     });
-    const shIdle2 = P({
-      hips: [0.03, 0.29, -0.018], torso: [0.06, 0.16, 0.016], head: [-0.06, -0.39, -0.012], hipsY: 0.558,
-      armL: [-0.60, 0, 0.17], foreL: [-1.17, 0, 0],
-      armR: [0.24, 0, -0.60], foreR: [-0.33, 0, 0],
-      legL: [-0.32, 0.12, 0.15], shinL: [0.40, 0, 0], legR: [0.30, -0.10, -0.16], shinR: [0.34, 0, 0]
+    const shIdleLo = P({
+      hips: [0, 0.24, 0], torso: [0.075, 0.13, 0.012], head: [-0.05, -0.33, -0.008], hipsY: 0.586,
+      armL: [-0.61, 0, 0.16], foreL: [-1.18, 0, 0],
+      armR: [0.17, 0, -0.49], foreR: [-0.29, 0, 0],
+      legL: [-0.51, 0.10, 0.08], shinL: [0.60, 0, 0], footL: [-0.09, 0, -0.08],
+      legR: [0.20, -0.14, -0.08], shinR: [0.46, 0, 0], footR: [-0.66, 0, 0.08]
     });
-    const shIdle3 = P({
-      hips: [0.02, 0.30, 0.010], torso: [0.03, 0.16, -0.018], head: [-0.04, -0.38, 0.008], hipsY: 0.573,
-      armL: [-0.54, 0, 0.20], foreL: [-1.10, 0, 0],
-      armR: [0.18, 0, -0.53], foreR: [-0.26, 0, 0]
-    });
-    clips.idle = makeClip('idle', [[0, shIdle0], [0.45, shIdle1], [0.90, shIdle2], [1.35, shIdle3], [1.80, shIdle0]]);
+    clips.idle = makeClip('idle', [[0, shIdleHi], [0.55, shIdleMid], [1.05, shIdleLo], [1.55, shIdleMid], [2.10, shIdleHi]]);
   } else {
     const idleA = P({ hips: [0, 0, 0.035], torso: [0.06, 0.05, -0.04], head: [0.06, -0.04, 0.02] });
     const idleB = P({ hips: [0, 0, -0.03], torso: [0.1, -0.04, 0.035], head: [0.02, 0.04, -0.02], hipsY: 0.6, armR: [base.armR[0] - 0.06, 0, base.armR[2] - 0.05], armL: [base.armL[0] - 0.06, 0, base.armL[2] + 0.05] });
@@ -1389,58 +1398,81 @@ function buildClips(style) {
     const pr = (p) => pose(p, { torso: [0.2, p.torso[1] * 0.5, 0], armR: [-0.35, 0, -0.2], foreR: [-1.25, 0, 0] });
     clips.run = makeClip('run', [[0, pr(runK(1))], [0.12, pr(pass(1)), 'out'], [0.24, pr(runK(-1)), 'in'], [0.36, pr(pass(-1)), 'out'], [0.48, pr(runK(1)), 'in']]);
   } else if (style === 'shield') {
-    // Fluid ToS Swordsman athletic run: counter-rotated hips & torso, grounded knee drive,
-    // shield bobbing protectively ahead-left, sword trailing smoothly out-back with elbow lag
-    const shContact = (s) => P({
-      hips: [0.08, -0.16 * s, 0.04 * s],
-      torso: [0.22, 0.22 * s, -0.04 * s],
-      head: [-0.14, -0.08 * s, 0.01 * s],
-      legL: [s > 0 ? -0.78 : 0.62, 0, 0.05], shinL: [s > 0 ? 0.22 : 0.68, 0, 0],
-      legR: [s > 0 ? 0.62 : -0.78, 0, -0.05], shinR: [s > 0 ? 0.68 : 0.22, 0, 0],
-      armL: [-0.66 - 0.08 * s, 0, 0.14], foreL: [-1.12 - 0.06 * s, 0, 0],
-      armR: [0.48 + 0.14 * s, 0, -0.52], foreR: [-0.36 - 0.08 * s, 0, 0],
-      hipsY: 0.555
-    });
-    const shPass = (s) => P({
-      hips: [0.06, 0, -0.02 * s],
-      torso: [0.24, 0.04 * s, 0.02 * s],
-      head: [-0.15, -0.02 * s, 0],
-      legL: [s > 0 ? -0.14 : -0.26, 0, 0.05], shinL: [s > 0 ? 0.34 : 1.24, 0, 0],
-      legR: [s > 0 ? -0.26 : -0.14, 0, -0.05], shinR: [s > 0 ? 1.24 : 0.34, 0, 0],
-      armL: [-0.60, 0, 0.16], foreL: [-1.06, 0, 0],
-      armR: [0.42, 0, -0.56], foreR: [-0.30, 0, 0],
-      hipsY: 0.635
-    });
+    // Grounded 8-keyframe (4-phase per leg) ToS Swordsman run with real ankle articulation
+    // (heel-strike -> flat mid-stance -> toe push-off -> high swing) and zero floor sinking!
+    const shStride = (s) => {
+      const m = (p) => (s > 0 ? p : {
+        hips: [p.hips[0], -p.hips[1], -p.hips[2]],
+        torso: [p.torso[0], -p.torso[1], -p.torso[2]],
+        head: [p.head[0], -p.head[1], -p.head[2]],
+        legL: [p.legR[0], -p.legR[1], -p.legR[2]], shinL: p.shinR, footL: [p.footR[0], -p.footR[1], -p.footR[2]],
+        legR: [p.legL[0], -p.legL[1], -p.legL[2]], shinR: p.shinL, footR: [p.footL[0], -p.footL[1], -p.footL[2]],
+        armL: p.armL_opp, foreL: p.foreL_opp,
+        armR: p.armR_opp, foreR: p.foreR_opp,
+        hipsY: p.hipsY
+      });
+      const contact = m({
+        hips: [0.06, -0.14, 0.03], torso: [0.20, 0.18, -0.03], head: [-0.14, -0.06, 0.01], hipsY: 0.570,
+        legL: [-0.52, 0, 0.04], shinL: [0.28, 0, 0], footL: [0.16, 0, -0.04],
+        legR: [0.42, 0, -0.04], shinR: [0.42, 0, 0], footR: [-0.36, 0, 0.04],
+        armL: [-0.70, 0, 0.14], foreL: [-1.14, 0, 0], armL_opp: [-0.58, 0, 0.16], foreL_opp: [-1.06, 0, 0],
+        armR: [0.44, 0, -0.44], foreR: [-0.42, 0, 0], armR_opp: [0.22, 0, -0.48], foreR_opp: [-0.30, 0, 0]
+      });
+      const down = m({
+        hips: [0.08, -0.06, 0.02], torso: [0.22, 0.10, -0.02], head: [-0.15, -0.04, 0], hipsY: 0.606,
+        legL: [-0.30, 0, 0.04], shinL: [0.54, 0, 0], footL: [-0.28, 0, -0.04],
+        legR: [0.18, 0, -0.04], shinR: [1.08, 0, 0], footR: [0.22, 0, 0.04],
+        armL: [-0.66, 0, 0.15], foreL: [-1.12, 0, 0], armL_opp: [-0.62, 0, 0.16], foreL_opp: [-1.08, 0, 0],
+        armR: [0.36, 0, -0.46], foreR: [-0.38, 0, 0], armR_opp: [0.28, 0, -0.46], foreR_opp: [-0.34, 0, 0]
+      });
+      const pass = m({
+        hips: [0.06, 0.04, -0.01], torso: [0.20, -0.04, 0.01], head: [-0.14, 0.02, 0], hipsY: 0.618,
+        legL: [0.08, 0, 0.04], shinL: [0.24, 0, 0], footL: [-0.34, 0, -0.04],
+        legR: [-0.46, 0, -0.04], shinR: [1.15, 0, 0], footR: [0.18, 0, 0.04],
+        armL: [-0.60, 0, 0.16], foreL: [-1.08, 0, 0], armL_opp: [-0.68, 0, 0.14], foreL_opp: [-1.14, 0, 0],
+        armR: [0.26, 0, -0.48], foreR: [-0.32, 0, 0], armR_opp: [0.40, 0, -0.44], foreR_opp: [-0.40, 0, 0]
+      });
+      const push = m({
+        hips: [0.06, 0.12, -0.03], torso: [0.19, -0.14, 0.03], head: [-0.13, 0.05, -0.01], hipsY: 0.576,
+        legL: [0.40, 0, 0.04], shinL: [0.24, 0, 0], footL: [-0.32, 0, -0.04],
+        legR: [-0.60, 0, -0.04], shinR: [0.64, 0, 0], footR: [0.08, 0, 0.04],
+        armL: [-0.58, 0, 0.16], foreL: [-1.06, 0, 0], armL_opp: [-0.70, 0, 0.14], foreL_opp: [-1.14, 0, 0],
+        armR: [0.20, 0, -0.48], foreR: [-0.28, 0, 0], armR_opp: [0.46, 0, -0.44], foreR_opp: [-0.44, 0, 0]
+      });
+      return [P(contact), P(down), P(pass), P(push)];
+    };
+    const [c1, d1, p1, u1] = shStride(1);
+    const [c2, d2, p2, u2] = shStride(-1);
     clips.run = makeClip('run', [
-      [0, shContact(1)],
-      [0.115, shPass(1), 'out'],
-      [0.23, shContact(-1), 'in'],
-      [0.345, shPass(-1), 'out'],
-      [0.46, shContact(1), 'in']
+      [0.00, c1], [0.06, d1, 'out'], [0.125, p1, 'io'], [0.19, u1, 'in'],
+      [0.25, c2, 'out'], [0.31, d2, 'out'], [0.375, p2, 'io'], [0.44, u2, 'in'],
+      [0.50, c1, 'out']
     ]);
   } else {
     clips.run = makeClip('run', [[0, runK(1)], [0.12, pass(1), 'out'], [0.24, runK(-1), 'in'], [0.36, pass(-1), 'out'], [0.48, runK(1), 'in']]);
   }
 
   const air = style === 'shield'
-    ? P({ hips: [0.06, 0.12, 0], torso: [0.12, 0.10, 0], head: [-0.08, -0.16, 0], legL: [-0.88, 0, 0.08], shinL: [1.35, 0, 0], legR: [-0.18, 0, -0.08], shinR: [0.85, 0, 0], armL: [-0.85, 0, 0.24], foreL: [-1.05, 0, 0], armR: [0.25, 0, -0.76], foreR: [-0.40, 0, 0], hipsY: 0.62 })
+    ? P({ hips: [0.06, 0.16, 0], torso: [0.14, 0.14, 0], head: [-0.10, -0.20, 0], legL: [-0.95, 0, 0.08], shinL: [1.28, 0, 0], footL: [0.32, 0, 0], legR: [0.34, 0, -0.06], shinR: [0.42, 0, 0], footR: [0.45, 0, 0], armL: [-0.92, 0, 0.14], foreL: [-1.10, 0, 0], armR: [0.35, 0, -0.64], foreR: [-0.32, 0, 0], hipsY: 0.64 })
     : P({ torso: [0.12, 0, 0], legL: [-1.0, 0, 0.06], shinL: [1.5, 0, 0], legR: [-0.25, 0, -0.06], shinR: [1.0, 0, 0], armR: [-0.5, 0, -0.95], foreR: [-0.6, 0, 0], armL: [-0.5, 0, 0.95], foreL: [-0.6, 0, 0] });
   const air2 = style === 'shield'
-    ? pose(air, { legL: [-0.74, 0, 0.08], shinL: [1.20, 0, 0], armL: [-0.78, 0, 0.28], armR: [0.18, 0, -0.84] })
+    ? pose(air, { legL: [-0.82, 0, 0.08], shinL: [1.14, 0, 0], legR: [0.24, 0, -0.06], shinR: [0.56, 0, 0], armL: [-0.84, 0, 0.18], armR: [0.26, 0, -0.70] })
     : pose(air, { legL: [-0.85, 0, 0.06], armR: [-0.4, 0, -1.05], armL: [-0.4, 0, 1.05] });
   clips.jump = makeClip('jump', [[0, air], [0.28, air2], [0.56, air]]);
   const fall = style === 'shield'
-    ? P({ hips: [0.04, 0.16, 0], torso: [0.08, 0.08, 0], head: [0.06, -0.18, 0], legL: [-0.42, 0, 0.10], shinL: [0.55, 0, 0], legR: [0.20, 0, -0.10], shinR: [0.42, 0, 0], armL: [-0.70, 0, 0.30], foreL: [-0.95, 0, 0], armR: [-0.12, 0, -0.88], foreR: [-0.35, 0, 0], hipsY: 0.60 })
+    ? P({ hips: [0.04, 0.18, 0], torso: [0.10, 0.10, 0], head: [0.06, -0.22, 0], legL: [-0.46, 0, 0.08], shinL: [0.58, 0, 0], footL: [0.22, 0, 0], legR: [0.18, 0, -0.08], shinR: [0.48, 0, 0], footR: [0.28, 0, 0], armL: [-0.80, 0, 0.22], foreL: [-1.02, 0, 0], armR: [-0.08, 0, -0.78], foreR: [-0.34, 0, 0], hipsY: 0.62 })
     : P({ torso: [0.02, 0, 0], head: [-0.1, 0, 0], legL: [-0.45, 0, 0.08], shinL: [0.65, 0, 0], legR: [0.15, 0, -0.08], shinR: [0.45, 0, 0], armR: [-0.9, 0, -1.25], foreR: [-0.3, 0, 0], armL: [-0.9, 0, 1.25], foreL: [-0.3, 0, 0] });
-  clips.fall = makeClip('fall', [[0, fall], [0.25, pose(fall, { armR: [fall.armR[0] - 0.08, 0, fall.armR[2] - 0.08], armL: [fall.armL[0] - 0.06, 0, fall.armL[2] + 0.08] })], [0.5, fall]]);
+  clips.fall = makeClip('fall', [[0, fall], [0.25, pose(fall, { armR: [fall.armR[0] - 0.08, 0, fall.armR[2] - 0.06], armL: [fall.armL[0] - 0.06, 0, fall.armL[2] + 0.06] })], [0.5, fall]]);
   const dash = style === 'shield'
-    ? P({ hips: [0.14, 0.18, 0], torso: [0.38, 0.14, 0], head: [-0.30, -0.24, 0], armL: [-0.92, 0, 0.08], foreL: [-1.18, 0, 0], armR: [0.68, 0, -0.52], foreR: [-0.28, 0, 0], legL: [-0.72, 0, 0.08], shinL: [0.92, 0, 0], legR: [0.78, 0, -0.08], shinR: [0.36, 0, 0], hipsY: 0.50 })
+    ? P({ hips: [0.12, -0.14, 0.04], torso: [0.32, 0.20, -0.03], head: [-0.26, -0.10, 0], armL: [-0.94, 0, 0.06], foreL: [-1.18, 0, 0], armR: [0.64, 0, -0.46], foreR: [-0.30, 0, 0], legL: [-0.66, 0, 0.05], shinL: [0.36, 0, 0], footL: [0.18, 0, -0.05], legR: [0.56, 0, -0.05], shinR: [0.48, 0, 0], footR: [-0.38, 0, 0.05], hipsY: 0.566 })
     : P({ torso: [0.7, 0, 0], head: [-0.45, 0, 0], armR: [0.95, 0, -0.35], foreR: [-0.3, 0, 0], armL: [0.95, 0, 0.35], foreL: [-0.3, 0, 0], legL: [-0.75, 0, 0], shinL: [1.0, 0, 0], legR: [0.85, 0, 0], shinR: [0.35, 0, 0], hipsY: 0.52 });
   clips.dash = style === 'shield'
     ? makeClip('dash', [
-        [0, dash],
-        [0.10, pose(dash, { legL: [0.66, 0, 0.08], shinL: [0.42, 0, 0], legR: [-0.68, 0, -0.08], shinR: [0.95, 0, 0], hipsY: 0.54, torso: [0.34, 0.18, 0] }), 'out'],
-        [0.20, dash, 'in']
+        [0.00, dash],
+        [0.09, pose(dash, { hips: [0.12, 0, 0], torso: [0.34, 0.06, 0], legL: [-0.14, 0, 0.05], shinL: [0.42, 0, 0], footL: [-0.28, 0, -0.05], legR: [-0.44, 0, -0.05], shinR: [1.22, 0, 0], footR: [0.22, 0, 0.05], hipsY: 0.606 }), 'out'],
+        [0.18, pose(dash, { hips: [0.12, 0.14, -0.04], torso: [0.32, -0.10, 0.03], legL: [0.56, 0, 0.05], shinL: [0.48, 0, 0], footL: [-0.38, 0, -0.05], legR: [-0.66, 0, -0.05], shinR: [0.36, 0, 0], footR: [0.18, 0, 0.05], hipsY: 0.566 }), 'in'],
+        [0.27, pose(dash, { hips: [0.12, 0, 0], torso: [0.34, 0.06, 0], legL: [-0.44, 0, 0.05], shinL: [1.22, 0, 0], footL: [0.22, 0, -0.05], legR: [-0.14, 0, -0.05], shinR: [0.42, 0, 0], footR: [-0.28, 0, 0.05], hipsY: 0.606 }), 'out'],
+        [0.36, dash, 'in']
       ])
     : makeClip('dash', [[0, dash], [0.2, pose(dash, { torso: [0.62, 0, 0] })], [0.4, dash]]);
   const fly = P({ torso: [0.8, 0, 0], head: [-0.55, 0, 0], armR: [0.5, 0, -0.65], foreR: [-0.2, 0, 0], armL: [0.5, 0, 0.65], foreL: [-0.2, 0, 0], legL: [0.45, 0, 0.06], shinL: [0.45, 0, 0], legR: [0.35, 0, -0.06], shinR: [0.7, 0, 0] });
@@ -1448,9 +1480,16 @@ function buildClips(style) {
 
   const guard = P({ torso: [0.15, 0.25, 0], armL: [-1.35, 0, -0.55], foreL: [-0.9, 0, 0], armR: [-0.6, 0, -0.25], foreR: [-1.3, 0, 0], legL: [-0.38, 0, 0.1], shinL: [0.5, 0, 0], legR: [0.38, 0, -0.1], shinR: [0.4, 0, 0], hipsY: 0.55 });
   const guardPose = style === 'shield'
-    ? P({ hips: [0.08, 0.26, 0], torso: [0.16, 0.14, 0], head: [-0.08, -0.34, 0], armL: [-1.18, 0, -0.16], foreL: [-0.72, 0, 0], armR: [0.28, 0, -0.62], foreR: [-0.52, 0, 0], legL: [-0.46, 0.10, 0.16], shinL: [0.60, 0, 0], legR: [0.46, -0.10, -0.16], shinR: [0.48, 0, 0], hipsY: 0.505 })
+    ? P({
+        hips: [0, 0.24, 0], torso: [0.18, 0.22, 0], head: [-0.10, -0.36, 0],
+        armL: [-1.22, 0, -0.18], foreL: [-0.82, 0, 0],
+        armR: [0.40, 0, -0.50], foreR: [-0.58, 0, 0],
+        legL: [-0.63, 0.10, 0.08], shinL: [0.69, 0, 0], footL: [-0.06, 0, -0.08],
+        legR: [0.30, -0.14, -0.08], shinR: [0.44, 0, 0], footR: [-0.74, 0, 0.08],
+        hipsY: 0.570
+      })
     : guard;
-  clips.guard = makeClip('guard', [[0, guardPose], [0.55, pose(guardPose, { hipsY: guardPose.hipsY - 0.012, torso: [guardPose.torso[0] + 0.02, guardPose.torso[1], 0] })], [1.1, guardPose]]);
+  clips.guard = makeClip('guard', [[0, guardPose], [0.6, pose(guardPose, { torso: [guardPose.torso[0] + 0.025, guardPose.torso[1], 0], armL: [guardPose.armL[0] - 0.03, 0, guardPose.armL[2]] })], [1.2, guardPose]]);
 
   // Attacks: [anticipation] -> [strike, eased out = snappy] -> [follow-through] -> settle
   const A = {};
@@ -1774,7 +1813,8 @@ const _vp = new THREE.Vector3();
 const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:attack3': [0.08, 0.2, 1], 'twingun:spin': [0.06, 0.56, 2] };
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
-const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL'];
+const _vy = new THREE.Vector3(0, 1, 0);
+const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'footL', 'footR'];
 const LOCOMOTION = new Set(['idle', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
@@ -2023,10 +2063,12 @@ export class ChibiView {
   restorePure() {
     if (!this.pureSaved) return;
     for (let i = 0; i < LAYER_JOINTS.length; i++) this.R[LAYER_JOINTS[i]].quaternion.copy(this.purePose[i]);
+    if (this.pureHipsY !== undefined) this.R.hips.position.y = this.pureHipsY;
   }
 
   savePure() {
     for (let i = 0; i < LAYER_JOINTS.length; i++) this.purePose[i].copy(this.R[LAYER_JOINTS[i]].quaternion);
+    this.pureHipsY = this.R.hips.position.y;
     this.pureSaved = true;
   }
 
@@ -2142,6 +2184,24 @@ export class ChibiView {
     if (kl) { R.armL.rotateX(-0.45 * kl * ks); R.foreL.rotateX(-0.35 * kl * ks); }
     const lean = 0.12 * Math.max(kr, kl) + 0.45 * Math.sin(this.hitLean * Math.PI * 0.5);
     if (lean) { R.torso.rotateX(-lean); R.head.rotateX(-lean * 0.6); }
+    // Firmly ground both boot soles flat on the floor during grounded idle & guard stances
+    // (0.0mm float/sink and 0° pitch/roll regardless of knee flex or crossfade!)
+    if (R.restFootY && pl.grounded && this.style === 'shield' && (this.currentName === 'idle' || this.currentName === 'guard')) {
+      for (const [leg, shin, foot] of [[R.legL, R.shinL, R.footL], [R.legR, R.shinR, R.footR]]) {
+        _qa.copy(R.hips.quaternion).multiply(leg.quaternion).multiply(shin.quaternion);
+        _e.setFromQuaternion(_qa, 'YXZ');
+        _qb.setFromAxisAngle(_vy, _e.y);
+        foot.quaternion.copy(_qa).invert().multiply(_qb);
+      }
+      R.body.updateMatrixWorld(true);
+      R.footL.getWorldPosition(_vp);
+      R.body.worldToLocal(_vp);
+      const yL = _vp.y;
+      R.footR.getWorldPosition(_vp);
+      R.body.worldToLocal(_vp);
+      const minY = Math.min(yL, _vp.y);
+      R.hips.position.y += (R.restFootY - minY) / (R.rigScale || 1);
+    }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)
     if (this.style === 'pyro' && R.staff) {
       this.root.updateMatrixWorld(true);
