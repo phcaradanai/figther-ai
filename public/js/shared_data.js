@@ -1146,6 +1146,33 @@
       ]
     },
 
+    lantern_tavern: {
+      id: 'lantern_tavern',
+      nameTh: 'โรงเตี๊ยมโคมอำพัน (Amber Lantern)',
+      nameEn: 'Amber Lantern Tavern',
+      descTh: 'ประลองบนพื้นไม้กลางโรงเตี๊ยม กระโดดขึ้นเคาน์เตอร์หรือบีบคู่ต่อสู้ไปยังขอบระเบียงที่เปิดโล่ง',
+      skyTop: '#ac94a3', skyBottom: '#d4bcc3', voidType: 'fall', voidY: -6.5,
+      platforms: [
+        { id: 'taproom_floor', x: -16, z: -12, w: 32, d: 24, y: 0, h: 1.014 },
+        { id: 'taproom_back_wall', x: -16, z: -12, w: 32, d: 0.64, y: 4.875, h: 4.875 },
+        { id: 'taproom_side_wall', x: -16, z: -11.36, w: 0.64, d: 23.36, y: 4.875, h: 4.875 },
+        { id: 'taproom_counter', x: -7.1, z: -9.64, w: 11.6, d: 2.24, y: 1.456, h: 1.456 },
+        { id: 'taproom_piano', x: -15.3, z: -3.7, w: 2.08, d: 4.6, y: 1.872, h: 1.872 },
+        { id: 'taproom_bench', x: -13.04, z: -3.3, w: 0.96, d: 3.8, y: 0.624, h: 0.624 }
+      ],
+      pillars: [
+        { x: -8.4, z: 3.5, r: 1.66, y: 0, h: 1.04 }, { x: 9.4, z: 2.6, r: 1.76, y: 0, h: 1.04 },
+        { x: -10.74, z: 3.1, r: 0.58, y: 0, h: 0.60 }, { x: -7.46, z: 5.7, r: 0.58, y: 0, h: 0.60 },
+        { x: 11.62, z: 3.48, r: 0.58, y: 0, h: 0.60 }, { x: 8.68, z: 0.26, r: 0.58, y: 0, h: 0.60 },
+        { x: -14.04, z: 9.68, r: 0.96, y: 0, h: 1.47 }
+      ],
+      jumpPads: [],
+      spawns: [
+        { x: -7.4, z: -2.6 }, { x: 7.4, z: 7 }, { x: -7.4, z: 7.6 }, { x: 7.4, z: -2.8 },
+        { x: 1, z: 7.6 }, { x: 2, z: -4.2 }, { x: -11, z: -5 }, { x: 11.6, z: -4 }
+      ]
+    },
+
     lava_citadel: {
       id: 'lava_citadel',
       nameTh: 'ป้อมปราการลาวา (Lava Citadel)',

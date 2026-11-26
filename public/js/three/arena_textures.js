@@ -203,7 +203,7 @@ export function makeArenaFloor(theme, finish) {
   const palette = FLOOR_PALETTES[finish] ?? theme.surface;
   return paintTexture(512, 512, (ctx, size) => {
     const rand = randomSource(152);
-    if (props === 'harbor') {
+    if (props === 'harbor' || props === 'tavern') {
       boards(ctx, size, rand, palette, size / 16);
     } else if (finish === 'archstone') {
       paving(ctx, size, rand, palette, 'ashlar');

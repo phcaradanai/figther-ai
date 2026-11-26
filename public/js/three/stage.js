@@ -3,12 +3,14 @@
 // shared MAPS data, painted floor/sky textures, props, clouds and themed voids.
 // ============================================================================
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { makeCloudTexture, makeMagicCircle, makeToonRamp } from './textures.js';
 import { makeArenaFloor, makeArenaSky, makeArenaWall, makeConveyorTread, makeShrineInlay, makeTideTexture } from './arena_textures.js';
 
 const loader = new THREE.TextureLoader();
 const texCache = new Map();
 const paintedArenas = new Map();
+let tavernModel;
 function loadTex(name) {
   if (!texCache.has(name)) {
     const t = loader.load(`/assets/tos/arena/${name}.jpg`);
@@ -30,6 +32,12 @@ export const THEMES = {
     sky: 'sanctuary_sky', cliff: ['#c9b996', '#877759'], under: '#74664e', trim: '#b29a68',
     fog: '#f6e7cc', fogNear: 48, fogFar: 120, hemiSky: '#fff5e0', hemiGround: '#a7bfd9', hemiI: 1.0, sun: '#fff0d4', sunI: 1.7,
     cloud: '#fff8ec', cloudOpacity: 0.33, cloudY: [-15, -8], props: 'sanctuary', skyIntensity: 0.88
+  },
+  lantern_tavern: {
+    props: 'tavern', backdrop: '#bea9b5', surface: ['#90695b', '#503945', '#a67d66', '#795948'],
+    cliff: ['#735650', '#46343c'], under: '#4a3540',
+    fog: '#bda4b1', fogNear: 74, fogFar: 130, hemiSky: '#f2d8c9', hemiGround: '#ad8a96', hemiI: 1.18,
+    sun: '#ffead1', sunI: 1.65, cloudOpacity: 0
   },
   lava_citadel: {
     surface: ['#66605c', '#373036', '#8b7d70', '#554a48'], ridges: ['#886d70', '#675461', '#4c3d4c'],
@@ -197,7 +205,7 @@ export class Stage {
 
   applyEnvironment(scene, hemi, sun) {
     const th = this.theme;
-    scene.background = this.painting?.sky || loadTex(th.sky);
+    scene.background = th.backdrop ? new THREE.Color(th.backdrop) : (this.painting.sky || loadTex(th.sky));
     scene.backgroundIntensity = th.skyIntensity ?? 1;
     scene.fog = new THREE.Fog(th.fog, th.fogNear, th.fogFar);
     hemi.color.set(th.hemiSky);
@@ -555,6 +563,29 @@ export class Stage {
 
   buildProps() {
     const kind = this.theme.props;
+    if (kind === 'tavern') {
+      // The collision volumes provide a visible floor even during the initial LAN download.
+      tavernModel ??= new GLTFLoader().loadAsync('/assets/models/amber-lantern.glb')
+        .then(({ scene }) => {
+          scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+          return scene;
+        }).catch(error => {
+          tavernModel = null;
+          console.warn('Tavern scenery unavailable', error);
+          return null;
+        });
+      tavernModel.then(model => {
+        if (!model || this.disposed) return;
+        for (const platform of this.map.platforms) this.group.getObjectByName(platform.id).visible = false;
+        this.group.add(model.clone());
+        for (const [x, z] of [[-13.94, -1.3], [-1.3, -10.5], [12.4, -10.5]]) {
+          const lamp = new THREE.PointLight('#ffc382', 9.5, 8, 2);
+          lamp.position.set(x, 2.8, z);
+          this.group.add(lamp);
+        }
+      });
+      return;
+    }
     if (kind === 'lava') {
       this.buildLavaCitadel();
       return;
@@ -904,6 +935,7 @@ export class Stage {
   }
 
   dispose() {
+    this.disposed = true;
     this.group.removeFromParent();
     for (const d of this.disposables) d.dispose?.();
     this.group.traverse((o) => {
