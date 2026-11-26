@@ -2128,9 +2128,10 @@ export class ChibiView {
     this.spawns = 0;
     this.turns = 0;
     this.turnError = 0;
-    this.idleSince = 0;
     this.fidgets = 0;
     this.time = Math.random() * 10;
+    // The fidget waits for standing time measured on this clock.
+    this.idleSince = this.time;
     this.opacityKey = 1;
     this.dashCount = 0;
     this.wasDashing = false;
