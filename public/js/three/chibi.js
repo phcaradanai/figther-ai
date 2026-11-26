@@ -2143,6 +2143,9 @@ export class ChibiView {
     this.spawns = 0;
     this.turns = 0;
     this.turnError = 0;
+    this.turnSince = null;
+    this.stanceYaw = null;
+    this.targetYaw = 0;
     this.fidgets = 0;
     this.time = Math.random() * 10;
     // The fidget waits for standing time measured on this clock.
@@ -2321,10 +2324,17 @@ export class ChibiView {
     if ((playing === 'turnL' || playing === 'turnR' || playing === 'idleFidget') && running) {
       return { name: playing, key: playing + (playing === 'idleFidget' ? this.fidgets : this.turns), fade: 0.1 };
     }
+    // A turn clip only starts once the player has stayed put: pressing a direction
+    // key turns the Knight a frame or two before the run starts, and that must not
+    // flash the turn pose.
     if (this.actions.turnL && Math.abs(this.turnError) > 0.6) {
-      this.turns++;
-      const name = this.turnError > 0 ? 'turnL' : 'turnR';
-      return { name, key: name + this.turns, fade: 0.1 };
+      this.turnSince ??= this.time;
+      if (this.time - this.turnSince >= 0.15) {
+        this.turns++;
+        this.stanceYaw = this.targetYaw;
+        const name = this.turnError > 0 ? 'turnL' : 'turnR';
+        return { name, key: name + this.turns, fade: 0.1 };
+      }
     }
     if (this.actions.idleFidget && this.time - this.idleSince > FIDGET_AFTER) {
       this.fidgets++;
@@ -2535,7 +2545,11 @@ export class ChibiView {
     // Actions turn briskly into aim; locomotion turns fluidly without jarring snaps
     const acting = pl.state === 'attack' || pl.state === 'heavy' || pl.state === 'skill';
     const previousYaw = this.yaw;
-    this.turnError = lerpAngle(0, Math.PI / 2 - (pl.facing || 0) - this.yaw, 1);
+    // How far the aim has swung from the way the feet last stood; the visible yaw
+    // catches up within a few frames, so the turn clip needs its own measure.
+    this.targetYaw = Math.PI / 2 - (pl.facing || 0);
+    if (this.stanceYaw === null) this.stanceYaw = this.targetYaw;
+    this.turnError = lerpAngle(0, this.targetYaw - this.stanceYaw, 1);
     this.yaw = lerpAngle(this.yaw, Math.PI / 2 - (pl.facing || 0), 1 - Math.exp(-dt * (acting ? 28 : 14)));
     this.root.rotation.y = this.yaw;
     this.footwork?.track(this.root.position, this.yaw, this.yaw - previousYaw, dt, speed);
@@ -2548,6 +2562,8 @@ export class ChibiView {
     const locomotionSpeed = this.footwork?.locomotionSpeed(speed, this.currentName) ?? speed;
     const want = this.pickClip(pl, locomotionSpeed);
     if (!IDLE_FAMILY.has(want.name)) this.idleSince = this.time;
+    if (want.name !== 'idle') this.stanceYaw = this.targetYaw;
+    if (want.name !== 'idle' || Math.abs(this.turnError) <= 0.6) this.turnSince = null;
     const trigger = `${want.name}|${want.key}`;
     const committed = this.time < this.commitUntil && LOCOMOTION.has(want.name) && want.name !== this.currentName;
     if (trigger !== this.triggerKey && !committed) {
@@ -2594,6 +2610,7 @@ export class ChibiView {
       this.mixer.update(paused ? 0 : poseDt);
       this.savePure();
       this.applyLayers(pl, poseDt, paused);
+      if (this.footwork) this.footwork.fx = env.fx;
       this.footwork?.apply(this.current, pl.grounded, env.floorY, this.strikeFeetDown && !KNIGHT_STRIKES[this.currentName].kneel);
     }
     if (this.swordTrail) {

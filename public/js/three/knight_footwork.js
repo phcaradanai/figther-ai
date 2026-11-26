@@ -38,6 +38,7 @@ export class KnightFootwork {
     this.bank = 0;
     this.gearLag = 0;
     this.coast = 0;
+    this.fx = null;
   }
 
   track(position, yaw, turn, dt, speed) {
@@ -116,14 +117,17 @@ export class KnightFootwork {
       if (progress >= end) continue;
 
       leg.ankle.getWorldPosition(this.ankle);
+      let touched = false;
       if (!leg.planted) {
         leg.planted = true;
         leg.contact.copy(this.ankle);
         leg.yaw = this.yaw;
+        touched = true;
       }
       const floor = floorY?.(leg.contact.x, leg.contact.z, this.position.y + 0.10);
       const ground = floorY ? floor : this.position.y;
       if (ground == null || Math.abs(ground - this.position.y) > 0.18) continue;
+      if (touched) this.kickUp(leg.contact, ground);
 
       // Allow the foot to release on sharp direction changes and platform edges.
       const turn = Math.acos(clamp(Math.cos(this.yaw - leg.yaw), -1, 1));
@@ -138,6 +142,13 @@ export class KnightFootwork {
       this.target.set(leg.contact.x, ground + rig.restFootY, leg.contact.z).lerp(this.ankle, 1 - weight);
       this.solve(leg, weight);
     }
+  }
+
+  // A fast boot kicks up a small puff of dust as it lands.
+  kickUp(contact, ground) {
+    const k = clamp((this.speed - 3.5) / 4, 0, 1.2);
+    if (!this.fx || k < 0.15) return;
+    this.fx.dustPuff(contact.x, ground, contact.z, k > 0.8 ? 4 : 3, 0.55 + 0.4 * k, '#f4ecd9');
   }
 
   // Strikes: pull a boot that is near the floor onto it and stand it flat, so a

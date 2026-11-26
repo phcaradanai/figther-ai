@@ -331,9 +331,17 @@ test('Knight standing extras: turn in place, draw after respawn, guard hit and a
   const knight = new ChibiView(base);
   t.after(() => knight.dispose());
   advance(knight, {}, 30);
-  advance(knight, { facing: Math.PI / 2 + 1.6 }, 3);
-  assert.equal(knight.currentName, 'turnR');
-  advance(knight, { facing: Math.PI / 2 + 1.6 }, 40);
+  // Starting to run right after the turn must not flash the turn pose.
+  advance(knight, { facing: Math.PI / 2 + 1.6 }, 4);
+  assert.equal(knight.currentName, 'idle');
+  advance(knight, { facing: Math.PI / 2 + 1.6, vx: 5.4 }, 6);
+  assert.notEqual(knight.currentName, 'turnR');
+  advance(knight, { facing: Math.PI / 2 + 1.6 }, 30);
+  assert.equal(knight.currentName, 'idle');
+  // A player who stays put does get the step round.
+  advance(knight, { facing: Math.PI / 2 }, 14);
+  assert.equal(knight.currentName, 'turnL');
+  advance(knight, { facing: Math.PI / 2 }, 60);
   assert.equal(knight.currentName, 'idle');
 
   advance(knight, { state: 'dead' }, 20);
