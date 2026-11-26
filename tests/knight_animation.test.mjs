@@ -56,6 +56,22 @@ test('Knight plants the supporting foot while the render root travels forward', 
   assert.ok(travel < 0.10, `supporting ankle slid ${travel.toFixed(3)} units`);
 });
 
+test('Knight catches its weight on a stop and resumes locomotion immediately on new input', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  advance(knight, {}, 30);
+  for (let i = 1; i <= 42; i++) advance(knight, { z: i * 7.5 * dt, vz: 7.5, isSprinting: true }, 1);
+  const z = 42 * 7.5 * dt;
+  assert.equal(knight.currentName, 'run');
+  advance(knight, { z }, 8);
+  assert.match(knight.currentName, /^brake[LR]$/);
+  assert.ok(knight.R.torso.rotation.x < -0.11, 'the torso should visibly lean back during braking');
+  advance(knight, { z: z - 5.4 * dt, vz: -5.4, facing: -Math.PI / 2 }, 1);
+  assert.equal(knight.currentName, 'walk');
+  advance(knight, { z: z - 5.4 * dt }, 40);
+  assert.equal(knight.currentName, 'idle');
+});
+
 test('Knight compresses more when landing with greater downward speed', t => {
   function drop(vy) {
     const knight = new ChibiView(base);

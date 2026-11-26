@@ -34,6 +34,7 @@ export class KnightFootwork {
     this.speed = 0;
     this.pitch = 0;
     this.bank = 0;
+    this.gearLag = 0;
     this.coast = 0;
   }
 
@@ -43,16 +44,17 @@ export class KnightFootwork {
     }
     const moved = this.velocity.length();
     if (moved > 0.85) this.release();
-    this.coast = speed > 0.8 ? 0.13 : Math.max(0, this.coast - dt);
+    this.coast = speed > 0.8 ? 0.075 : Math.max(0, this.coast - dt);
     const sampledSpeed = moved <= 0.85 && dt > 0
       ? Math.hypot(this.velocity.x, this.velocity.z) / dt : speed;
     const previous = this.speed;
     const blend = 1 - Math.exp(-dt * 18);
     this.speed += (Math.min(sampledSpeed, speed * 1.35 + 2) - this.speed) * blend;
     const acceleration = dt > 0 ? (this.speed - previous) / dt : 0;
-    this.pitch += (clamp(acceleration * 0.012, -0.15, 0.17) - this.pitch) * blend;
-    const bank = dt > 0 && speed > 0.8 ? clamp(-turn / dt * 0.019, -0.17, 0.17) : 0;
+    this.pitch += (clamp(acceleration * 0.019, -0.21, 0.24) - this.pitch) * blend;
+    const bank = dt > 0 && speed > 0.8 ? clamp(-turn / dt * 0.028, -0.25, 0.25) : 0;
     this.bank += (bank - this.bank) * blend;
+    this.gearLag += (this.pitch - this.gearLag) * (1 - Math.exp(-dt * 8));
     this.position.copy(position);
     this.yaw = yaw;
     this.ready = true;
@@ -81,6 +83,11 @@ export class KnightFootwork {
       rig.torso.rotateX(this.pitch);
       rig.torso.rotateZ(this.bank);
       rig.head.rotateZ(-this.bank * 0.55);
+    }
+    if (grounded && (gait || name === 'idle' || name === 'brakeL' || name === 'brakeR')) {
+      const followThrough = this.gearLag - this.pitch;
+      rig.foreL.rotateX(followThrough * 0.55);
+      rig.armR.rotateX(followThrough * 0.90);
     }
     if (!grounded || !gait) {
       this.release();

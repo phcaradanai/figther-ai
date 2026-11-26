@@ -1853,7 +1853,7 @@ function clipsFor(style, skinnedKnight) {
   return CLIP_CACHE.get(key);
 }
 
-const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead']);
+const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR']);
 // Clips that must finish even if the server state moves on (movement can't cut them)
 const COMMITTED = { spin: 0.78, slam: 0.74, flurry: 0.6, roll: 0.44, sweep: 0.72, warcry: 0.7, charge: 0.6, seal: 0.5, windslash: 0.74, throw: 0.42, backflip: 0.55, raise: 0.7, summon: 0.76, nova: 0.7, blink: 0.38, rollshot: 0.56, toss: 0.38, lasso: 0.5 };
 // Sword-and-shield attacks hold their strike pose; moving can't cut the hold short
@@ -1896,8 +1896,9 @@ const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:atta
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
 const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
-const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll']);
-const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', 'attack1', 'attack2', 'attack3', 'heavy', 'sweep']);
+const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
+const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll', ...KNIGHT_BRAKE_CLIPS]);
+const KNIGHT_FLOOR_CLIPS = new Set(['idle', 'walk', 'run', 'dash', 'roll', 'guard', 'attack1', 'attack2', 'attack3', 'heavy', 'sweep', ...KNIGHT_BRAKE_CLIPS]);
 const easeInOut = (x) => x * x * (3 - 2 * x);
 
 function lerpAngle(a, b, t) {
@@ -2133,7 +2134,9 @@ export class ChibiView {
       return;
     }
     const previousGait = this.skinnedKnight && (this.currentName === 'walk' || this.currentName === 'run');
-    const gaitPhase = previousGait && (name === 'walk' || name === 'run')
+    const nextGait = this.skinnedKnight && (name === 'walk' || name === 'run');
+    if (nextGait && !previousGait) this.gaitStart = this.time;
+    const gaitPhase = previousGait && nextGait
       ? this.current.time / this.current.getClip().duration : 0;
     next.reset();
     next.time = next.getClip().duration * gaitPhase;
@@ -2220,6 +2223,17 @@ export class ChibiView {
     if (speed > 0.8) {
       if (this.skinnedKnight && !pl.isSprinting) return { name: 'walk', key: 'walk', fade: 0.13 };
       return { name: 'run', key: 'run', fade: 0.14 };
+    }
+    if (this.skinnedKnight) {
+      const playing = this.currentName;
+      if (KNIGHT_BRAKE_CLIPS.has(playing) && this.current.time < this.current.getClip().duration) {
+        return { name: playing, key: playing, fade: 0.060 };
+      }
+      if ((playing === 'walk' || playing === 'run') && this.time - this.gaitStart >= 0.08) {
+        const phase = this.current.time / this.current.getClip().duration;
+        const name = phase < 0.5 ? 'brakeL' : 'brakeR';
+        return { name, key: name, fade: 0.060 };
+      }
     }
     return { name: 'idle', key: 'idle', fade: 0.2 };
   }
@@ -2329,8 +2343,10 @@ export class ChibiView {
         R.legR.rotateX(-0.55 * load);
         R.shinL.rotateX(0.92 * load);
         R.shinR.rotateX(0.92 * load);
-        R.torso.rotateX(0.25 * load);
-        R.head.rotateX(-0.14 * load);
+        R.torso.rotateX(0.43 * load);
+        R.head.rotateX(-0.22 * load);
+        R.armL.rotateX(-0.24 * load);
+        R.armR.rotateX(0.22 * load);
       }
       // Level a standing boot but keep the authored heel strike and toe-off in motion.
       if (planted) {
@@ -2355,7 +2371,7 @@ export class ChibiView {
       }
       // Pull the lowest sole down only in the walking cycle or a standing pose.
       // A sprint, hop or attack may deliberately leave the ground.
-      const settle = planted ? Infinity : this.currentName === 'walk' ? 0.07 : 0;
+      const settle = planted || KNIGHT_BRAKE_CLIPS.has(this.currentName) ? Infinity : this.currentName === 'walk' ? 0.07 : 0;
       R.hips.position.y += Math.max(-settle, -soleY) / s;
     }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)

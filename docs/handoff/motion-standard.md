@@ -65,3 +65,5 @@ Knight uses the same gameplay inputs and adds [support-foot placement](../../pub
 | High jump hip drop (units) | 0.009 | 0.064 |
 
 Run the same replay and an in-arena pass before tuning these choices for another skinned hero. Keep the landing strength and lean limits in proportion to that hero, and choose where its authored arcs reach contact instead of copying Knight's clip times.
+
+Review the silhouette at normal gameplay scale as well as the replay metrics. Knight now catches a stop on the lead leg, lets the torso and equipment continue through the transition, and then settles into ready stance. The stop clip blends out immediately when the player moves again. On the fixed replay, the last visible foot motion after stopping extends from 167 ms to 233 ms while the steady-walk and sprint drift estimates stay the same.
