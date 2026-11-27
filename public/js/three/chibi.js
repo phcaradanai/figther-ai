@@ -1398,20 +1398,6 @@ function bakedClip(name, data) {
 }
 
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
-// The baked clips solve the shield wrist to face front with the crest up (see bake-mixamo.mjs),
-// in the skeleton's root space; the shield face is the wrist's -Y and its crest points along +Z.
-const SHIELD_FRONT = new THREE.Vector3(0.35, 0.05, 0.93).normalize();
-const SHIELD_REST = (() => {
-  const crest = new THREE.Vector3(0, 1, 0);
-  crest.addScaledVector(SHIELD_FRONT, -crest.dot(SHIELD_FRONT)).normalize();
-  const face = SHIELD_FRONT.clone().negate();
-  const side = new THREE.Vector3().crossVectors(face, crest);
-  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, face, crest));
-})();
-const BAKED_SHIELD_CLIPS = new Set(Object.keys(SKINNED_MODELS.knight?.bakedClips || {}).filter(name => name !== 'dead'));
-const _shieldRoot = new THREE.Quaternion();
-const _shieldNow = new THREE.Quaternion();
-const _shieldParent = new THREE.Quaternion();
 // Server states that replace a basic swing before its blade lands.
 const CUTS_A_SWING = new Set(['hurt', 'knockdown', 'dead', 'frozen', 'skill', 'heavy']);
 const KNIGHT_SWINGS = new Set(['attack1', 'attack2', 'attack3', 'airRise', 'airCut', 'airSpike']);
@@ -2200,6 +2186,13 @@ export class ChibiView {
       }
       return;
     }
+    // A swing handing over to standing still or to the next swing holds its last pose while
+    // it fades out. Its sword arm can be nearly half a turn from the next pose, and a blend
+    // between two poses that far apart takes the other way round the moment the moving
+    // swing crosses that line, which snapped the arm back in a single frame.
+    if (this.skinnedKnight && this.current && KNIGHT_SWINGS.has(this.currentName) && (name === 'idle' || KNIGHT_SWINGS.has(name)) && fade > 0) {
+      this.current.setEffectiveTimeScale(0);
+    }
     const previousGait = this.skinnedKnight && (this.currentName === 'walk' || this.currentName === 'run');
     const nextGait = this.skinnedKnight && (name === 'walk' || name === 'run');
     if (nextGait && !previousGait) this.gaitStart = this.time;
@@ -2294,7 +2287,10 @@ export class ChibiView {
       const hits = hero?.basicAttack?.comboHits || 3;
       const key = `atk${step}`;
       const ground = basicAttackClip(step, hits);
-      return { name: this.skinnedKnight ? this.strikeClip(key, pl, ground) : ground, key, fade: 0.05 };
+      // Each chop of the combo ends with the body turned about 100 degrees and the next one
+      // starts square on; a little longer fade between swings takes the edge off that turn.
+      const handover = this.skinnedKnight && KNIGHT_SWINGS.has(this.currentName) ? 0.08 : 0.05;
+      return { name: this.skinnedKnight ? this.strikeClip(key, pl, ground) : ground, key, fade: handover };
     }
     if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.06 };
     if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
@@ -2472,38 +2468,9 @@ export class ChibiView {
   }
 
   // Procedural layers applied after the mixer has written this frame's pose
-  // Each baked clip keeps its own split of twist between forearm and wrist, so a
-  // crossfade can spin the shield well away from the front (a combo hit handing over
-  // to the next, or to a run). Pull a shield that has strayed back to facing forward,
-  // crest up, in proportion to how much of the pose comes from the baked clips.
-  steadyShield() {
-    const R = this.R;
-    let baked = 0;
-    let total = 0;
-    for (const name in this.actions) {
-      const action = this.actions[name];
-      if (!action.isRunning()) continue;
-      const weight = action.getEffectiveWeight();
-      total += weight;
-      if (BAKED_SHIELD_CLIPS.has(name)) baked += weight;
-    }
-    if (total <= 0 || baked / total < 0.01) return;
-    R.handL.updateWorldMatrix(true, false);
-    this.root.getWorldQuaternion(_shieldRoot);
-    R.handL.getWorldQuaternion(_shieldNow).premultiply(_shieldParent.copy(_shieldRoot).invert());
-    // Leave the natural sway alone; correct only what has strayed past ~23 degrees.
-    const strayed = 2 * Math.acos(Math.min(1, Math.abs(_shieldNow.dot(SHIELD_REST))));
-    const pull = THREE.MathUtils.smoothstep(strayed, 0.4, 1.0) * baked / total;
-    if (pull < 0.001) return;
-    _shieldNow.slerp(SHIELD_REST, pull).premultiply(_shieldRoot);
-    R.handL.parent.getWorldQuaternion(_shieldParent);
-    R.handL.quaternion.copy(_shieldParent.invert().multiply(_shieldNow));
-  }
-
   applyLayers(pl, dt, paused) {
     const R = this.R;
     const t = this.time - this.clipStart;
-    if (this.skinnedKnight) this.steadyShield();
     // Whole-body spins (spin barrage, wind slash, spinning finisher)
     const sp = SPIN[`${this.style}:${this.currentName}`] || SPIN[this.currentName];
     if (sp) {

@@ -10,7 +10,7 @@
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import {
-  AnimationClip, AnimationMixer, Euler, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack
+  AnimationClip, AnimationMixer, Euler, Matrix4, Quaternion, QuaternionKeyframeTrack, Vector3, VectorKeyframeTrack
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadChibiViews } from './load-chibi.mjs';
@@ -119,6 +119,83 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
   return { fps: FPS, duration: times[times.length - 1], times, rotations, hips: hips.map(v => +v.toFixed(4)) };
 }
 
+// How the Mixamo shield sits on its forearm, as the Knight's wrist rotation.
+// The model's shield is rigid on LeftForeArm (its prop bone Shield_joint is a child
+// of the forearm), so the angle it is held at is a constant of that bone. Measure
+// the shield mesh's principal axes at the first frame (thin axis = face, long axis =
+// up), then express them as the wrist rotation that gives the Knight's shield the
+// same orientation: its face is the wrist's -Y and its crest the wrist's +Z.
+// `meshName` is the model's shield mesh (the file names its meshes one off).
+export function shieldHold(scene, clip, meshName, upSign = 1) {
+  const fore = findBone(scene, 'LeftForeArm');
+  const hips = findBone(scene, 'Hips');
+  scene.updateMatrixWorld(true);
+  const restFore = fore.getWorldQuaternion(new Quaternion());
+  const mixer = new AnimationMixer(scene);
+  mixer.clipAction(clip).play();
+  mixer.update(0);
+  scene.updateMatrixWorld(true);
+  let mesh = null;
+  scene.traverse(o => { if (o.isSkinnedMesh && o.name === meshName) mesh = o; });
+  if (!mesh) throw new Error(`No skinned mesh ${meshName}`);
+  mesh.skeleton.update();
+  const count = mesh.geometry.attributes.position.count;
+  const points = [];
+  const point = new Vector3();
+  for (let i = 0; i < count; i++) {
+    mesh.getVertexPosition(i, point);
+    mesh.localToWorld(point);
+    points.push(point.clone());
+  }
+  const centre = points.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(count);
+  // Principal axes of the point cloud: Jacobi sweeps on the 3x3 covariance.
+  const m = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const p of points) {
+    const d = [p.x - centre.x, p.y - centre.y, p.z - centre.z];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) m[r][c] += d[r] * d[c] / count;
+  }
+  const v = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (let sweep = 0; sweep < 40; sweep++) {
+    for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+      if (Math.abs(m[p][q]) < 1e-14) continue;
+      const theta = (m[q][q] - m[p][p]) / (2 * m[p][q]);
+      const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+      const c = 1 / Math.sqrt(t * t + 1);
+      const sn = t * c;
+      for (let k = 0; k < 3; k++) {
+        const kp = m[k][p], kq = m[k][q];
+        m[k][p] = c * kp - sn * kq;
+        m[k][q] = sn * kp + c * kq;
+      }
+      for (let k = 0; k < 3; k++) {
+        const pk = m[p][k], qk = m[q][k];
+        m[p][k] = c * pk - sn * qk;
+        m[q][k] = sn * pk + c * qk;
+      }
+      for (let k = 0; k < 3; k++) {
+        const kp = v[k][p], kq = v[k][q];
+        v[k][p] = c * kp - sn * kq;
+        v[k][q] = sn * kp + c * kq;
+      }
+    }
+  }
+  const axes = [0, 1, 2].map(i => ({ value: m[i][i], vector: new Vector3(v[0][i], v[1][i], v[2][i]).normalize() }))
+    .sort((a, b) => a.value - b.value);
+  // Face outward = away from the body: the side of the thin axis the shield centre sits on.
+  const bodyCentre = hips.getWorldPosition(new Vector3());
+  const normal = axes[0].vector.clone();
+  if (normal.dot(centre.clone().sub(bodyCentre)) < 0) normal.negate();
+  const crest = axes[2].vector.clone().multiplyScalar(upSign);
+  crest.addScaledVector(normal, -crest.dot(normal)).normalize();
+  const face = normal.clone().negate();
+  const side = new Vector3().crossVectors(face, crest);
+  const shield = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(side, face, crest));
+  const foreNow = fore.getWorldQuaternion(new Quaternion());
+  // wrist = T_POSE(foreL)^-1 * restFore * foreNow^-1 * shield
+  const wrist = T_POSE.foreL.clone().invert().multiply(restFore).multiply(foreNow.invert()).multiply(shield);
+  return { wrist, normal, crest, extents: axes.map(a => Math.sqrt(a.value) * 2) };
+}
+
 // Fastest blade moment and the window where the blade sweeps above 35% of it.
 export function bladeTiming(view, data) {
   const tip = new Vector3();
@@ -212,12 +289,18 @@ export function stripYaw(data) {
   return { ...data, rotations: { ...data.rotations, hips } };
 }
 
-// Mixamo holds its shield on the forearm, so on the Knight's hand mount the
-// shield faces sideways, and its swings pass through the oversized helmet. Turn
-// the left wrist so the shield faces forward, and the right wrist (then the
-// forearm) just enough to keep the blade clear of the helmet. Each frame starts
-// from the previous frame's correction so the wrists move smoothly.
-const SHIELD_FACING = new Vector3(0.35, 0.05, 0.93).normalize();
+// Mixamo holds its shield rigidly on the forearm, and its swings pass through the
+// oversized helmet. Hold the Knight's shield at the angle the Mixamo model holds its
+// own (SHIELD_HOLD, measured by shield-from-model.mjs from the model Sword And
+// Shield Run (1) Model.fbx), and turn the right wrist (then the forearm) just enough
+// to keep the blade clear of the helmet. Each frame starts from the previous frame's
+// correction so the wrists move smoothly.
+//
+// SHIELD_HOLD is the left wrist's rotation: the shield face is the wrist's -Y and its
+// crest points along +Z. Because the shield is rigid on the forearm it is the same in
+// every clip, and the shield turns with the forearm as it does on the model: face
+// forward and crest up standing and guarding, face out to the left in a run.
+export const SHIELD_HOLD = [-0.0086, 0.0277, 0.6796, 0.7330];
 const HELMET_CLEARANCE = 0.3;
 export function fixHands(view, data) {
   const R = view.R;
@@ -225,28 +308,11 @@ export function fixHands(view, data) {
   const base = new Quaternion();
   const turn = new Quaternion();
   const euler = new Euler();
-  const normal = new Vector3();
-  const rootInverse = new Quaternion();
   const head = new Vector3();
   const bladeBase = new Vector3();
   const bladeTip = new Vector3();
   const along = new Vector3();
   const nearest = new Vector3();
-  // The shield's face is the wrist's -Y and its crest points along +Z. Facing forward
-  // leaves the roll about the face free, and each clip would settle on its own roll:
-  // two clips could then sit half a turn apart and spin the shield when they blend.
-  // The roll term keeps the crest upright in every clip.
-  const up = new Vector3();
-  let rollOff = 0;
-  const facing = (value) => {
-    R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
-    R.handL.updateMatrixWorld(true);
-    R.handL.getWorldQuaternion(turn);
-    normal.set(0, -1, 0).applyQuaternion(turn).applyQuaternion(rootInverse);
-    up.set(0, 0, 1).applyQuaternion(turn).applyQuaternion(rootInverse);
-    rollOff = Math.acos(Math.max(-1, Math.min(1, up.y)));
-    return Math.acos(Math.max(-1, Math.min(1, normal.dot(SHIELD_FACING))));
-  };
   const clearance = (joint, value) => {
     R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
     R[joint].updateMatrixWorld(true);
@@ -277,20 +343,13 @@ export function fixHands(view, data) {
   // The search carries each frame's answer into the next, so frame 0 would start
   // from nothing and land far from frame 1: a wrist snap at the start of every
   // clip. Solve once to learn where the wrist settles, then solve again from there.
-  const solve = (startShield, startBlade) => {
+  const solve = (startBlade) => {
     const result = { ...out, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
-    let shield = startShield;
     const blade = { handR: startBlade.handR, foreR: startBlade.foreR };
-    const settled = { shield: null, blade: null };
+    const settled = { blade: null };
     for (let i = 0; i < data.times.length; i++) {
+      for (let k = 0; k < 4; k++) result.rotations.handL[i * 4 + k] = SHIELD_HOLD[k];
       poseFrame(view, result, i);
-      view.root.getWorldQuaternion(rootInverse).invert();
-      base.copy(R.handL.quaternion);
-      const previousShield = shield;
-      shield = search(shield, v => facing(v) ** 2 + 0.3 * rollOff ** 2 + 0.02 * v.reduce((a, x) => a + x * x, 0)
-        + 0.5 * v.reduce((a, x, k) => a + (x - previousShield[k]) ** 2, 0), 2.2);
-      R.handL.quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...shield)));
-      R.handL.quaternion.toArray().forEach((v, k) => { result.rotations.handL[i * 4 + k] = +v.toFixed(4); });
       for (const joint of ['handR', 'foreR']) {
         base.copy(R[joint].quaternion);
         const previous = blade[joint];
@@ -301,15 +360,12 @@ export function fixHands(view, data) {
         R[joint].updateMatrixWorld(true);
         R[joint].quaternion.toArray().forEach((v, k) => { result.rotations[joint][i * 4 + k] = +v.toFixed(4); });
       }
-      if (i === Math.min(2, data.times.length - 1)) {
-        settled.shield = shield.slice();
-        settled.blade = { handR: blade.handR.slice(), foreR: blade.foreR.slice() };
-      }
+      if (i === Math.min(2, data.times.length - 1)) settled.blade = { handR: blade.handR.slice(), foreR: blade.foreR.slice() };
     }
     return { result, settled };
   };
-  const first = solve([0, 0, 0], { handR: [0, 0, 0], foreR: [0, 0, 0] });
-  return solve(first.settled.shield, first.settled.blade).result;
+  const first = solve({ handR: [0, 0, 0], foreR: [0, 0, 0] });
+  return { ...solve(first.settled.blade).result, shield: SHIELD_HOLD };
 }
 
 // Lowest point of a set of meshes, from every fourth vertex, in world units.
