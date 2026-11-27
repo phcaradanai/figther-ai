@@ -203,3 +203,21 @@ How:
 - **Combo** keeps the model's yaw swing: each chop ends with the body about 100° round and the next starts square. A crossfade of 0.08 s hides some of it, not all.
 
 `public/dev/combat_capture.js` `record()` / `jerks()` log every rendered frame of real play and list one-frame bone pops; only compare runs at the same frame rate (the preview pane drops to 30 fps when it is not in front, which doubles every per-frame turn).
+
+## Sword clear of the body, ToS proportions, landing (2026-11-27)
+
+The player reported the sword passing through the Knight's own body, and asked for proportions nearer Tree of Savior's. `node tools/rig/self-collision.mjs [clip ...]` measures it: it skins the body (armour, helmet, shield) frame by frame, tests a few hundred points of the sword against the nearest body surface points and normals (the arm that holds the sword and the cape are left out), and reports frames with the sword more than 2 cm inside and the deepest point. `BodyField` in `tools/rig/body-field.mjs` is the same test, used by the bake.
+
+| Clip | Frames with the sword > 2 cm inside, before | Now |
+| --- | --- | --- |
+| idle, guard, walk, jump, fall | 0 to 6 of 77 | 0 |
+| run | 23 of 39, 6.6 cm deep | 4 of 39, up to 3.8 cm (chest, helmet) |
+| attack 1 / 2 / 3 | 5 / 11 / 12 frames, up to 11.6 cm | 1 / 2 / 2 frames, 3.6 / 3.3 / 8.4 cm (one frame of the third chop) |
+| turn, guard hit, draw, fidget | 8 to 16 frames, up to 12.9 cm | 1 to 7 frames, up to 4 cm (turnR brushes the helmet for 7 frames) |
+
+`tests/knight_animation.test.mjs` keeps these as per-clip frame limits so a rebake cannot quietly bring the clipping back. The test and the tool judge by the nearest body vertex's normal, so a thin ridge such as the helmet's wings can read as inside when it is not.
+
+- **Smaller sword, shield and head** in `SKINNED_HEROES.knight`: `swordScale` 1.10 to 0.80 (the model's blade is 0.86 long, the Knight's was 1.39), `shieldScale` 1.08 to 0.92, `headScale` 1.10 to 0.96 (the helmet follows the head). This alone cleared idle, guard, walk and the turns.
+- **`fixHands` keeps the blade out of the body.** Besides the helmet-distance rule it now adds the sword's penetration into the body field to its cost and searches the hand, forearm and upper arm (`armR`) of the sword arm. Each frame stays within 0.3 rad of its neighbours so it cannot jump to another pose, and a second pass solves again pulled toward the average of its neighbours. A full bake takes about twenty minutes; `--only run,attack3` bakes just those clips, and `fixRadius` in `BAKE` widens how far one frame may stray (the third chop and the turns use 0.55).
+- **Landing.** The server marks a player grounded the moment the body lands, but the height drawn closes the last stretch over about 0.15 s, so the Knight used to stand up in mid-air and slide down (idle pose at 0.36 above the floor). `ChibiView.update` now keeps the air pose until the drawn feet are within 0.1 of the floor, so the landing squash and dust also land on the touchdown.
+- `public/dev/combat_capture.js` `me()` now picks the player the camera follows: another tab's player in the room used to be picked instead and the keys appeared to do nothing.

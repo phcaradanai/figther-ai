@@ -59,7 +59,9 @@
       combo1: { file: 'combo', knight: 'attack1', kind: 'strike', at: 1.12, strike: [0.12, 0.44] },
       combo2: { file: 'combo', knight: 'attack2', kind: 'strike', at: 2.20, strike: [0.115, 0.42] },
       combo3: { file: 'combo', knight: 'attack3', kind: 'strike', at: 3.03, strike: [0.19, 0.58] },
-      jump: { file: 'jump', knight: 'jump', kind: 'loop' }
+      // The Knight's jump and fall are cut from the model's jump file (see BAKE in tools/rig/bake-mixamo.mjs).
+      jump: { file: 'jump', knight: 'jump', kind: 'range', range: [0.17, 0.5] },
+      fall: { file: 'jump', knight: 'fall', kind: 'range', range: [0.5, 0.8] }
     };
 
     const canvas = document.getElementById('view');
@@ -174,6 +176,7 @@
         const src = t <= contact ? c.at - windup + windup * (t / contact) : c.at + follow * Math.min(1, (t - contact) / (end - contact));
         return [src, Math.min(t, dur)];
       }
+      if (c.kind === 'range') return [c.range[0] + phase * (c.range[1] - c.range[0]), phase * dur];
       return [phase * source, phase * dur];
     }
 
@@ -258,7 +261,7 @@
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       if (state.playing) {
-        const span = { gait: 0.9, strike: 1.8, loop: 2.4 }[CLIPS[state.key].kind];
+        const span = { gait: 0.9, strike: 1.8, loop: 2.4, range: 1.2 }[CLIPS[state.key].kind];
         state.phase = (state.phase + dt / span) % 1;
         document.getElementById('scrub').value = state.phase;
       }

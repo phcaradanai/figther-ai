@@ -75,6 +75,23 @@ test('Knight stops by fading from its gait into the idle and resumes locomotion 
   assert.equal(knight.currentName, 'idle');
 });
 
+test('Knight keeps its air pose until the drawn body is near the floor, not when the server says it landed', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const floorY = () => 0;
+  const step = state => knight.update({ ...base, ...state }, { dt, floorY });
+  advance(knight, {}, 30);
+  for (let i = 0; i < 20; i++) step({ y: 1.2 - i * 0.04, grounded: false, vy: -8 });
+  assert.equal(knight.currentName, 'fall');
+  // The server has landed the body; the drawn height is still 0.35 up and closes over the next frames.
+  for (const y of [0.35, 0.25, 0.16, 0.11]) {
+    step({ y, grounded: true, vy: 0 });
+    assert.equal(knight.currentName, 'fall', `still falling at ${y}`);
+  }
+  for (const y of [0.06, 0.02, 0]) step({ y, grounded: true, vy: 0 });
+  assert.notEqual(knight.currentName, 'fall');
+});
+
 test('Knight compresses more when landing with greater downward speed', t => {
   function drop(vy) {
     const knight = new ChibiView(base);
@@ -239,6 +256,24 @@ test('the left hand and forearm stay behind the shield instead of poking through
       assert.ok(checked > 100, `${name}: found the ${bone.name} vertices`);
       assert.equal(exposed, 0, `${name}: ${exposed} of ${checked} ${bone.name} vertices stick out in front of the shield`);
     }
+  }
+});
+
+test('the sword stays out of the Knight body in the baked clips', async t => {
+  const { BodyField } = await import('../tools/rig/body-field.mjs');
+  const { measureClip } = await import('../tools/rig/self-collision.mjs');
+  const { readFile } = await import('node:fs/promises');
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const field = new BodyField(knight);
+  // Frames with the blade more than 2 cm inside the body, allowed per clip (the swings brush the
+  // shield or the chest for a frame or two; the stances must be clean).
+  const allowed = { idle: 0, guard: 0, walk: 0, jump: 0, fall: 0, run: 5, attack1: 3, attack2: 4, attack3: 4, guardHit: 4, turnL: 3, turnR: 8 };
+  for (const [name, frames] of Object.entries(allowed)) {
+    const data = JSON.parse(await readFile(new URL(`../public/assets/anims/knight/${name}.json`, import.meta.url), 'utf8'));
+    const result = await measureClip(knight, field, data);
+    assert.ok(result.frames <= frames, `${name}: the sword is inside the body for ${result.frames} frames (${JSON.stringify(result.parts)}), at most ${frames}`);
+    assert.ok(result.maxDepth < 0.1, `${name}: the sword goes ${(result.maxDepth * 100).toFixed(1)} cm into the body`);
   }
 });
 

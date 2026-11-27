@@ -5,6 +5,7 @@
 //   node tools/rig/bake-mixamo.mjs <glb dir>                     score every clip
 //   node tools/rig/bake-mixamo.mjs <glb dir> --bake <out dir>     also write the clips in BAKE
 //   node tools/rig/bake-mixamo.mjs <glb dir> --preview <out dir>  write every clip, named by file, for the lab
+//   add --only run,attack3 to bake just those clips (a full bake takes about eight minutes)
 //
 // Only derived keyframes are written. Keep the Mixamo source files out of the repo.
 import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
@@ -15,11 +16,14 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadChibiViews } from './load-chibi.mjs';
 import { KnightFootwork } from '../../public/js/three/knight_footwork.js';
+import { BodyField } from './body-field.mjs';
 
 // Source file → game clip (see docs/handoff/motion-standard.md).
 //   inPlace  remove travel the server already applies
 //   speed    play faster
 //   floor    keep a lying body, helmet and gear on top of the floor
+//   fixRadius how far (rad) a frame's sword-arm correction may stray from its neighbours' (default 0.3;
+//            the third chop crosses the shield and needs 0.55)
 //   fix      turn the shield to face forward and keep the blade out of the helmet
 //   strike   [contact, end]: retime so the fastest blade lands at `contact` (the
 //            server deals damage on the press) and the swing settles by `end`
@@ -40,7 +44,7 @@ export const BAKE = {
   'one hand sword combo': [
     { clip: 'attack1', inPlace: true, fix: true, at: 1.12, strike: [0.12, 0.44], legs: true },
     { clip: 'attack2', inPlace: true, fix: true, at: 2.20, strike: [0.115, 0.42], legs: true },
-    { clip: 'attack3', inPlace: true, fix: true, at: 3.03, strike: [0.19, 0.58], legs: true }
+    { clip: 'attack3', inPlace: true, fix: true, fixRadius: 0.55, at: 3.03, strike: [0.19, 0.58], legs: true }
   ],
   'sword and shield walk': { clip: 'walk', inPlace: true, fix: true, gait: 0.4, legs: true, pace: { speed: 5.4, cycle: 0.34 } },
   'sword and shield run': { clip: 'run', inPlace: true, fix: true, gait: 0.4, legs: true, pace: { speed: 7.5, cycle: 0.32 } },
@@ -56,8 +60,8 @@ export const BAKE = {
   'long idle': { clip: 'idleFidget', inPlace: true, fix: true, legs: true },
   'sword and shield block idle': { clip: 'guard', inPlace: true, fix: true, legs: true },
   'sword and shield block (2)': { clip: 'guardHit', inPlace: true, fix: true, legs: true },
-  'sword and shield turn': { clip: 'turnR', inPlace: true, fix: true, legs: true, yawFree: true, speed: 2 },
-  'sword and shield turn (2)': { clip: 'turnL', inPlace: true, fix: true, legs: true, yawFree: true, speed: 2 },
+  'sword and shield turn': { clip: 'turnR', inPlace: true, fix: true, fixRadius: 0.55, legs: true, yawFree: true, speed: 2 },
+  'sword and shield turn (2)': { clip: 'turnL', inPlace: true, fix: true, fixRadius: 0.55, legs: true, yawFree: true, speed: 2 },
   'draw sword 1': { clip: 'draw', inPlace: true, fix: true, legs: true }
 };
 
@@ -446,8 +450,33 @@ export function stripYaw(data) {
 // forward and crest up standing and guarding, face out to the left in a run.
 export const SHIELD_HOLD = [-0.0086, 0.0277, 0.6796, 0.7330];
 const HELMET_CLEARANCE = 0.3;
-export function fixHands(view, data) {
+export function fixHands(view, data, radius = 0.3) {
   const R = view.R;
+  // The sword must not pass through the Knight: a few dozen points of the blade and guard,
+  // kept in the sword mount's space, are tested against the body (the arm that holds the
+  // sword is not in the field, so the field is built once per frame and the arm searched).
+  const field = new BodyField(view);
+  const swordSamples = [];
+  {
+    const q = new Vector3();
+    R.swordMount.updateWorldMatrix(true, false);
+    for (const mesh of field.sword) {
+      mesh.updateWorldMatrix(true, false);
+      const position = mesh.geometry.attributes.position;
+      for (let i = 0; i < position.count; i += 25) {
+        swordSamples.push(R.swordMount.worldToLocal(q.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld).clone()));
+      }
+    }
+  }
+  const world = new Vector3();
+  const penetration = () => {
+    let sum = 0;
+    for (const sample of swordSamples) {
+      const { depth } = field.depth(world.copy(sample).applyMatrix4(R.swordMount.matrixWorld));
+      sum += depth * depth;
+    }
+    return sum;
+  };
   const out = { ...data, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
   const base = new Quaternion();
   const turn = new Quaternion();
@@ -467,15 +496,20 @@ export function fixHands(view, data) {
     const k = Math.max(0, Math.min(1, head.clone().sub(bladeBase).dot(along) / along.lengthSq()));
     return nearest.copy(bladeBase).addScaledVector(along, k).distanceTo(head);
   };
-  const search = (start, cost, limit) => {
+  // Coordinate descent on three Euler angles. With an anchor the angles stay within `radius` of it,
+  // so a frame cannot jump to a different pose from its neighbours.
+  const search = (start, cost, limit, anchor = null, radius = 0) => {
     const value = start.slice();
+    const low = axis => (anchor ? Math.max(-limit, anchor[axis] - radius) : -limit);
+    const high = axis => (anchor ? Math.min(limit, anchor[axis] + radius) : limit);
+    for (let axis = 0; axis < 3; axis++) value[axis] = Math.max(low(axis), Math.min(high(axis), value[axis]));
     let best = cost(value);
     for (let step = 0.4; step > 0.005; step *= 0.6) {
       for (let round = 0; round < 20; round++) {
         let improved = false;
         for (let axis = 0; axis < 3; axis++) for (const delta of [step, -step]) {
           const old = value[axis];
-          value[axis] = Math.max(-limit, Math.min(limit, old + delta));
+          value[axis] = Math.max(low(axis), Math.min(high(axis), old + delta));
           const c = cost(value);
           if (c < best - 1e-7) { best = c; improved = true; } else value[axis] = old;
         }
@@ -487,29 +521,47 @@ export function fixHands(view, data) {
   // The search carries each frame's answer into the next, so frame 0 would start
   // from nothing and land far from frame 1: a wrist snap at the start of every
   // clip. Solve once to learn where the wrist settles, then solve again from there.
-  const solve = (startBlade) => {
+  const JOINTS = ['handR', 'foreR', 'armR'];
+  const SPRING = { handR: 0.05, foreR: 0.05, armR: 0.15 };
+  const frames = data.times.length;
+  // Each frame is solved on its own, so a frame can land in a different pose from its neighbours
+  // (a one-frame snap of the sword arm). The second pass solves again with each frame pulled
+  // toward the average of its neighbours' first-pass answers, which settles on one pose.
+  const solve = (guide = null) => {
     const result = { ...out, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
-    const blade = { handR: startBlade.handR, foreR: startBlade.foreR };
-    const settled = { blade: null };
-    for (let i = 0; i < data.times.length; i++) {
+    const track = Object.fromEntries(JOINTS.map(joint => [joint, []]));
+    const blade = { handR: [0, 0, 0], foreR: [0, 0, 0], armR: [0, 0, 0] };
+    for (let i = 0; i < frames; i++) {
       for (let k = 0; k < 4; k++) result.rotations.handL[i * 4 + k] = SHIELD_HOLD[k];
       poseFrame(view, result, i);
-      for (const joint of ['handR', 'foreR']) {
+      field.build();
+      for (const joint of JOINTS) {
         base.copy(R[joint].quaternion);
-        const previous = blade[joint];
-        const start = clearance(joint, previous) >= HELMET_CLEARANCE ? previous.map(x => x * 0.85) : previous;
+        let previous = blade[joint];
+        let start = previous;
+        let pull = 0.3;
+        if (guide) {
+          const before = guide[joint][Math.max(0, i - 1)];
+          const after = guide[joint][Math.min(frames - 1, i + 1)];
+          previous = before.map((x, k) => (x + after[k]) / 2);
+          start = guide[joint][i];
+          pull = 2;
+        } else if (clearance(joint, previous) >= HELMET_CLEARANCE && penetration() < 1e-6) {
+          start = previous.map(x => x * 0.85);
+        }
         blade[joint] = search(start, v => Math.max(0, HELMET_CLEARANCE - clearance(joint, v)) ** 2 * 200
-          + 0.05 * v.reduce((a, x) => a + x * x, 0) + 0.3 * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4);
+          + penetration() * 30000
+          + SPRING[joint] * v.reduce((a, x) => a + x * x, 0) + pull * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4, previous, radius);
+        track[joint].push(blade[joint].slice());
         R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...blade[joint])));
         R[joint].updateMatrixWorld(true);
         R[joint].quaternion.toArray().forEach((v, k) => { result.rotations[joint][i * 4 + k] = +v.toFixed(4); });
       }
-      if (i === Math.min(2, data.times.length - 1)) settled.blade = { handR: blade.handR.slice(), foreR: blade.foreR.slice() };
     }
-    return { result, settled };
+    return { result, track };
   };
-  const first = solve({ handR: [0, 0, 0], foreR: [0, 0, 0] });
-  return { ...solve(first.settled.blade).result, shield: SHIELD_HOLD };
+  const first = solve();
+  return { ...solve(first.track).result, shield: SHIELD_HOLD };
 }
 
 // Lowest point of a set of meshes, from every fourth vertex, in world units.
@@ -691,6 +743,8 @@ async function main() {
   const bakeAt = args.indexOf('--bake');
   const out = bakeAt >= 0 ? args[bakeAt + 1] : null;
   const previewAt = args.indexOf('--preview');
+  const onlyAt = args.indexOf('--only');
+  const only = onlyAt >= 0 ? new Set(args[onlyAt + 1].split(',')) : null;
   const preview = previewAt >= 0 ? args[previewAt + 1] : null;
   if (!dir) throw new Error('Usage: node tools/rig/bake-mixamo.mjs <glb dir> [--bake <out dir>]');
   const { ChibiView } = await loadChibiViews();
@@ -716,6 +770,7 @@ async function main() {
       await writeFile(join(preview, key + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...raw }));
     }
     for (const plan of out ? plans : []) {
+      if (only && !only.has(plan.clip)) continue;
       let data = raw;
       let extra = {};
       if (plan.range) {
@@ -740,7 +795,7 @@ async function main() {
       if (plan.yawFree) data = stripYaw(data);
       if (plan.gait) data = alignGait(view, data, plan.gait);
       if (plan.pace) data = warpGait(view, data, plan.pace);
-      if (plan.fix) data = fixHands(view, data);
+      if (plan.fix) data = fixHands(view, data, plan.fixRadius);
       if (plan.floor) data = clearFloor(view, data);
       if (plan.speed) data = { ...data, duration: +(data.duration / plan.speed).toFixed(4), times: data.times.map(t => +(t / plan.speed).toFixed(4)) };
       if (plan.strike) extra = plan.at === undefined ? bladeTiming(view, data) : bladeWindowAt(view, data, plan.strike[0]);

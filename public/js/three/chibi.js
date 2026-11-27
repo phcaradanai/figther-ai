@@ -35,9 +35,12 @@ const SKINNED_HEROES = {
     narrowLegRest: true,
     painterly: true,
     stepFps: 0,
-    headScale: 1.10,
-    swordScale: 1.10,
-    shieldScale: 1.08,
+    // Proportions nearer Tree of Savior's: its swords and shields are small next to the body and
+    // its helmets leave the face showing. The Mixamo model's sword is 0.86 long against the
+    // Knight's old 1.39 (1.6 times), which is also why the blade kept passing through the Knight.
+    headScale: 0.96,
+    swordScale: 0.80,
+    shieldScale: 0.92,
     fused: [],
     capeMesh: 'KnightCape',
     helmetMesh: 'KnightHelmet',
@@ -48,10 +51,11 @@ const SKINNED_HEROES = {
     // old rx 0.38), `p` puts the hand the same distance off the blade axis, and `shieldOffset`
     // puts the shield on the forearm as the model carries it, as far back as the Knight's big fist
     // allows: the model's exact position (y 0.096) pushed the fist 7.6 cm out through the shield's
-    // face, so y stops at 0.026, where no hand or forearm vertex is in front of the shield surface.
+    // face, and with the shield at 0.92 scale y 0.02 still shows two fist vertices, so y stops at 0,
+    // where no hand or forearm vertex is in front of the shield surface (the test checks it).
     // Measured with public/dev/compare.html.
     swordMount: { p: [0.0269, -0.0660, 0.0123], q: [0.1283, 0.0227, 0.0521, 0.9901] },
-    shieldOffset: [0.0029, 0.026, -0.0523],
+    shieldOffset: [0.0029, 0.0, -0.0523],
     swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
@@ -2588,6 +2592,13 @@ export class ChibiView {
     const { dt } = env;
     const now = performance.now();
     this.time += dt;
+    // The server flags a landing the moment the body touches down, but the height drawn here
+    // closes the last stretch over the next few frames (about 0.15 s). Until the feet are near the
+    // floor the Knight stays in its air pose, so it does not stand up in mid-air and slide down.
+    if (pl.grounded && env.floorY && this.skinnedKnight) {
+      const floor = env.floorY(pl.x, pl.z, pl.y + 0.3);
+      if (floor !== null && floor !== undefined && pl.y - floor > 0.1) pl = Object.assign(Object.create(pl), { grounded: false });
+    }
     const speed = Math.hypot(pl.vx || 0, pl.vz || 0);
 
     // Position & smooth turning
