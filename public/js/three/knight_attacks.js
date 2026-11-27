@@ -28,7 +28,7 @@ export const KNIGHT_STRIKES = {
   slamImpact: { contact: 0.055, trail: [0, 0.09], commit: 0.36 }
 };
 // Clip times when a strike deliberately leaves the floor.
-export const KNIGHT_AIRBORNE = { attack3: [0.058, 0.18], charge: [0.03, 0.2] };
+export const KNIGHT_AIRBORNE = { charge: [0.03, 0.2] };
 
 // Leg geometry of the skinned Knight, in rig units.
 const THIGH = 0.2238;

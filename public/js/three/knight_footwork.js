@@ -104,7 +104,8 @@ export class KnightFootwork {
     }
     const duration = action.getClip().duration;
     const phase = action.time / duration;
-    const end = name === 'run' ? 0.31 : 0.34;
+    // Fraction of the cycle a boot stays down; measured on both gait clips (the walk's left boot is flat for 0.41, the run's for 0.41).
+    const end = 0.34;
     for (const [i, leg] of this.legs.entries()) {
       // A running foot is caught just before its contact key, so it does not
       // skim the floor at full swing speed on the last airborne frame.

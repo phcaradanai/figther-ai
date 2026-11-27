@@ -146,8 +146,10 @@ The Knight now uses these baked clips, chosen by the player after comparison:
 
 | Game clip | Mixamo source | Bake options |
 | --- | --- | --- |
-| `attack1` / `attack2` / `attack3` | Slash / attack (2) / attack (3) | Retimed so the fastest blade lands at 0.13 / 0.13 / 0.20 s; contact and trail stored in the clip and copied into `KNIGHT_STRIKES` |
-| `walk` / `run` | run / run (2) | Rotated so the left heel strikes at phase 0, resampled to 0.44 / 0.39 s for the support-foot solver |
+| `attack1` / `attack2` / `attack3` | One Hand Sword Combo, cut into its three chops (blade peaks at 1.12 / 2.20 / 3.03 s of the 4.6 s file, the `at` field in `BAKE`) | Retimed so each blade lands at 0.13 / 0.10 / 0.20 s (the nearest 30 fps frames to 0.12 / 0.115 / 0.19); contact and trail stored in the clip and copied into `KNIGHT_STRIKES`. All three keep a boot planted and none leaves the floor, so `KNIGHT_AIRBORNE` only lists the skill `charge` now |
+| `walk` / `run` | Sword And Shield Walk / Sword And Shield Run | Rotated so the left heel strikes at phase 0, resampled to 0.40 / 0.40 s for the support-foot solver (a 0.44 s walk cycle made the supporting boot slide 0.13 units; the gait's boot-down fraction is 0.34 for both) |
+
+The first Mixamo pass used the Run file as the walk and Run (2) as the run; the combo came from Slash, attack (2) and attack (3). Those three attacks had a leaping finisher, which the one-handed chops replace. `BAKE` takes a list for a file that holds several strikes.
 | `idle`, `idleFidget` | idle, the 7.5 s Sword And Shield Idle | The fidget plays once after 6 s standing still |
 | `guard`, `guardHit` | block idle, block (2) | `guardHit` plays on the server's `block` / `parry` events |
 | `turnR` / `turnL` | turn / turn (2) | Hips yaw removed and doubled speed, played when the facing jumps by over 0.6 rad while standing |

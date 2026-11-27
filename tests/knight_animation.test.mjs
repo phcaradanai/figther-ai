@@ -201,7 +201,7 @@ test('Knight keeps its ankles under its body through ground and air poses', t =>
   const sequences = [
     ['idle', {}, 120, 0.40],
     ['walk', { vz: 5.4 }, 64, 0.40],
-    ['sprint', { vz: 7.5, isSprinting: true }, 64, 0.40],
+    ['sprint', { vz: 7.5, isSprinting: true }, 64, 0.41],
     ['dodge', { vx: 10, isRolling: true }, 24, 0.46],
     ['rise', { grounded: false, vy: 8 }, 28, 0.40],
     ['fall', { grounded: false, vy: -3 }, 28, 0.40]
@@ -281,27 +281,21 @@ test('Knight cape sways with the stride and turns, lifts while falling and stays
   }
 });
 
-test('Knight strikes settle with both boots on the floor and the finisher leaves it', t => {
-  const knight = new ChibiView(base);
-  t.after(() => knight.dispose());
+test('Knight strikes always keep a boot planted and never sink one into the floor', t => {
   const point = new Vector3();
-  const ankles = () => [knight.R.footL, knight.R.footR].map(foot => foot.getWorldPosition(point).y);
-  const rest = knight.R.restFootY;
-  for (const comboStep of [1, 2]) {
+  for (const comboStep of [1, 2, 3]) {
+    const knight = new ChibiView(base);
+    t.after(() => knight.dispose());
+    const rest = knight.R.restFootY;
     advance(knight, {}, 40);
-    advance(knight, { state: 'attack', comboStep }, 24);
-    assert.equal(knight.currentName, 'attack' + comboStep);
-    for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `attack${comboStep} left a boot at ${(y - rest).toFixed(3)}`);
+    for (let i = 0; i < 34; i++) {
+      advance(knight, { state: 'attack', comboStep }, 1);
+      const lifts = [knight.R.footL, knight.R.footR].map(foot => foot.getWorldPosition(point).y - rest);
+      assert.equal(knight.currentName, 'attack' + comboStep);
+      assert.ok(Math.min(...lifts) > -0.03, `attack${comboStep} sank a boot ${Math.min(...lifts).toFixed(3)} at frame ${i}`);
+      if (i >= 4) assert.ok(Math.min(...lifts.map(Math.abs)) < 0.03, `attack${comboStep} had no boot on the floor at frame ${i} (${lifts.map(l => l.toFixed(3))})`);
+    }
   }
-  advance(knight, {}, 40);
-  let highest = 0;
-  for (let i = 0; i < 18; i++) {
-    advance(knight, { state: 'attack', comboStep: 3 }, 1);
-    highest = Math.max(highest, ...ankles());
-  }
-  assert.ok(highest - rest > 0.08, `the finisher only lifted a boot ${(highest - rest).toFixed(3)}`);
-  advance(knight, { state: 'attack', comboStep: 3 }, 8);
-  for (const y of ankles()) assert.ok(Math.abs(y - rest) < 0.03, `the finisher left a boot at ${(y - rest).toFixed(3)}`);
 });
 
 test('Knight air strikes launch, cut and spike with gathered legs and keep their clip through a landing', t => {

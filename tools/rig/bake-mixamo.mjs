@@ -22,15 +22,21 @@ import { loadChibiViews } from './load-chibi.mjs';
 //   fix      turn the shield to face forward and keep the blade out of the helmet
 //   strike   [contact, end]: retime so the fastest blade lands at `contact` (the
 //            server deals damage on the press) and the swing settles by `end`
+//   at       with strike: the source time of this strike's blade contact, for a
+//            file that holds several strikes (a value that is a list bakes one clip
+//            per entry); without it the fastest blade moment of the whole file is used
 //   gait     cycle length; the left heel strikes at phase 0 for the footwork
 //   yawFree  drop the hips' turn so the game's own yaw turns the Knight
 export const BAKE = {
   'sword and shield death': { clip: 'dead', speed: 1.25, floor: true },
-  'slash': { clip: 'attack1', inPlace: true, fix: true, strike: [0.12, 0.44] },
-  'sword and shield attack (2)': { clip: 'attack2', inPlace: true, fix: true, strike: [0.115, 0.42] },
-  'sword and shield attack (3)': { clip: 'attack3', inPlace: true, fix: true, strike: [0.19, 0.58] },
-  'sword and shield run': { clip: 'walk', inPlace: true, fix: true, gait: 0.44 },
-  'sword and shield run (2)': { clip: 'run', inPlace: true, fix: true, gait: 0.39 },
+  // One file, three overhead chops: the blade peaks at 1.12, 2.20 and 3.03 s.
+  'one hand sword combo': [
+    { clip: 'attack1', inPlace: true, fix: true, at: 1.12, strike: [0.12, 0.44] },
+    { clip: 'attack2', inPlace: true, fix: true, at: 2.20, strike: [0.115, 0.42] },
+    { clip: 'attack3', inPlace: true, fix: true, at: 3.03, strike: [0.19, 0.58] }
+  ],
+  'sword and shield walk': { clip: 'walk', inPlace: true, fix: true, gait: 0.4 },
+  'sword and shield run': { clip: 'run', inPlace: true, fix: true, gait: 0.4 },
   'sword and shield idle': { clip: 'idle', inPlace: true, fix: true },
   'long idle': { clip: 'idleFidget', inPlace: true, fix: true },
   'sword and shield block idle': { clip: 'guard', inPlace: true, fix: true },
@@ -130,6 +136,30 @@ export function bladeTiming(view, data) {
   while (first > 1 && speeds[first - 1] > speeds[peak] * 0.35) first--;
   while (last < speeds.length - 1 && speeds[last + 1] > speeds[peak] * 0.35) last++;
   return { contact: data.times[peak], trail: [data.times[Math.max(0, first - 1)], data.times[last]] };
+}
+
+// Contact and trail window when the contact is known (the strike was retimed to
+// land exactly there): the trail is the run of frames around it where the blade
+// moves at over 35% of its top speed near contact. The fastest blade moment of a
+// retimed clip can be the compressed wind-up, so it is not used for the contact.
+export function bladeWindowAt(view, data, contact) {
+  const tip = new Vector3();
+  const previous = new Vector3();
+  const speeds = [];
+  for (let i = 0; i < data.times.length; i++) {
+    poseFrame(view, data, i);
+    view.R.swordMount.localToWorld(tip.set(0, 0, 1.04));
+    speeds.push(i ? tip.distanceTo(previous) / (data.times[i] - data.times[i - 1]) : 0);
+    previous.copy(tip);
+  }
+  const at = data.times.reduce((best, t, i) => (Math.abs(t - contact) < Math.abs(data.times[best] - contact) ? i : best), 0);
+  const near = speeds.slice(Math.max(1, at - 1), at + 3);
+  const reference = Math.max(...near);
+  let first = at;
+  let last = at;
+  while (first > 1 && speeds[first - 1] > reference * 0.35) first--;
+  while (last < speeds.length - 1 && speeds[last + 1] > reference * 0.35) last++;
+  return { contact: data.times[at], trail: [data.times[Math.max(0, first - 1)], data.times[last]] };
 }
 
 // Source sample times that put the fastest blade at `contact` and end by `end`:
@@ -295,7 +325,7 @@ function lowestPoint(meshes, point) {
   return lowest;
 }
 
-function poseFrame(view, data, frame) {
+export function poseFrame(view, data, frame) {
   for (const [joint, values] of Object.entries(data.rotations)) view.R[joint].quaternion.fromArray(values, frame * 4);
   view.R.hips.position.fromArray(data.hips, frame * 3);
   view.root.updateMatrixWorld(true);
@@ -477,20 +507,21 @@ async function main() {
     const gltf = await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
     const source = gltf.animations.find(a => a.duration > 0.05);
     if (!source) continue;
-    const key = basename(file, '.glb');
-    const plan = BAKE[key];
-    let data = retarget(gltf.scene, source, restHipsY, plan || { inPlace: true });
-    report['mixamo:' + key] = score(view, clipFromData(key, data));
+    const key = basename(file, '.glb').toLowerCase();
+    const plans = [].concat(BAKE[key] || []);
+    const raw = retarget(gltf.scene, source, restHipsY, plans[0] || { inPlace: true });
+    report['mixamo:' + key] = score(view, clipFromData(key, raw));
     if (preview) {
       await mkdir(preview, { recursive: true });
-      await writeFile(join(preview, key + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...data }));
+      await writeFile(join(preview, key + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...raw }));
     }
-    if (out && plan) {
+    for (const plan of out ? plans : []) {
+      let data = raw;
       let extra = {};
       if (plan.strike) {
         const [contact, end] = plan.strike;
         data = retarget(gltf.scene, source, restHipsY, {
-          inPlace: plan.inPlace, sourceTimes: strikeTimes(bladeTiming(view, data).contact, source.duration, contact, end)
+          inPlace: plan.inPlace, sourceTimes: strikeTimes(plan.at ?? bladeTiming(view, raw).contact, source.duration, contact, end)
         });
       }
       if (plan.yawFree) data = stripYaw(data);
@@ -498,7 +529,7 @@ async function main() {
       if (plan.fix) data = fixHands(view, data);
       if (plan.floor) data = clearFloor(view, data);
       if (plan.speed) data = { ...data, duration: +(data.duration / plan.speed).toFixed(4), times: data.times.map(t => +(t / plan.speed).toFixed(4)) };
-      if (plan.strike) extra = bladeTiming(view, data);
+      if (plan.strike) extra = plan.at === undefined ? bladeTiming(view, data) : bladeWindowAt(view, data, plan.strike[0]);
       await mkdir(out, { recursive: true });
       await writeFile(join(out, plan.clip + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...extra, ...data }));
       report['baked:' + plan.clip] = { ...score(view, clipFromData(plan.clip, data)), ...extra };
