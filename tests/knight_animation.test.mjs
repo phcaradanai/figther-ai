@@ -567,3 +567,64 @@ test('Knight attack clips animate the grip and capes stay modular on the real sk
   advance(knight, { state: 'heavy' }, 16);
   assert.equal(knight.currentName, 'heavy');
 });
+
+test('all Knight clips respect human joint anatomy and keep the shield strap aligned', async t => {
+  const { SHIELD_HOLD } = await import('../public/js/three/knight_anatomy.js');
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  const qShield = new Quaternion(...SHIELD_HOLD);
+  const vHip = new Vector3(), vKnee = new Vector3(), vAnk = new Vector3();
+  const vSh = new Vector3(), vElb = new Vector3(), vWr = new Vector3();
+  const qInv = new Quaternion(), u = new Vector3(), w = new Vector3(), perp = new Vector3();
+  const deg = r => r * 180 / Math.PI;
+
+  const clips = [
+    'idle', 'idleFidget', 'walk', 'run', 'dash', 'jump', 'fall', 'roll',
+    'guard', 'guardHit', 'turnL', 'turnR', 'draw', 'hurt', 'knockdown', 'dead',
+    'attack1', 'attack2', 'attack3', 'heavy', 'sweep', 'slam', 'warcry', 'charge',
+    'airRise', 'airCut', 'airSpike', 'slamAim', 'slamDive', 'slamImpact'
+  ];
+  for (const name of clips) {
+    const act = knight.actions[name];
+    const clip = act.getClip();
+    const steps = Math.max(12, Math.round(clip.duration * 30));
+    knight.mixer.stopAllAction();
+    act.reset(); act.setEffectiveWeight(1); act.play();
+    for (let i = 0; i <= steps; i++) {
+      act.time = clip.duration * i / steps;
+      knight.mixer.update(0);
+      knight.root.updateMatrixWorld(true);
+      for (const side of ['L', 'R']) {
+        knight.R['leg' + side].getWorldPosition(vHip);
+        knight.R['shin' + side].getWorldPosition(vKnee);
+        knight.R['foot' + side].getWorldPosition(vAnk);
+        knight.R['leg' + side].getWorldQuaternion(qInv).invert();
+        u.subVectors(vKnee, vHip).applyQuaternion(qInv).normalize();
+        w.subVectors(vAnk, vKnee).applyQuaternion(qInv).normalize();
+        perp.copy(w).addScaledVector(u, -w.dot(u));
+        const kneeHyp = perp.z > 0 ? deg(Math.atan2(perp.z, Math.max(1e-4, u.dot(w)))) : 0;
+        const kneeLat = deg(Math.asin(Math.min(1, Math.abs(perp.x))));
+        assert.ok(kneeHyp <= 2.5, `${name} knee${side} hyperextended ${kneeHyp.toFixed(1)} deg at step ${i}`);
+        assert.ok(kneeLat <= (name === 'dead' ? 24 : 12), `${name} knee${side} lateral ${kneeLat.toFixed(1)} deg at step ${i}`);
+
+        knight.R['arm' + side].getWorldPosition(vSh);
+        knight.R['fore' + side].getWorldPosition(vElb);
+        knight.R['hand' + side].getWorldPosition(vWr);
+        knight.R['arm' + side].getWorldQuaternion(qInv).invert();
+        u.subVectors(vElb, vSh).applyQuaternion(qInv).normalize();
+        w.subVectors(vWr, vElb).applyQuaternion(qInv).normalize();
+        perp.copy(w).addScaledVector(u, -w.dot(u));
+        const elbHyp = perp.z < 0 ? deg(Math.atan2(-perp.z, Math.max(1e-4, u.dot(w)))) : 0;
+        const elbLat = deg(Math.asin(Math.min(1, Math.abs(perp.x))));
+        assert.ok(elbHyp <= 2.5, `${name} elbow${side} hyperextended ${elbHyp.toFixed(1)} deg at step ${i}`);
+        assert.ok(elbLat <= 12, `${name} elbow${side} lateral ${elbLat.toFixed(1)} deg at step ${i}`);
+      }
+      const headAng = deg(2 * Math.acos(Math.min(1, Math.abs(knight.R.head.quaternion.w))));
+      assert.ok(headAng <= 75, `${name} head turned ${headAng.toFixed(1)} deg at step ${i}`);
+      if (name !== 'dead' && name !== 'knockdown') {
+        const shldErr = deg(2 * Math.acos(Math.min(1, Math.abs(knight.R.handL.quaternion.dot(qShield)))));
+        assert.ok(shldErr <= 3, `${name} handL shield drift ${shldErr.toFixed(1)} deg at step ${i}`);
+      }
+    }
+  }
+});

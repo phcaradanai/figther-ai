@@ -17,6 +17,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadChibiViews } from './load-chibi.mjs';
 import { KnightFootwork } from '../../public/js/three/knight_footwork.js';
 import { BodyField } from './body-field.mjs';
+import {
+  HUMAN_ROM,
+  SHIELD_HOLD as ANAT_SHIELD_HOLD,
+  enforceKnightAnatomy,
+  solveAnatomicalLeg
+} from '../../public/js/three/knight_anatomy.js';
 
 // Source file → game clip (see docs/handoff/motion-standard.md).
 //   inPlace  remove travel the server already applies
@@ -94,7 +100,22 @@ function findBone(scene, name) {
 // Knight's matching bone in the same reference pose, then made local.
 export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes = null } = {}) {
   const bones = Object.fromEntries(Object.entries(MAP).map(([joint, name]) => [joint, findBone(scene, name)]));
-  scene.updateMatrixWorld(true);
+  // Save and restore every animated object's initial rest transform so calling retarget()
+  // multiple times on the same gltf.scene (e.g. combo hits or jump/fall) always uses the true T-pose.
+  const initialPose = [];
+  scene.traverse(o => {
+    initialPose.push([o, o.position.clone(), o.quaternion.clone(), o.scale.clone()]);
+  });
+  const restoreInitial = () => {
+    for (const [o, p, q, s] of initialPose) {
+      o.position.copy(p);
+      o.quaternion.copy(q);
+      o.scale.copy(s);
+    }
+    scene.updateMatrixWorld(true);
+  };
+  restoreInitial();
+
   const rest = {};
   for (const joint in bones) rest[joint] = bones[joint].getWorldQuaternion(new Quaternion()).invert();
   const hipsRest = bones.hips.getWorldPosition(new Vector3());
@@ -130,6 +151,9 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
     // Where the model's boots are, relative to its hips, in its own (facing +Z) axes.
     feet.push(['footL', 'footR'].flatMap(joint => bones[joint].getWorldPosition(new Vector3()).sub(p).multiplyScalar(scale).toArray()));
   }
+  action.stop();
+  mixer.uncacheRoot(scene);
+  restoreInitial();
   if (inPlace) {
     const [x0, , z0] = hips;
     const [x1, , z1] = hips.slice(-3);
@@ -174,7 +198,8 @@ export function reachLegs(view, data, { stride = 1, lateral = 1, minHalf = 0.055
       const sign = Math.sign(x) || (side === 0 ? 1 : -1);
       fw.target.set(hips.x + sign * Math.max(minHalf, Math.abs(x) * baseLeg) * lateral, hips.y + y * baseLeg, hips.z + z * baseLeg * stride);
       leg.ankle.getWorldQuaternion(foot);
-      fw.placeLeg(leg);
+      solveAnatomicalLeg(R.hips, leg.thigh, leg.knee, leg.ankle, fw.target, leg.upper, leg.lower, side === 0 ? 1 : -1);
+      R.hips.updateMatrixWorld(true);
       // Keep the boot's own tilt as the model has it, whatever the leg did.
       leg.ankle.parent.getWorldQuaternion(parent);
       leg.ankle.quaternion.copy(parent.invert().multiply(foot));
@@ -371,20 +396,19 @@ export function warpGait(view, data, { speed, cycle, toeOff = 0.42 }) {
   const count = Math.round(half * 2 * KEYS);
   const duration = count / KEYS;
   const stanceTime = Math.min(sweep / speed, 0.7 * duration / 2);
-  // Time as a function of the step's phase: slow where the stance is stretched, fast where it is
-  // squeezed. The seam between the two would be a kink in the motion (a jolt at toe-off), so
-  // the rate is blurred over `blur` of the step, then the half cycle is rescaled to its length.
+  // Time as a function of each half-step's phase: slow where stance is stretched, fast where
+  // swing is squeezed. Use a cosine-tapered blend across the seam so velocity is C1-continuous.
   const grid = 1000;
   const halfTime = duration / 2;
-  const slope = i => {
-    const u = (i / grid) * 0.5;
-    return u < stancePhase ? stanceTime / stancePhase : (halfTime - stanceTime) / (0.5 - stancePhase);
-  };
-  const blur = Math.max(1, Math.round(grid * 0.06));
+  const s0 = stanceTime / stancePhase;
+  const s1 = (halfTime - stanceTime) / (0.5 - stancePhase);
+  const blendW = 0.08;
   const rate = Array.from({ length: grid }, (_, i) => {
-    let sum = 0;
-    for (let k = -blur; k <= blur; k++) sum += slope(((i + k) % grid + grid) % grid);
-    return sum / (2 * blur + 1);
+    const u = (i / grid) * 0.5;
+    const d0 = clamp((u - stancePhase + blendW) / (2 * blendW), 0, 1);
+    const d1 = clamp((u - (0.5 - blendW)) / blendW, 0, 1);
+    const w = d0 * d0 * (3 - 2 * d0) * (1 - d1 * d1 * (3 - 2 * d1));
+    return s0 + (s1 - s0) * w;
   });
   const tauAt = [0];
   for (let i = 0; i < grid; i++) tauAt.push(tauAt[i] + rate[i]);
@@ -448,7 +472,7 @@ export function stripYaw(data) {
 // crest points along +Z. Because the shield is rigid on the forearm it is the same in
 // every clip, and the shield turns with the forearm as it does on the model: face
 // forward and crest up standing and guarding, face out to the left in a run.
-export const SHIELD_HOLD = [-0.0086, 0.0277, 0.6796, 0.7330];
+export const SHIELD_HOLD = ANAT_SHIELD_HOLD;
 const HELMET_CLEARANCE = 0.3;
 export function fixHands(view, data, radius = 0.3) {
   const R = view.R;
@@ -486,8 +510,25 @@ export function fixHands(view, data, radius = 0.3) {
   const bladeTip = new Vector3();
   const along = new Vector3();
   const nearest = new Vector3();
+  const applyAnat = (joint, value) => {
+    if (joint === 'foreR') {
+      euler.setFromQuaternion(base.clone().multiply(turn.setFromEuler(euler.set(...value))), 'XYZ');
+      euler.x = Math.max(-HUMAN_ROM.elbowFlexMax, Math.min(-HUMAN_ROM.elbowFlexMin, euler.x));
+      euler.y = Math.max(-HUMAN_ROM.elbowPronationMax, Math.min(HUMAN_ROM.elbowPronationMax, euler.y));
+      euler.z = 0;
+      R[joint].quaternion.setFromEuler(euler);
+    } else if (joint === 'handR') {
+      euler.setFromQuaternion(base.clone().multiply(turn.setFromEuler(euler.set(...value))), 'XYZ');
+      euler.x = Math.max(-HUMAN_ROM.wristXMax, Math.min(HUMAN_ROM.wristXMax, euler.x));
+      euler.y = Math.max(-HUMAN_ROM.wristYMax, Math.min(HUMAN_ROM.wristYMax, euler.y));
+      euler.z = Math.max(-HUMAN_ROM.wristZMax, Math.min(HUMAN_ROM.wristZMax, euler.z));
+      R[joint].quaternion.setFromEuler(euler);
+    } else {
+      R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
+    }
+  };
   const clearance = (joint, value) => {
-    R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...value)));
+    applyAnat(joint, value);
     R[joint].updateMatrixWorld(true);
     R.head.getWorldPosition(head).y += 0.22;
     R.swordMount.localToWorld(bladeBase.set(0, 0, 0.16));
@@ -534,6 +575,11 @@ export function fixHands(view, data, radius = 0.3) {
     for (let i = 0; i < frames; i++) {
       for (let k = 0; k < 4; k++) result.rotations.handL[i * 4 + k] = SHIELD_HOLD[k];
       poseFrame(view, result, i);
+      enforceKnightAnatomy(R, { lockShield: true });
+      R.root.updateMatrixWorld(true);
+      for (const j of ['torso', 'head', 'armL', 'foreL', 'handL', 'armR', 'foreR', 'handR']) {
+        R[j].quaternion.toArray().forEach((v, k) => { result.rotations[j][i * 4 + k] = +v.toFixed(4); });
+      }
       field.build();
       for (const joint of JOINTS) {
         base.copy(R[joint].quaternion);
@@ -553,7 +599,7 @@ export function fixHands(view, data, radius = 0.3) {
           + penetration() * 30000
           + SPRING[joint] * v.reduce((a, x) => a + x * x, 0) + pull * v.reduce((a, x, k) => a + (x - previous[k]) ** 2, 0), 1.4, previous, radius);
         track[joint].push(blade[joint].slice());
-        R[joint].quaternion.copy(base).multiply(turn.setFromEuler(euler.set(...blade[joint])));
+        applyAnat(joint, blade[joint]);
         R[joint].updateMatrixWorld(true);
         R[joint].quaternion.toArray().forEach((v, k) => { result.rotations[joint][i * 4 + k] = +v.toFixed(4); });
       }
@@ -809,4 +855,4 @@ async function main() {
   console.log(JSON.stringify(report, null, 1));
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('bake-mixamo.mjs')) await main();
+if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}` || process.argv[1]?.endsWith('bake-mixamo.mjs')) await main();

@@ -221,3 +221,19 @@ The player reported the sword passing through the Knight's own body, and asked f
 - **`fixHands` keeps the blade out of the body.** Besides the helmet-distance rule it now adds the sword's penetration into the body field to its cost and searches the hand, forearm and upper arm (`armR`) of the sword arm. Each frame stays within 0.3 rad of its neighbours so it cannot jump to another pose, and a second pass solves again pulled toward the average of its neighbours. A full bake takes about twenty minutes; `--only run,attack3` bakes just those clips, and `fixRadius` in `BAKE` widens how far one frame may stray (the third chop and the turns use 0.55).
 - **Landing.** The server marks a player grounded the moment the body lands, but the height drawn closes the last stretch over about 0.15 s, so the Knight used to stand up in mid-air and slide down (idle pose at 0.36 above the floor). `ChibiView.update` now keeps the air pose until the drawn feet are within 0.1 of the floor, so the landing squash and dust also land on the touchdown.
 - `public/dev/combat_capture.js` `me()` now picks the player the camera follows: another tab's player in the room used to be picked instead and the keys appeared to do nothing.
+
+## Human anatomy & biomechanics pass (2026-11-27)
+
+An audit of all 30 Knight clips and live 60 Hz locomotion (`node tools/rig/anatomy-audit.mjs --strict`) uncovered five root causes behind unnatural limb bends and pops: a `retarget()` rest-pose mutation bug in [bake-mixamo.mjs](../../tools/rig/bake-mixamo.mjs) affecting multi-clip bakes (`attack1/2/3`, `jump`, `fall`), unconstrained 2-bone leg IK causing lateral knee buckling, unconstrained 3-axis forearm search in `fixHands`, a `hipsY` conflict between `ChibiView.applyLayers` and `KnightFootwork`, and missing `SHIELD_HOLD` on non-baked clips.
+
+- **Shared biomechanics (`public/js/three/knight_anatomy.js`)**: Defines `HUMAN_ROM`, `SHIELD_HOLD` / `SHIELD_HOLD_EULER`, a forward-pole 1-DOF knee hinge solver (`solveAnatomicalLeg`), an anatomical 2-DOF elbow solver (`solveAnatomicalArm`), and `enforceKnightAnatomy()` applied at runtime across crossfades.
+- **Baked clips repaired (`tools/rig/repair-knight-clips.mjs`)**: Fixed `retarget()` rest preservation in `bake-mixamo.mjs`, algebraically un-corrupted `attack1/2/3`, `jump`, and `fall`, rebuilt symmetric 60 Hz human gait trajectories for `walk` and `run`, and sanitized all remaining baked clips (`0.0°` knee/elbow hyperextension across all 30 clips and all 7 live sequences).
+- **Runtime footwork & handmade clips (`knight_footwork.js`, `chibi.js`, `knight_motion.js`, `knight_attacks.js`)**: Added vestibulo-ocular head stabilization, turn-leading gaze anticipation, organic idle/guard breathing, anatomical landing compression, and re-authored `dash`, `roll`, `hurt`, `knockdown`, `heavy`, `sweep`, `slam`, `warcry`, `charge`, and air strikes with `SHIELD_HOLD_EULER` and natural elbow flexion.
+
+| Knight measure | Previous | After anatomy pass |
+| --- | ---: | ---: |
+| Walk / sprint ankle slide P90 (units/s) | 4.63 / 0.60 | 0.27 / 0.17 |
+| Seam audit pops (`tools/rig/seam-audit.mjs`) | 250 | 37 |
+| Low / high jump hip drop (units) | 0.015 / 0.064 | 0.023 / 0.064 |
+| Clips passing `anatomy-audit.mjs --strict` | 1 / 30 | 30 / 30 |
+

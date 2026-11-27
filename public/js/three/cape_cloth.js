@@ -7,7 +7,7 @@ const DAMPING = 2.6;    // cloth's own loss, per second
 const PULL = [0, 10, 5, 2]; // spring back toward the authored drape, per point
 const BEND = 30;        // spring toward a straight continuation of the segment above
 const MAX_BEND = 0.5;   // radians a segment may fold relative to the one above
-const SLACK = 0.02;     // how far the cloth may swing forward of its drape (rig units)
+const SLACK = 0.005;    // how far the cloth may swing forward of its drape (rig units)
 const LEG_RADIUS = 0.07;
 const LEG_SOFTNESS = 0.45; // share of a leg overlap resolved per pass
 const MAX_LIFT = 1.45;  // radians from hanging straight down, about the torso's side axis
@@ -175,7 +175,7 @@ export class CapeCloth {
     if (_w.lengthSq() < 1e-8) _w.subVectors(drape[i], drape[i - 1]);
     _w.normalize();
     const restLift = Math.atan2(-(drape[i].z - drape[i - 1].z), -(drape[i].y - drape[i - 1].y));
-    let lift = clamp(Math.atan2(-_w.z, -_w.y), restLift - 0.25, MAX_LIFT);
+    let lift = clamp(Math.atan2(-_w.z, -_w.y), restLift - 0.06, MAX_LIFT);
     let sway = clamp(Math.asin(clamp(_w.x, -1, 1)), -MAX_SWAY, MAX_SWAY);
     if (i >= 2) {
       // Keep the cloth from creasing: limit the fold against the segment above.

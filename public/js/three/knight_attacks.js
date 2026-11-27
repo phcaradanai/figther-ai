@@ -1,3 +1,5 @@
+import { SHIELD_HOLD_EULER } from './knight_anatomy.js';
+
 // Tree of Savior style sword-and-board strikes for the skinned Knight.
 //
 // Reference: a quick wind-up with the blade cocked over the shoulder, a strike
@@ -41,10 +43,10 @@ const PIVOT = 0.024;       // hip joints sit this far below the hips bone
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 // Thigh, knee and ankle angles that set a flat boot on the floor `reach` ahead of
-// its hip (negative: behind), with the knee bending forward.
+// its hip (negative: behind), with the knee bending forward and never hyperextending.
 function plant(hipsY, pitch, reach, spread) {
   const drop = (hipsY - PIVOT - ANKLE) / Math.cos(spread);
-  const distance = Math.min(Math.hypot(reach, drop), THIGH + SHIN - 0.003);
+  const distance = Math.min(Math.hypot(reach, drop), THIGH + SHIN - 0.004);
   const line = Math.atan2(-reach, drop);
   const open = Math.acos(clamp((THIGH ** 2 + distance ** 2 - SHIN ** 2) / (2 * THIGH * distance), -1, 1));
   const thigh = line - open;
@@ -52,7 +54,7 @@ function plant(hipsY, pitch, reach, spread) {
   const kneeY = -THIGH * Math.cos(thigh);
   const shin = Math.atan2(-(-distance * Math.sin(line) - kneeZ), -(-distance * Math.cos(line) - kneeY));
   const leg = thigh - pitch - THIGH_REST;
-  const knee = shin - thigh - (SHIN_REST - THIGH_REST);
+  const knee = Math.max(0.05, shin - thigh - (SHIN_REST - THIGH_REST));
   return [leg, knee, -(pitch + leg + knee)];
 }
 
@@ -68,161 +70,152 @@ function stance(hipsY, pitch, [leftReach, leftSpread], [rightReach, rightSpread]
 }
 
 export function buildKnightAttacks(makeClip, idle, pose) {
-  // 1: Diagonal cleave. Coil to the sword side with the blade cocked behind the
-  // head, then drop into a wide lunge as the blade cuts down across the body.
+  // 1: Diagonal cleave (handmade fallback; baked attack1 overrides by default).
   const cleaveCoil = pose(idle, stance(0.585, 0.02, [0.10, 0.05], [-0.12, 0.06]), {
     hips: [0.02, -0.32, 0.02], hipsOffset: [-0.02, 0, -0.03],
-    torso: [-0.06, -0.52, 0.06], head: [0.04, 0.70, -0.04],
+    torso: [-0.06, -0.48, 0.06], head: [0.04, 0.65, -0.04],
     armR: [-1.74, -0.39, 0.24], foreR: [-0.62, 0, 0], handR: [0.05, -0.34, 0],
-    armL: [-0.95, 0.05, 0.28], foreL: [-0.95, 0, 0], handL: [0, 0, 0]
+    armL: [-0.95, 0.05, 0.24], foreL: [-0.95, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
-  const cleaveCut = pose(idle, stance(0.475, 0.12, [0.30, 0.16], [-0.31, 0.15]), {
+  const cleaveCut = pose(idle, stance(0.475, 0.12, [0.28, 0.14], [-0.28, 0.14]), {
     hips: [0.12, 0.34, -0.04], hipsOffset: [0.03, 0, 0.06],
-    torso: [0.40, 0.52, 0.08], head: [-0.24, -0.72, -0.02],
-    armR: [-0.82, -0.54, 0.53], foreR: [0, 0, 0], handR: [0.32, -0.26, -0.02],
-    armL: [0.32, 0.05, 0.52], foreL: [-1.38, 0, 0], handL: [0, 0, 0]
+    torso: [0.40, 0.48, 0.08], head: [-0.24, -0.68, -0.02],
+    armR: [-0.82, -0.54, 0.53], foreR: [-0.12, 0, 0], handR: [0.32, -0.26, -0.02],
+    armL: [0.28, 0.05, 0.42], foreL: [-1.32, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
   const cleaveThrough = pose(cleaveCut, {
-    hipsY: 0.462, torso: [0.46, 0.64, 0.09], head: [-0.27, -0.80, -0.02],
+    hipsY: 0.462, torso: [0.46, 0.58, 0.09], head: [-0.27, -0.74, -0.02],
     armR: [-0.36, -0.40, 0.62], foreR: [-0.32, 0, 0], handR: [0.51, -0.08, 0.11]
   });
   const cleaveHold = pose(cleaveThrough, {
-    hipsY: 0.47, torso: [0.43, 0.60, 0.08],
+    hipsY: 0.47, torso: [0.43, 0.54, 0.08],
     armR: [-0.48, -0.44, 0.60], foreR: [-0.22, 0, 0], handR: [0.45, -0.14, 0.06]
   });
 
-  // 2: Backhand sweep. The blade is drawn back across the hips, then swept flat
-  // out to the sword side while the shield arm swings out for balance.
-  const sweepDraw = pose(idle, stance(0.50, 0.10, [0.20, 0.14], [-0.22, 0.14]), {
-    hips: [0.10, 0.36, -0.04], hipsOffset: [0.02, 0, 0.04],
-    torso: [0.26, 0.82, 0.05], head: [-0.16, -0.95, 0],
-    armR: [-0.94, 0.55, 0.74], foreR: [0, 0, 0], handR: [0.70, -0.09, 0.11],
-    armL: [0.20, 0, 0.45], foreL: [-1.35, 0, 0], handL: [0, 0, 0]
+  // 2: Backhand sweep (handmade fallback; baked attack2 overrides by default).
+  const sweepDraw = pose(idle, stance(0.50, 0.10, [0.20, 0.12], [-0.20, 0.12]), {
+    hips: [0.10, 0.32, -0.04], hipsOffset: [0.02, 0, 0.04],
+    torso: [0.26, 0.68, 0.05], head: [-0.16, -0.82, 0],
+    armR: [-0.94, 0.48, 0.64], foreR: [-0.22, 0, 0], handR: [0.62, -0.09, 0.11],
+    armL: [0.18, 0, 0.38], foreL: [-1.28, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
-  const sweepCut = pose(idle, stance(0.49, 0.08, [-0.22, 0.15], [0.26, 0.15]), {
-    hips: [0.08, -0.34, 0.04], hipsOffset: [-0.03, 0, 0.05],
-    torso: [0.26, -0.62, -0.05], head: [-0.14, 0.78, 0],
-    armR: [-1.74, 0.61, 0.82], foreR: [-0.41, 0, 0], handR: [0.88, -0.46, 0.09],
-    armL: [-0.85, 0, 0.62], foreL: [-0.85, 0, 0], handL: [0, 0, 0]
+  const sweepCut = pose(idle, stance(0.49, 0.08, [-0.20, 0.13], [0.24, 0.13]), {
+    hips: [0.08, -0.32, 0.04], hipsOffset: [-0.03, 0, 0.05],
+    torso: [0.26, -0.56, -0.05], head: [-0.14, 0.72, 0],
+    armR: [-1.70, 0.52, 0.74], foreR: [-0.38, 0, 0], handR: [0.72, -0.38, 0.09],
+    armL: [-0.82, 0, 0.54], foreL: [-0.85, 0.25, 0], handL: SHIELD_HOLD_EULER
   });
   const sweepThrough = pose(sweepCut, {
-    hipsY: 0.48, torso: [0.28, -0.76, -0.06], head: [-0.15, 0.90, 0],
-    armR: [-1.57, -0.90, -0.22], foreR: [0, 0, 0], handR: [0.49, -0.24, -0.19]
+    hipsY: 0.48, torso: [0.28, -0.66, -0.06], head: [-0.15, 0.80, 0],
+    armR: [-1.54, -0.75, -0.18], foreR: [-0.16, 0, 0], handR: [0.46, -0.22, -0.16]
   });
   const sweepHold = pose(sweepThrough, {
-    hipsY: 0.49, torso: [0.27, -0.70, -0.05],
-    armR: [-1.50, -0.84, -0.26], handR: [0.45, -0.20, -0.15]
+    hipsY: 0.49, torso: [0.27, -0.62, -0.05],
+    armR: [-1.48, -0.70, -0.22], handR: [0.42, -0.18, -0.14]
   });
 
-  // 3: Leaping crush (finisher). Gather low, spring up with the sword raised
-  // behind the head, then drive it straight down into a deep squat.
-  const crushGather = pose(idle, stance(0.47, 0.20, [0.14, 0.12], [-0.14, 0.12]), {
+  // 3: Leaping crush (handmade fallback; baked attack3 overrides by default).
+  const crushGather = pose(idle, stance(0.47, 0.20, [0.14, 0.11], [-0.14, 0.11]), {
     hips: [0.20, 0.06, 0], hipsOffset: [0, 0, -0.02],
     torso: [0.36, -0.10, 0], head: [-0.24, 0.02, 0],
-    armR: [0.17, -0.64, -0.16], foreR: [0, 0, 0], handR: [0.88, -0.08, 0.13],
-    armL: [0.30, 0, 0.42], foreL: [-1.10, 0, 0], handL: [0, 0, 0]
+    armR: [0.17, -0.60, -0.16], foreR: [-0.24, 0, 0], handR: [0.74, -0.08, 0.12],
+    armL: [0.28, 0, 0.36], foreL: [-1.10, 0.25, 0], handL: SHIELD_HOLD_EULER
   });
   const crushRise = pose(crushGather, {
-    hips: [-0.06, 0.04, 0], hipsOffset: [0, 0, 0.02], hipsY: 0.70,
-    torso: [-0.32, -0.08, 0], head: [0.10, 0.06, 0],
-    armR: [-2.29, -0.31, 0.41], foreR: [-0.31, 0, 0], handR: [0.01, 0.18, 0.07],
-    armL: [-1.05, 0.10, 0.62], foreL: [-1.25, 0, 0],
-    legL: [-0.75, 0.04, 0.08], shinL: [1.15, 0, 0], footL: [0.35, 0, 0],
-    legR: [0.05, -0.04, -0.08], shinR: [1.25, 0, 0], footR: [0.45, 0, 0]
+    hips: [-0.06, 0.04, 0], hipsOffset: [0, 0, 0.02], hipsY: 0.68,
+    torso: [-0.28, -0.08, 0], head: [0.10, 0.06, 0],
+    armR: [-2.25, -0.28, 0.38], foreR: [-0.32, 0, 0], handR: [0.05, 0.16, 0.07],
+    armL: [-1.02, 0.10, 0.56], foreL: [-1.22, 0.28, 0],
+    legL: [-0.72, 0.04, 0.07], shinL: [1.12, 0, 0], footL: [0.32, 0, 0],
+    legR: [0.05, -0.04, -0.07], shinR: [1.22, 0, 0], footR: [0.42, 0, 0]
   });
-  const crushSlam = pose(idle, stance(0.42, 0.22, [0.30, 0.20], [-0.28, 0.20]), {
-    hips: [0.22, 0.10, 0], hipsOffset: [0, 0, 0.08],
-    torso: [0.62, 0.06, 0], head: [-0.44, -0.08, 0],
-    armR: [-0.88, -0.22, 0.40], foreR: [0, 0, 0], handR: [0.29, -0.05, -0.28],
-    armL: [0.22, 0, 0.62], foreL: [-1.32, 0, 0], handL: [0, 0, 0]
+  const crushSlam = pose(idle, stance(0.43, 0.20, [0.28, 0.16], [-0.26, 0.16]), {
+    hips: [0.20, 0.10, 0], hipsOffset: [0, 0, 0.08],
+    torso: [0.58, 0.06, 0], head: [-0.42, -0.08, 0],
+    armR: [-0.84, -0.20, 0.36], foreR: [-0.14, 0, 0], handR: [0.28, -0.05, -0.22],
+    armL: [0.22, 0, 0.52], foreL: [-1.28, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
-  const crushHold = pose(crushSlam, { hipsY: 0.43, torso: [0.60, 0.07, 0] });
+  const crushHold = pose(crushSlam, { hipsY: 0.44, torso: [0.56, 0.07, 0] });
 
-  // Heavy: Shield bash. Pull the shield to the chest, then step in and drive it
-  // forward with the sword drawn back low behind.
-  const bashPull = pose(idle, stance(0.52, 0.08, [-0.06, 0.10], [-0.04, 0.12]), {
-    hips: [0.06, 0.30, 0], hipsOffset: [-0.02, 0, -0.04],
-    torso: [0.06, 0.52, 0.04], head: [-0.06, -0.72, 0],
-    armL: [-0.13, -0.46, -0.46], foreL: [-1.95, 0, 0], handL: [0.28, 0, 0],
-    armR: [0.73, -0.40, -0.09], foreR: [-0.32, 0, 0], handR: [0, -0.55, -0.07]
+  // Heavy: Shield bash. Pull the shield close across the chest with a natural elbow fold,
+  // then step in and drive it forward behind the strapped shield.
+  const bashPull = pose(idle, stance(0.52, 0.08, [-0.06, 0.09], [-0.04, 0.10]), {
+    hips: [0.06, 0.28, 0], hipsOffset: [-0.02, 0, -0.04],
+    torso: [0.06, 0.48, 0.04], head: [-0.06, -0.66, 0],
+    armL: [-0.36, -0.32, 0.08], foreL: [-1.58, 0.42, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.68, -0.36, -0.14], foreR: [-0.42, 0, 0], handR: [0.04, -0.45, -0.06]
   });
-  const bashDrive = pose(idle, stance(0.46, 0.14, [0.34, 0.14], [-0.30, 0.14]), {
-    hips: [0.14, -0.30, 0.04], hipsOffset: [0.02, 0, 0.10],
-    torso: [0.40, -0.42, 0], head: [-0.22, 0.62, 0],
-    armL: [-1.59, 0.48, -0.41], foreL: [-1.64, 0, 0], handL: [0.52, 0.01, 0.59],
-    armR: [0.55, -0.40, -0.25], foreR: [-0.40, 0, 0], handR: [0.10, -0.50, 0]
+  const bashDrive = pose(idle, stance(0.46, 0.14, [0.32, 0.12], [-0.28, 0.12]), {
+    hips: [0.14, -0.26, 0.04], hipsOffset: [0.02, 0, 0.10],
+    torso: [0.38, -0.36, 0], head: [-0.22, 0.54, 0],
+    armL: [-1.36, 0.22, -0.08], foreL: [-1.42, 0.46, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.52, -0.34, -0.26], foreR: [-0.46, 0, 0], handR: [0.08, -0.40, 0]
   });
-  const bashHold = pose(bashDrive, { hipsY: 0.465, torso: [0.42, -0.46, 0], armL: [-1.52, 0.46, -0.40] });
+  const bashHold = pose(bashDrive, { hipsY: 0.468, torso: [0.40, -0.40, 0], armL: [-1.30, 0.20, -0.08] });
 
-
-  // Air strikes: three per jump. The first launches the target, so the blade
-  // rises from low behind to high in front; the second sweeps flat across while
-  // both hang in the air; the third spikes the target down with an overhead
-  // chop. Knees stay gathered so nothing reads as a stance in mid-air.
+  // Air strikes: three per jump. Natural elbow flexion and smooth wrist articulation
+  // eliminate 1-frame arm pops while keeping knees athletically gathered.
   const tuckedLegs = {
-    legL: [-1.25, 0.04, -0.07], shinL: [1.95, 0, 0], footL: [0.45, 0, 0.05],
-    legR: [-0.80, -0.04, 0.07], shinR: [2.05, 0, 0], footR: [0.55, 0, -0.05]
+    legL: [-1.22, 0.04, -0.07], shinL: [1.90, 0, 0], footL: [0.42, 0, 0.05],
+    legR: [-0.78, -0.04, 0.07], shinR: [1.98, 0, 0], footR: [0.50, 0, -0.05]
   };
   const airborne = pose(idle, tuckedLegs, {
     hips: [0.04, 0.04, 0], hipsOffset: [0, 0, 0], hipsY: 0.66,
     torso: [0.12, 0.10, 0.02], head: [-0.12, -0.14, 0],
-    armL: [-0.80, 0.06, 0.40], foreL: [-1.00, 0, 0], handL: [0, 0, 0],
-    armR: [-0.90, -0.10, -0.30], foreR: [-0.30, 0, 0], handR: [0.40, 0, 0]
+    armL: [-0.78, 0.06, 0.36], foreL: [-1.02, 0.26, 0], handL: SHIELD_HOLD_EULER,
+    armR: [-0.88, -0.10, -0.28], foreR: [-0.36, 0, 0], handR: [0.32, 0, 0]
   });
   const riseCoil = pose(airborne, {
-    hips: [0.10, -0.25, 0], torso: [0.30, -0.55, 0.05], head: [-0.20, 0.60, 0],
-    legL: [-0.95, 0.04, -0.07], shinL: [1.70, 0, 0], legR: [-0.30, -0.04, 0.07], shinR: [1.60, 0, 0],
-    armR: [-0.81, -0.90, -0.50], foreR: [0, 0, 0], handR: [0.94, -0.53, -0.15],
-    armL: [-1.10, 0.06, 0.30], foreL: [-0.90, 0, 0]
+    hips: [0.10, -0.22, 0], torso: [0.28, -0.46, 0.05], head: [-0.18, 0.54, 0],
+    legL: [-0.92, 0.04, -0.07], shinL: [1.66, 0, 0], legR: [-0.32, -0.04, 0.07], shinR: [1.56, 0, 0],
+    armR: [-0.76, -0.68, -0.42], foreR: [-0.32, -0.18, 0], handR: [0.64, -0.34, -0.10],
+    armL: [-1.04, 0.06, 0.28], foreL: [-0.94, 0.26, 0]
   });
   const riseCut = pose(airborne, {
-    hips: [-0.10, 0.25, 0], torso: [-0.28, 0.50, 0.02], head: [0.10, -0.60, 0],
-    legL: [-1.45, 0.04, -0.07], shinL: [1.80, 0, 0], legR: [-0.20, -0.04, 0.07], shinR: [1.10, 0, 0],
-    armR: [-1.75, -0.58, -0.21], foreR: [0, 0, 0], handR: [0.62, -0.02, 0],
-    armL: [0.30, 0.06, 0.60], foreL: [-1.20, 0, 0]
+    hips: [-0.08, 0.22, 0], torso: [-0.24, 0.44, 0.02], head: [0.10, -0.54, 0],
+    legL: [-1.38, 0.04, -0.07], shinL: [1.74, 0, 0], legR: [-0.22, -0.04, 0.07], shinR: [1.10, 0, 0],
+    armR: [-1.68, -0.44, -0.16], foreR: [-0.14, -0.08, 0], handR: [0.46, -0.04, 0],
+    armL: [0.22, 0.06, 0.50], foreL: [-1.18, 0.28, 0]
   });
   const riseThrough = pose(riseCut, {
-    torso: [-0.34, 0.58, 0.02], armR: [-2.00, 0.16, -0.04], foreR: [0, 0, 0], handR: [0.18, 0.02, 0.01]
+    torso: [-0.28, 0.50, 0.02], armR: [-1.88, 0.12, -0.04], foreR: [-0.16, 0, 0], handR: [0.18, 0.02, 0.01]
   });
 
   const spikeCoil = pose(airborne, {
-    hips: [-0.10, -0.06, 0], torso: [-0.30, -0.12, 0], head: [0.16, 0.10, 0],
-    legL: [-1.40, 0.04, -0.07], shinL: [2.10, 0, 0], legR: [-1.10, -0.04, 0.07], shinR: [2.15, 0, 0],
-    armR: [-2.47, -0.16, 0.17], foreR: [-0.04, 0, 0], handR: [-0.07, -0.01, -0.01],
-    armL: [-1.00, 0.06, 0.50], foreL: [-1.00, 0, 0]
+    hips: [-0.10, -0.06, 0], torso: [-0.26, -0.12, 0], head: [0.16, 0.10, 0],
+    legL: [-1.36, 0.04, -0.07], shinL: [2.04, 0, 0], legR: [-1.06, -0.04, 0.07], shinR: [2.08, 0, 0],
+    armR: [-2.36, -0.14, 0.16], foreR: [-0.24, 0, 0], handR: [-0.04, -0.01, -0.01],
+    armL: [-0.96, 0.06, 0.44], foreL: [-1.02, 0.26, 0]
   });
   const spikeCut = pose(airborne, {
-    hips: [0.20, 0.06, 0], torso: [0.62, 0.08, 0], head: [-0.48, -0.08, 0],
-    legL: [-0.70, 0.04, -0.07], shinL: [1.30, 0, 0], footL: [0.40, 0, 0.05],
-    legR: [0.30, -0.04, 0.07], shinR: [1.40, 0, 0], footR: [0.60, 0, -0.05],
-    armR: [-0.91, -0.79, 0.52], foreR: [0, 0, 0], handR: [0.50, 0.04, 0.01],
-    armL: [0.30, 0.06, 0.60], foreL: [-1.30, 0, 0]
+    hips: [0.20, 0.06, 0], torso: [0.58, 0.08, 0], head: [-0.44, -0.08, 0],
+    legL: [-0.68, 0.04, -0.07], shinL: [1.28, 0, 0], footL: [0.38, 0, 0.05],
+    legR: [0.28, -0.04, 0.07], shinR: [1.38, 0, 0], footR: [0.56, 0, -0.05],
+    armR: [-0.88, -0.62, 0.44], foreR: [-0.16, 0.12, 0], handR: [0.42, 0.04, 0.01],
+    armL: [0.24, 0.06, 0.52], foreL: [-1.26, 0.28, 0]
   });
   const spikeThrough = pose(spikeCut, {
-    torso: [0.70, 0.10, 0], head: [-0.52, -0.08, 0],
-    armR: [-0.86, -0.73, 0.43], handR: [0.56, -0.04, -0.01]
+    torso: [0.64, 0.10, 0], head: [-0.48, -0.08, 0],
+    armR: [-0.82, -0.58, 0.38], foreR: [-0.18, 0.10, 0], handR: [0.48, -0.04, -0.01]
   });
 
-  // Hit 2 borrows the ground backhand's upper body (its arm angles were solved on
-  // the rig) over gathered legs.
-  const upper = (p) => ({ torso: p.torso, head: p.head, armR: p.armR, foreR: p.foreR, handR: p.handR, armL: p.armL, foreL: p.foreL });
-  const cutDraw = pose(airborne, upper(sweepDraw), { hips: [0.08, 0.30, 0], legL: [-1.10, 0.04, -0.07], shinL: [1.90, 0, 0] });
-  const cutSweep = pose(airborne, upper(sweepCut), { hips: [0.06, -0.30, 0], legR: [-1.15, -0.04, 0.07], shinR: [1.95, 0, 0] });
+  const upper = (p) => ({ torso: p.torso, head: p.head, armR: p.armR, foreR: p.foreR, handR: p.handR, armL: p.armL, foreL: p.foreL, handL: p.handL });
+  const cutDraw = pose(airborne, upper(sweepDraw), { hips: [0.08, 0.26, 0], legL: [-1.08, 0.04, -0.07], shinL: [1.86, 0, 0] });
+  const cutSweep = pose(airborne, upper(sweepCut), { hips: [0.06, -0.26, 0], legR: [-1.12, -0.04, 0.07], shinR: [1.90, 0, 0] });
   const cutThrough = pose(cutSweep, upper(sweepThrough));
 
-  // Air heavy. Hover leaning over the target with the sword cocked overhead,
-  // dive at it with the legs trailing, and chop into the floor as it lands.
+  // Air heavy: hover with sword cocked overhead, dive trailing legs, chop on impact.
   const aimHover = pose(airborne, upper(spikeCoil), {
     hips: [0.25, 0, 0], hipsY: 0.67, torso: [0.20, -0.08, 0], head: [0.10, 0.08, 0],
-    armL: [-1.05, 0.06, 0.45], foreL: [-1.05, 0, 0]
+    armL: [-1.02, 0.06, 0.40], foreL: [-1.04, 0.26, 0], handL: SHIELD_HOLD_EULER
   });
   const aimTense = pose(aimHover, { hipsY: 0.68, torso: [0.26, -0.10, 0], head: [0.14, 0.08, 0] });
   const dive = pose(aimHover, {
-    hips: [0.60, 0, 0], torso: [0.30, -0.05, 0], head: [-0.55, 0.05, 0],
-    legL: [0.20, 0.04, -0.05], shinL: [0.55, 0, 0], footL: [0.65, 0, 0.04],
-    legR: [0.50, -0.04, 0.05], shinR: [0.85, 0, 0], footR: [0.65, 0, -0.04]
+    hips: [0.58, 0, 0], torso: [0.28, -0.05, 0], head: [-0.52, 0.05, 0],
+    legL: [0.20, 0.04, -0.05], shinL: [0.54, 0, 0], footL: [0.60, 0, 0.04],
+    legR: [0.48, -0.04, 0.05], shinR: [0.84, 0, 0], footR: [0.60, 0, -0.04]
   });
-  const landStrike = pose(crushSlam, upper(spikeCoil), { hipsY: 0.52, torso: [0.20, 0.06, 0], head: [-0.30, -0.06, 0] });
+  const landStrike = pose(crushSlam, upper(spikeCoil), { hipsY: 0.52, torso: [0.20, 0.06, 0], head: [-0.28, -0.06, 0] });
 
   const { airRise, airCut, airSpike, slamImpact } = KNIGHT_STRIKES;
   const air = {
@@ -253,7 +246,7 @@ export function buildKnightAttacks(makeClip, idle, pose) {
       [0.165, cleaveThrough, 'out'], [0.25, cleaveHold, 'io'], [0.44, idle, 'io']
     ]),
     attack2: makeClip('attack2', [
-      [0, pose(idle, { torso: [0.14, 0.40, 0.05] })], [0.065, sweepDraw, 'out'], [a2.contact, sweepCut, 'in'],
+      [0, pose(idle, { torso: [0.14, 0.36, 0.05] })], [0.065, sweepDraw, 'out'], [a2.contact, sweepCut, 'in'],
       [0.16, sweepThrough, 'out'], [0.24, sweepHold, 'io'], [0.42, idle, 'io']
     ]),
     attack3: makeClip('attack3', [
@@ -272,78 +265,78 @@ export function buildKnightAttacks(makeClip, idle, pose) {
 export function buildKnightSkills(makeClip, idle, pose) {
   // Excalibur Wave: the blade snaps straight up (the glint), then chops down
   // into the ground in front as the golden crescent leaves.
-  const waveRaise = pose(idle, stance(0.62, -0.04, [0.08, 0.06], [-0.14, 0.06]), {
+  const waveRaise = pose(idle, stance(0.60, -0.04, [0.08, 0.06], [-0.14, 0.06]), {
     hips: [-0.04, -0.10, 0], hipsOffset: [0, 0, -0.03],
-    torso: [-0.22, -0.15, 0], head: [0.14, 0.20, 0],
-    armR: [-2.43, -0.26, 0.20], foreR: [0, 0, 0], handR: [0.54, -0.01, -0.01],
-    armL: [-0.90, 0, 0.30], foreL: [-0.90, 0, 0], handL: [0, 0, 0]
+    torso: [-0.20, -0.14, 0], head: [0.12, 0.18, 0],
+    armR: [-2.36, -0.22, 0.18], foreR: [-0.18, 0, 0], handR: [0.54, -0.01, -0.01],
+    armL: [-0.88, 0.04, 0.28], foreL: [-0.94, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
-  const waveChop = pose(idle, stance(0.46, 0.16, [0.34, 0.14], [-0.30, 0.14]), {
+  const waveChop = pose(idle, stance(0.46, 0.16, [0.32, 0.12], [-0.28, 0.12]), {
     hips: [0.16, 0.08, 0], hipsOffset: [0, 0, 0.08],
-    torso: [0.62, 0.08, 0], head: [-0.42, -0.10, 0],
-    armR: [-0.81, -0.44, 0.40], foreR: [-0.10, 0, 0], handR: [0.26, 0.03, 0],
-    armL: [0.30, 0, 0.55], foreL: [-1.30, 0, 0], handL: [0, 0, 0]
+    torso: [0.60, 0.08, 0], head: [-0.40, -0.10, 0],
+    armR: [-0.78, -0.40, 0.36], foreR: [-0.16, 0, 0], handR: [0.24, 0.03, 0],
+    armL: [0.26, 0.04, 0.48], foreL: [-1.26, 0.28, 0], handL: SHIELD_HOLD_EULER
   });
   const waveThrough = pose(waveChop, {
-    hipsY: 0.445, torso: [0.68, 0.10, 0], head: [-0.46, -0.10, 0],
-    armR: [-0.79, -0.43, 0.34], foreR: [0, 0, 0], handR: [0.23, 0, -0.01]
+    hipsY: 0.448, torso: [0.64, 0.10, 0], head: [-0.44, -0.10, 0],
+    armR: [-0.76, -0.38, 0.32], foreR: [-0.14, 0, 0], handR: [0.22, 0, -0.01]
   });
-  const waveHold = pose(waveChop, { hipsY: 0.455, torso: [0.64, 0.09, 0] });
+  const waveHold = pose(waveChop, { hipsY: 0.456, torso: [0.62, 0.09, 0] });
 
   // Aegis Fortress: lift the shield, then drop to one knee and drive its rim
-  // into the floor with the sword held back, holding while the dome stands.
-  const aegisLift = pose(idle, stance(0.60, 0, [0.05, 0.06], [-0.10, 0.06]), {
-    hips: [0, 0.22, 0], torso: [-0.10, 0.25, 0], head: [0.04, -0.40, 0],
-    armL: [-1.29, -0.38, -0.45], foreL: [-0.86, 0, 0], handL: [0.07, -0.02, 0.34],
-    armR: [0.35, -0.65, -0.30], foreR: [-0.15, 0, 0], handR: [0.04, 0, -0.01]
+  // into the floor with the sword held back, keeping the left wrist strapped.
+  const aegisLift = pose(idle, stance(0.59, 0, [0.05, 0.06], [-0.10, 0.06]), {
+    hips: [0, 0.20, 0], torso: [-0.10, 0.22, 0], head: [0.04, -0.36, 0],
+    armL: [-1.18, 0.12, 0.16], foreL: [-0.95, 0.38, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.34, -0.58, -0.28], foreR: [-0.28, 0, 0], handR: [0.04, 0, -0.01]
   });
   const [kneelLeg, kneelShin, kneelFoot] = plant(0.36, 0.05, 0.24, 0.10);
   const aegisPlant = pose(idle, {
-    hips: [0.05, 0.25, 0], hipsOffset: [0, 0, 0.02], hipsY: 0.36,
+    hips: [0.05, -0.06, 0], hipsOffset: [0, 0, 0.02], hipsY: 0.36,
     legL: [kneelLeg, 0.04, 0.10], shinL: [kneelShin, 0, 0], footL: [kneelFoot, 0, -0.08],
     legR: [0.18, -0.04, -0.08], shinR: [1.62, 0, 0], footR: [0.85, 0, 0.06],
-    torso: [0.32, 0.30, 0], head: [-0.22, -0.48, 0],
-    armL: [-0.50, 0.44, -0.73], foreL: [-0.08, 0, 0], handL: [-0.28, 0.49, -0.70],
-    armR: [-0.04, -0.90, -0.66], foreR: [-0.15, 0, 0], handR: [-0.46, -0.39, -0.19]
+    torso: [0.40, -0.16, 0], head: [-0.24, 0.18, 0],
+    armL: [-1.14, -0.10, -0.22], foreL: [-0.40, 0.36, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.10, -0.78, -0.52], foreR: [-0.34, 0, 0], handR: [-0.36, -0.30, -0.15]
   });
-  const aegisSettle = pose(aegisPlant, { hipsY: 0.345, torso: [0.36, 0.30, 0] });
-  const aegisHold = pose(aegisPlant, { hipsY: 0.352, torso: [0.33, 0.30, 0] });
+  const aegisSettle = pose(aegisPlant, { hipsY: 0.348, torso: [0.43, -0.16, 0] });
+  const aegisHold = pose(aegisPlant, { hipsY: 0.354, torso: [0.40, -0.16, 0] });
 
   // Lionheart Warcry: gather in, then throw the chest up and thrust the sword
   // into the falling pillar of light, shield arm flung wide, roaring upward.
-  const roarGather = pose(idle, stance(0.52, 0.20, [0.12, 0.12], [-0.12, 0.12]), {
-    hips: [0.20, 0.05, 0], torso: [0.40, 0, 0], head: [0.20, 0, 0],
-    armR: [0.21, -0.90, 1.17], foreR: [0, 0, 0], handR: [0.71, -0.01, -0.01],
-    armL: [0.17, -0.59, -0.68], foreL: [-2.30, 0, 0], handL: [-0.28, 0.16, -0.01]
+  const roarGather = pose(idle, stance(0.52, 0.18, [0.12, 0.10], [-0.12, 0.10]), {
+    hips: [0.18, 0.05, 0], torso: [0.38, 0, 0], head: [0.18, 0, 0],
+    armR: [0.18, -0.75, 0.85], foreR: [-0.28, 0, 0], handR: [0.62, -0.01, -0.01],
+    armL: [-0.35, -0.25, -0.15], foreL: [-1.75, 0.38, 0], handL: SHIELD_HOLD_EULER
   });
-  const roarCry = pose(idle, stance(0.55, -0.05, [0.22, 0.20], [-0.20, 0.20]), {
-    hips: [-0.05, 0.05, 0], torso: [-0.32, 0, 0], head: [-0.36, 0, 0],
-    armR: [-2.51, 0.25, -0.12], foreR: [0, 0, 0], handR: [0.94, 0.01, 0],
-    armL: [-0.75, 0.50, 0.80], foreL: [-0.51, 0, 0], handL: [-0.15, 0.08, 0.16]
+  const roarCry = pose(idle, stance(0.55, -0.05, [0.20, 0.16], [-0.18, 0.16]), {
+    hips: [-0.05, 0.05, 0], torso: [-0.30, 0, 0], head: [-0.34, 0, 0],
+    armR: [-2.42, 0.22, -0.10], foreR: [-0.14, 0, 0], handR: [0.88, 0.01, 0],
+    armL: [-0.68, 0.36, 0.62], foreL: [-0.64, 0.32, 0], handL: SHIELD_HOLD_EULER
   });
-  const roarPeak = pose(roarCry, { hipsY: 0.54, torso: [-0.38, 0, 0], head: [-0.42, 0, 0] });
-  const roarHold = pose(roarCry, { torso: [-0.30, 0, 0], head: [-0.32, 0, 0] });
+  const roarPeak = pose(roarCry, { hipsY: 0.542, torso: [-0.35, 0, 0], head: [-0.38, 0, 0] });
+  const roarHold = pose(roarCry, { torso: [-0.28, 0, 0], head: [-0.30, 0, 0] });
 
   // Chariot Rush: push off low behind the shield, leap shield-first, then land
   // braced and skid as the rush slows.
-  const rushPush = pose(idle, stance(0.46, 0.30, [0.18, 0.06], [-0.34, 0.06]), {
-    hips: [0.30, -0.20, 0], torso: [0.55, -0.35, 0], head: [-0.50, 0.50, 0],
-    armL: [-1.61, -0.08, -1.60], foreL: [-2.06, 0, 0], handL: [0.11, -0.39, 0.55],
-    armR: [0.14, 0.30, -0.56], foreR: [-0.17, 0, 0], handR: [-0.28, -0.08, -0.03]
+  const rushPush = pose(idle, stance(0.46, 0.28, [0.18, 0.06], [-0.32, 0.06]), {
+    hips: [0.28, -0.18, 0], torso: [0.52, -0.32, 0], head: [-0.46, 0.44, 0],
+    armL: [-1.18, 0.18, -0.14], foreL: [-1.18, 0.42, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.24, 0.24, -0.52], foreR: [-0.32, 0, 0], handR: [-0.22, -0.08, -0.03]
   });
   const rushLeap = pose(rushPush, {
-    hipsY: 0.64, torso: [0.70, -0.35, 0], head: [-0.60, 0.50, 0],
-    legL: [-1.10, 0.04, -0.04], shinL: [1.30, 0, 0], footL: [0.30, 0, 0],
-    legR: [0.75, -0.04, 0.04], shinR: [0.60, 0, 0], footR: [0.60, 0, 0],
-    armL: [-1.83, -0.40, -1.60], foreL: [-2.30, 0, 0], handL: [0.11, -0.37, 0.54],
-    armR: [-0.07, 0.28, -0.42], foreR: [-0.12, 0, 0], handR: [-0.29, -0.04, -0.02]
+    hipsY: 0.64, torso: [0.64, -0.32, 0], head: [-0.54, 0.44, 0],
+    legL: [-1.05, 0.04, -0.04], shinL: [1.26, 0, 0], footL: [0.28, 0, 0],
+    legR: [0.70, -0.04, 0.04], shinR: [0.58, 0, 0], footR: [0.54, 0, 0],
+    armL: [-1.28, 0.16, -0.16], foreL: [-1.28, 0.44, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.06, 0.24, -0.40], foreR: [-0.26, 0, 0], handR: [-0.24, -0.04, -0.02]
   });
-  const rushLand = pose(rushPush, stance(0.44, 0.25, [0.36, 0.10], [-0.34, 0.10]), {
-    hips: [0.25, -0.25, 0], torso: [0.60, -0.40, 0], head: [-0.50, 0.55, 0],
-    armL: [-1.36, -0.24, -1.60], foreL: [-2.30, 0, 0], handL: [0.08, -0.51, 0.29],
-    armR: [-0.08, 0.44, -0.47], foreR: [-0.09, 0, 0], handR: [-0.16, -0.03, -0.03]
+  const rushLand = pose(rushPush, stance(0.45, 0.24, [0.34, 0.10], [-0.32, 0.10]), {
+    hips: [0.24, -0.22, 0], torso: [0.56, -0.36, 0], head: [-0.46, 0.48, 0],
+    armL: [-1.14, 0.18, -0.14], foreL: [-1.24, 0.44, 0], handL: SHIELD_HOLD_EULER,
+    armR: [0.12, 0.36, -0.44], foreR: [-0.22, 0, 0], handR: [-0.14, -0.03, -0.03]
   });
-  const rushSkid = pose(rushLand, { hipsY: 0.45, torso: [0.50, -0.38, 0], head: [-0.42, 0.52, 0] });
+  const rushSkid = pose(rushLand, { hipsY: 0.458, torso: [0.48, -0.34, 0], head: [-0.40, 0.46, 0] });
 
   const { sweep, slam, warcry, charge } = KNIGHT_STRIKES;
   return {

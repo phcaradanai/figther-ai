@@ -1,9 +1,9 @@
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three';
+import { solveAnatomicalLeg } from './knight_anatomy.js';
 
 const { clamp, smoothstep } = MathUtils;
 const up = new Vector3(0, 1, 0);
-const forward = new Vector3(0, 0, 1);
-const CATCH = 0.06;
+const CATCH = 0.045;
 const heading = new Euler();
 
 // Anchor the support boot in world space while the clip drives its swing leg.
@@ -12,14 +12,17 @@ export class KnightFootwork {
   constructor(rig) {
     this.rig = rig;
     this.legs = [
-      { thigh: rig.legL, knee: rig.shinL, ankle: rig.footL },
-      { thigh: rig.legR, knee: rig.shinR, ankle: rig.footR }
+      { thigh: rig.legL, knee: rig.shinL, ankle: rig.footL, side: 1 },
+      { thigh: rig.legR, knee: rig.shinR, ankle: rig.footR, side: -1 }
     ].map(leg => ({
       ...leg,
       upper: leg.knee.position.length() * rig.rigScale,
       lower: leg.ankle.position.length() * rig.rigScale,
       contact: new Vector3(),
-      planted: false
+      planted: false,
+      footYaw: 0,
+      yaw: 0,
+      progress: 0
     }));
     this.position = new Vector3();
     this.velocity = new Vector3();
@@ -27,18 +30,16 @@ export class KnightFootwork {
     this.knee = new Vector3();
     this.ankle = new Vector3();
     this.target = new Vector3();
-    this.direction = new Vector3();
-    this.bend = new Vector3();
-    this.from = new Vector3();
-    this.to = new Vector3();
     this.parentRotation = new Quaternion();
     this.footWorld = new Quaternion();
     this.swing = new Quaternion();
     this.speed = 0;
     this.pitch = 0;
     this.bank = 0;
+    this.turnRate = 0;
     this.gearLag = 0;
     this.coast = 0;
+    this.breathPhase = Math.random() * Math.PI * 2;
     this.fx = null;
   }
 
@@ -56,9 +57,12 @@ export class KnightFootwork {
     this.speed += (Math.min(sampledSpeed, speed * 1.35 + 2) - this.speed) * blend;
     const acceleration = dt > 0 ? (this.speed - previous) / dt : 0;
     this.pitch += (clamp(acceleration * 0.019, -0.21, 0.24) - this.pitch) * blend;
-    const bank = dt > 0 && speed > 0.8 ? clamp(-turn / dt * 0.028, -0.25, 0.25) : 0;
+    const turnVel = dt > 0 ? clamp(turn / dt, -12, 12) : 0;
+    this.turnRate += (turnVel - this.turnRate) * (1 - Math.exp(-dt * 14));
+    const bank = dt > 0 && speed > 0.8 ? clamp(-turnVel * 0.028, -0.25, 0.25) : 0;
     this.bank += (bank - this.bank) * blend;
     this.gearLag += (this.pitch - this.gearLag) * (1 - Math.exp(-dt * 8));
+    this.breathPhase += dt * 2.2;
     this.position.copy(position);
     this.yaw = yaw;
     this.ready = true;
@@ -84,15 +88,25 @@ export class KnightFootwork {
     const name = action.getClip().name;
     const gait = name === 'walk' || name === 'run';
     const { rig } = this;
-    if (grounded && (gait || name === 'idle')) {
+    if (grounded && (gait || name === 'idle' || name === 'dash')) {
       rig.torso.rotateX(this.pitch);
       rig.torso.rotateZ(this.bank);
-      rig.head.rotateZ(-this.bank * 0.55);
+      // Vestibulo-ocular stabilization & turn-leading gaze anticipation.
+      rig.head.rotateX(-this.pitch * 0.65);
+      rig.head.rotateZ(-this.bank * 0.60);
+      rig.head.rotateY(clamp(this.turnRate * 0.035, -0.20, 0.20));
     }
-    if (grounded && (gait || name === 'idle' || name === 'brakeL' || name === 'brakeR')) {
+    if (grounded && (name === 'idle' || name === 'guard')) {
+      const breath = Math.sin(this.breathPhase);
+      rig.torso.rotateX(breath * 0.014);
+      rig.head.rotateX(-breath * 0.010);
+      rig.armL.rotateZ(breath * 0.008);
+      rig.armR.rotateZ(-breath * 0.008);
+    }
+    if (grounded && (gait || name === 'idle' || name === 'dash' || name === 'brakeL' || name === 'brakeR')) {
       const followThrough = this.gearLag - this.pitch;
-      rig.foreL.rotateX(followThrough * 0.55);
-      rig.armR.rotateX(followThrough * 0.90);
+      rig.foreL.rotateX(clamp(followThrough * 0.45, -0.25, 0.25));
+      rig.armR.rotateX(followThrough * 0.85);
     }
     if (!grounded || !gait) {
       this.release();
@@ -108,7 +122,8 @@ export class KnightFootwork {
     const phase = action.time / duration;
     // Fraction of the cycle a boot stays down: the baked gaits say (the stance of the retimed step),
     // the hand-made ones are 0.34.
-    const end = action.getClip().userData?.stance ? action.getClip().userData.stance + 0.03 : 0.34;
+    const end = action.getClip().userData?.stance ? action.getClip().userData.stance + 0.055 : 0.34;
+    const releaseStart = action.getClip().userData?.stance ? action.getClip().userData.stance - 0.005 : end - 0.11;
     for (const [i, leg] of this.legs.entries()) {
       // A running foot is caught just before its contact key, so it does not
       // skim the floor at full swing speed on the last airborne frame.
@@ -136,12 +151,12 @@ export class KnightFootwork {
       if (ground == null || Math.abs(ground - this.position.y) > 0.18) continue;
       if (touched) this.kickUp(leg.contact, ground);
 
-      // Allow the foot to release on sharp direction changes and platform edges.
+      // Allow the foot to release smoothly on sharp direction changes and platform edges.
       const turn = Math.acos(clamp(Math.cos(this.yaw - leg.yaw), -1, 1));
       const sideError = Math.abs((leg.contact.x - this.ankle.x) * Math.cos(this.yaw)
         - (leg.contact.z - this.ankle.z) * Math.sin(this.yaw));
       const weight = smoothstep(progress, -CATCH, 0.01)
-        * (1 - smoothstep(progress, end - 0.125, end))
+        * (1 - smoothstep(progress, releaseStart, end))
         * (1 - smoothstep(turn, 0.30, 0.90))
         * (1 - smoothstep(sideError, 0.075, 0.16))
         * action.getEffectiveWeight();
@@ -188,7 +203,7 @@ export class KnightFootwork {
   // keepTilt: leave the boot's pitch and roll as the clip has them (heel strike, flat, toe-off)
   // and only hold its heading; otherwise stand it flat (strikes).
   solve(leg, weight, keepTilt = false) {
-    const { rig, hip, knee, ankle, direction, bend, target } = this;
+    const { rig, hip, target } = this;
     if (keepTilt) leg.ankle.getWorldQuaternion(this.footWorld);
     leg.thigh.getWorldPosition(hip);
     const reach = leg.upper + leg.lower - 0.014;
@@ -213,41 +228,9 @@ export class KnightFootwork {
     leg.ankle.quaternion.slerp(this.parentRotation.invert().multiply(this.swing), weight);
   }
 
-  // Bend the thigh and knee so the ankle reaches `this.target` (clamped to the leg's reach),
-  // keeping the knee in the plane it is already bent in. The hips and the boot's own
-  // rotation are left alone; the bake uses this to put a clip's boots where the model's are.
+  // Anatomically constrained 2-bone leg solver with forward knee pole and 1-DOF knee hinge.
   placeLeg(leg) {
-    const { hip, knee, ankle, direction, bend, target } = this;
-    leg.thigh.getWorldPosition(hip);
-    const reach = leg.upper + leg.lower - 0.014;
-    leg.knee.getWorldPosition(knee);
-    leg.ankle.getWorldPosition(ankle);
-    direction.copy(target).sub(hip);
-    const distance = clamp(direction.length(), 0.08, reach);
-    direction.normalize();
-    bend.copy(knee).sub(hip).addScaledVector(direction, -bend.dot(direction));
-    if (bend.lengthSq() < 0.0001) {
-      bend.copy(forward).applyAxisAngle(up, this.yaw);
-      bend.addScaledVector(direction, -bend.dot(direction));
-    }
-    bend.normalize();
-    const along = (leg.upper ** 2 - leg.lower ** 2 + distance ** 2) / (2 * distance);
-    const out = Math.sqrt(Math.max(0, leg.upper ** 2 - along ** 2));
-
-    this.from.copy(knee).sub(hip);
-    this.to.copy(direction).multiplyScalar(along).addScaledVector(bend, out);
-    this.aim(leg.thigh);
-    leg.knee.getWorldPosition(knee);
-    leg.ankle.getWorldPosition(ankle);
-    this.from.copy(ankle).sub(knee);
-    this.to.copy(hip).addScaledVector(direction, distance).sub(knee);
-    this.aim(leg.knee);
-  }
-
-  aim(bone) {
-    this.swing.setFromUnitVectors(this.from.normalize(), this.to.normalize());
-    bone.parent.getWorldQuaternion(this.parentRotation);
-    this.swing.multiply(this.parentRotation).premultiply(this.parentRotation.invert());
-    bone.quaternion.premultiply(this.swing);
+    leg.knee.getWorldPosition(this.knee);
+    solveAnatomicalLeg(this.rig.hips, leg.thigh, leg.knee, leg.ankle, this.target, leg.upper, leg.lower, leg.side, this.knee);
   }
 }

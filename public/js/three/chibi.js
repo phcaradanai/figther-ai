@@ -15,6 +15,7 @@ import { buildKnightLocomotion, knightIdle } from './knight_motion.js';
 import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
+import { SHIELD_HOLD, enforceKnightAnatomy, solveAnatomicalLeg } from './knight_anatomy.js';
 
 const gltfLoader = new GLTFLoader();
 
@@ -1881,9 +1882,11 @@ function clipsFor(style, skinnedKnight) {
       for (const [name, data] of Object.entries(SKINNED_MODELS.knight?.bakedClips || {})) clips[name] = bakedClip(name, data);
       // Every action must own the wrist tracks so crossfades can reset them.
       for (const clip of Object.values(clips)) {
-        if (clip.tracks.some(track => track.name === 'handR.quaternion')) continue;
-        for (const joint of ['handL', 'handR']) {
-          clip.tracks.push(new THREE.QuaternionKeyframeTrack(`${joint}.quaternion`, [0], [0, 0, 0, 1]));
+        if (!clip.tracks.some(track => track.name === 'handL.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handL.quaternion', [0], SHIELD_HOLD));
+        }
+        if (!clip.tracks.some(track => track.name === 'handR.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
         }
       }
     }
@@ -1922,9 +1925,13 @@ function staffTilt(name, t) {
 }
 const _qa = new THREE.Quaternion();
 const _qb = new THREE.Quaternion();
+const _footLQ = new THREE.Quaternion();
+const _footRQ = new THREE.Quaternion();
 const _vz = new THREE.Vector3(0, 0, 1);
 const _vd = new THREE.Vector3();
 const _vp = new THREE.Vector3();
+const _footLPos = new THREE.Vector3();
+const _footRPos = new THREE.Vector3();
 const _inverseBody = new THREE.Matrix4();
 const _shoeToBody = new THREE.Matrix4();
 // Heel and toe on the rest sole, in the Knight GLB's model units relative to the ankle.
@@ -1934,7 +1941,7 @@ const SPIN = { spin: [0.05, 0.6, 2], windslash: [0.12, 0.28, 1.5], 'shinobi:atta
 // Somersaults about the body's centre: [start, duration, direction (+1 forward / -1 back), hop height]
 const FLIP = { roll: [0.03, 0.33, 1, 0], 'shield:roll': null, backflip: [0.12, 0.36, -1, 0.55], rollshot: [0.02, 0.28, 1, 0] };
 const _vy = new THREE.Vector3(0, 1, 0);
-const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'armL', 'foreL', 'handL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
+const LAYER_JOINTS = ['hips', 'torso', 'head', 'armR', 'foreR', 'handR', 'armL', 'foreL', 'handL', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
 const KNIGHT_BRAKE_CLIPS = new Set(['brakeL', 'brakeR']);
 const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guard', 'roll', ...KNIGHT_BRAKE_CLIPS]);
 // Standing clips whose boots are levelled and set on the floor.
@@ -2292,8 +2299,8 @@ export class ChibiView {
     }
     // A blow that has not landed on screen yet (see holdReaction) does not flinch the victim early.
     const braced = this.time < this.reactionHoldUntil;
-    if (st === 'knockdown' && !braced) return { name: 'knockdown', key: 'kd', fade: 0.06 };
-    if (st === 'hurt' && !braced) return { name: 'hurt', key: 'hurt', fade: 0.04 };
+    if (st === 'knockdown' && !braced) return { name: 'knockdown', key: 'kd', fade: this.skinnedKnight ? 0.08 : 0.06 };
+    if (st === 'hurt' && !braced) return { name: 'hurt', key: 'hurt', fade: this.skinnedKnight ? 0.07 : 0.04 };
     if (st !== 'attack' && st !== 'heavy') {
       this.strikeKey = null;
       if (pl.grounded) this.airStrikes = 0;
@@ -2310,21 +2317,21 @@ export class ChibiView {
       const ground = basicAttackClip(step, hits);
       // Each chop of the combo ends with the body turned about 100 degrees and the next one
       // starts square on; a little longer fade between swings takes the edge off that turn.
-      const handover = this.skinnedKnight && KNIGHT_SWINGS.has(this.currentName) ? 0.08 : 0.05;
+      const handover = this.skinnedKnight && KNIGHT_SWINGS.has(this.currentName) ? 0.08 : (this.skinnedKnight ? 0.065 : 0.05);
       return { name: this.skinnedKnight ? this.strikeClip(key, pl, ground) : ground, key, fade: handover };
     }
-    if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.06 };
-    if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: 0.05 };
-    if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
+    if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.065 };
+    if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: this.skinnedKnight ? 0.07 : 0.05 };
+    if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.07 };
     if (pl.guarding || st === 'guard') {
-      if (this.actions.guardHit && this.time < this.blockUntil) return { name: 'guardHit', key: `block${this.blocks}`, fade: 0.04 };
-      return { name: 'guard', key: 'guard', fade: 0.1 };
+      if (this.actions.guardHit && this.time < this.blockUntil) return { name: 'guardHit', key: `block${this.blocks}`, fade: 0.05 };
+      return { name: 'guard', key: 'guard', fade: this.skinnedKnight ? 0.12 : 0.1 };
     }
     if (pl.isFlying) return { name: 'fly', key: 'fly', fade: 0.2 };
     if (pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
     if (pl.isDashing) {
       if (pl.grounded && (this.style === 'gun' || this.style === 'twingun' || this.style === 'dual')) return { name: 'roll', key: `roll${this.dashCount}`, fade: 0.04 };
-      return { name: 'dash', key: 'dash', fade: 0.08 };
+      return { name: 'dash', key: 'dash', fade: 0.09 };
     }
     if (!pl.grounded) return (pl.vy || 0) > 0
       ? { name: 'jump', key: this.skinnedKnight ? `jump${pl.jumpCount || 0}` : 'jump', fade: this.skinnedKnight ? 0.075 : 0.12 }
@@ -2471,8 +2478,8 @@ export class ChibiView {
       this.landingStrength = THREE.MathUtils.smoothstep(-this.incomingVy, 1, 12);
     }
     this.landingAge += dt;
-    const inWeight = THREE.MathUtils.smoothstep(this.landingAge, 0, 0.045);
-    const recovery = 1 - THREE.MathUtils.smoothstep(this.landingAge, 0.045, 0.16 + 0.11 * this.landingStrength);
+    const inWeight = THREE.MathUtils.smoothstep(this.landingAge, 0, 0.065);
+    const recovery = 1 - THREE.MathUtils.smoothstep(this.landingAge, 0.065, 0.18 + 0.11 * this.landingStrength);
     this.landingLoad = this.landingStrength * inWeight * recovery;
   }
 
@@ -2530,19 +2537,9 @@ export class ChibiView {
     const planted = this.skinnedKnight ? KNIGHT_STANDING.has(this.currentName) : this.currentName === 'idle' || this.currentName === 'guard';
     this.strikeFeetDown = false;
     if (this.skinnedKnight && pl.grounded && KNIGHT_FLOOR_CLIPS.has(this.currentName)) {
+      const s = R.rigScale;
       const load = this.landingLoad;
-      if (load > 0 && (planted || this.currentName === 'walk' || this.currentName === 'run')) {
-        R.hips.position.y -= 0.082 * load;
-        R.legL.rotateX(-0.55 * load);
-        R.legR.rotateX(-0.55 * load);
-        R.shinL.rotateX(0.92 * load);
-        R.shinR.rotateX(0.92 * load);
-        R.torso.rotateX(0.43 * load);
-        R.head.rotateX(-0.22 * load);
-        R.armL.rotateX(-0.24 * load);
-        R.armR.rotateX(0.22 * load);
-      }
-      // Level a standing boot but keep the authored heel strike and toe-off in motion.
+      // Level a standing boot before landing/floor checks so sole orientation stays grounded.
       if (planted) {
         for (const [leg, shin, foot] of [[R.legL, R.shinL, R.footL], [R.legR, R.shinR, R.footR]]) {
           _qa.copy(R.hips.quaternion).multiply(leg.quaternion).multiply(shin.quaternion);
@@ -2551,10 +2548,40 @@ export class ChibiView {
           foot.quaternion.slerp(_qa.invert().multiply(_qb), this.current.getEffectiveWeight());
         }
       }
+      if (load > 0 && (planted || this.currentName === 'walk' || this.currentName === 'run' || this.currentName === 'dash')) {
+        // Capture current grounded ankle targets before absorbing landing impact in hips & spine.
+        this.root.updateMatrixWorld(true);
+        R.footL.getWorldPosition(_footLPos);
+        R.footR.getWorldPosition(_footRPos);
+        R.footL.getWorldQuaternion(_footLQ);
+        R.footR.getWorldQuaternion(_footRQ);
+        R.hips.position.y -= 0.095 * load / s;
+        R.torso.rotateX(0.38 * load);
+        R.head.rotateX(-0.26 * load);
+        R.armL.rotateX(-0.18 * load);
+        R.armR.rotateX(0.18 * load);
+        if (planted && this.footwork) {
+          R.hips.updateMatrixWorld(true);
+          const fw = this.footwork;
+          _footLPos.y = Math.min(_footLPos.y, this.root.position.y + R.restFootY + 0.02);
+          _footRPos.y = Math.min(_footRPos.y, this.root.position.y + R.restFootY + 0.02);
+          solveAnatomicalLeg(R.hips, R.legL, R.shinL, R.footL, _footLPos, fw.legs[0].upper, fw.legs[0].lower, 1);
+          solveAnatomicalLeg(R.hips, R.legR, R.shinR, R.footR, _footRPos, fw.legs[1].upper, fw.legs[1].lower, -1);
+          R.hips.updateMatrixWorld(true);
+          R.shinL.getWorldQuaternion(_qa);
+          R.footL.quaternion.copy(_qa.invert().multiply(_footLQ));
+          R.shinR.getWorldQuaternion(_qa);
+          R.footR.quaternion.copy(_qa.invert().multiply(_footRQ));
+        } else {
+          R.legL.rotateX(-0.42 * load);
+          R.legR.rotateX(-0.42 * load);
+          R.shinL.rotateX(0.76 * load);
+          R.shinR.rotateX(0.76 * load);
+        }
+      }
       R.footL.updateWorldMatrix(true, false);
       R.footR.updateWorldMatrix(true, false);
       _inverseBody.copy(R.body.matrixWorld).invert();
-      const s = R.rigScale;
       let soleY = Infinity;
       for (const foot of [R.footL, R.footR]) {
         _shoeToBody.multiplyMatrices(_inverseBody, foot.matrixWorld);
@@ -2563,17 +2590,20 @@ export class ChibiView {
           soleY = Math.min(soleY, _vp.y);
         }
       }
-      // Pull the lowest sole down in a standing pose, a planted strike and while a
-      // stride is supported. The flight half of a stride and a leaping strike leave the ground.
+      // Pull the lowest sole down in a standing pose or planted strike; during walk/run
+      // KnightFootwork owns planted foot height, so only prevent floor penetration.
       const air = KNIGHT_AIRBORNE[this.currentName];
       const strike = KNIGHT_STRIKES[this.currentName];
       this.strikeFeetDown = !!strike && !strike.air && !(air && this.current.time > air[0] && this.current.time < air[1]);
-      let settle = planted || this.strikeFeetDown || KNIGHT_BRAKE_CLIPS.has(this.currentName) ? Infinity : 0;
-      if (this.currentName === 'walk' || this.currentName === 'run') {
-        const half = (this.current.time / this.current.getClip().duration * 2) % 1;
-        settle = 0.06 * (1 - THREE.MathUtils.smoothstep(half, 0.48, 0.62));
+      if (planted || this.strikeFeetDown || KNIGHT_BRAKE_CLIPS.has(this.currentName)) {
+        R.hips.position.y += -soleY / s;
+      } else if (soleY < 0) {
+        R.hips.position.y += -soleY / s;
       }
-      R.hips.position.y += Math.max(-settle, -soleY) / s;
+    }
+    if (this.skinnedKnight) {
+      const ragdoll = this.currentName === 'dead' || this.currentName === 'knockdown';
+      enforceKnightAnatomy(R, { lockShield: !ragdoll, clampWristR: !ragdoll, softenKnees: true });
     }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)
     if (this.style === 'pyro' && R.staff) {
