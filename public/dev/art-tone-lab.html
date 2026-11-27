@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knight Art Tone Lab — ทดลองโทนภาพตัวละคร (ลดโทน 3D)</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    body {
+      background: #1b221e;
+      color: #f4e8d1;
+      font: 13px/1.4 "Segoe UI", Tahoma, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #view {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+    #divider {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      margin-left: -1px;
+      background: rgba(247, 217, 152, 0.85);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.55);
+      pointer-events: none;
+      z-index: 6;
+    }
+    .side-badge {
+      position: fixed;
+      top: 56px;
+      z-index: 7;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.01em;
+      background: rgba(24, 30, 27, 0.82);
+      border: 1px solid rgba(231, 198, 141, 0.38);
+      color: #f5e6c8;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+    #badgeLeft { left: 14px; }
+    #badgeRight { right: 14px; border-color: rgba(245, 194, 107, 0.72); color: #ffe0a3; }
+
+    #topbar {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(24, 30, 27, 0.88);
+      border: 1px solid rgba(231, 198, 141, 0.25);
+      backdrop-filter: blur(6px);
+    }
+    .brand {
+      font-weight: 700;
+      color: #f3ce88;
+      margin-right: 4px;
+      font-size: 13px;
+    }
+    .sep {
+      width: 1px;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.14);
+      margin: 0 2px;
+    }
+    button, select {
+      font: inherit;
+      color: #f4e8d1;
+      background: #2f3b34;
+      border: 1px solid #596758;
+      border-radius: 7px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    button:hover, select:hover { border-color: #caa56a; }
+    button[aria-pressed="true"], button.active {
+      background: #e7c68d;
+      color: #202621;
+      border-color: #f4d8a5;
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.45; cursor: default; }
+
+    #proofPipBox {
+      position: fixed;
+      right: 12px;
+      bottom: 62px;
+      z-index: 9;
+      background: rgba(24, 30, 27, 0.92);
+      border: 1px solid rgba(231, 198, 141, 0.45);
+      border-radius: 10px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    #proofPip {
+      width: 176px;
+      height: 176px;
+      border-radius: 6px;
+      background: #737b69;
+      image-rendering: auto;
+    }
+    #proofPipBox span {
+      font-size: 11px;
+      color: #e6d1a7;
+    }
+
+    #drawer {
+      position: fixed;
+      top: 56px;
+      right: 12px;
+      z-index: 11;
+      width: 300px;
+      max-height: calc(100vh - 120px);
+      overflow-y: auto;
+      background: rgba(22, 28, 25, 0.94);
+      border: 1px solid rgba(231, 198, 141, 0.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+    }
+    #drawer h2 { font-size: 13px; color: #f3ce88; margin-bottom: 2px; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .row input[type="range"] {
+      grid-column: 1 / -1;
+      width: 100%;
+      accent-color: #e7c68d;
+    }
+    .row code { font-family: Consolas, monospace; color: #ffe0a3; font-size: 11px; }
+    #paramsJson {
+      width: 100%;
+      height: 82px;
+      background: #131815;
+      color: #d6dec8;
+      border: 1px solid #414b42;
+      border-radius: 6px;
+      padding: 6px;
+      font: 11px/1.35 Consolas, monospace;
+      resize: vertical;
+    }
+
+    #bottombar {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(24, 30, 27, 0.86);
+      border: 1px solid rgba(231, 198, 141, 0.25);
+      backdrop-filter: blur(6px);
+    }
+    #controls { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+    #status {
+      font: 12px Consolas, monospace;
+      color: #dfd3b8;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="divider"></div>
+  <div id="badgeLeft" class="side-badge">A · วัสดุเกมปัจจุบัน</div>
+  <div id="badgeRight" class="side-badge">B · ลดโทน 3D (Proof)</div>
+
+  <div id="topbar">
+    <span class="brand">Art Tone Lab · Knight</span>
+    <button id="modeSplit" aria-pressed="true">เทียบคู่ A/B (3)</button>
+    <button id="modeOrig" aria-pressed="false">A · เดิม (1)</button>
+    <button id="modeTone" aria-pressed="false">B · ลดโทน 3D (2)</button>
+    <span class="sep"></span>
+    <button id="pauseBtn" aria-pressed="false">หยุดภาพ (P)</button>
+    <button id="stepBtn" disabled>+1 เฟรม (.)</button>
+    <span class="sep"></span>
+    <button id="capeBtn" aria-pressed="true">ผ้าคลุม: ใส่</button>
+    <button id="helmetBtn" aria-pressed="true">หมวก: ใส่</button>
+    <span class="sep"></span>
+    <label>กล้อง
+      <select id="camPreset">
+        <option value="41">ระยะเกมจริง (41)</option>
+        <option value="26">ระยะกลาง (26)</option>
+        <option value="15">ระยะใกล้ (15)</option>
+      </select>
+    </label>
+    <label>ฉาก
+      <select id="stageSel">
+        <option value="sky_temple">วิหารลอยฟ้า (Sky Temple)</option>
+        <option value="mossgate_ruins">ซากวิหารมอสส์ (Mossgate)</option>
+        <option value="lantern_tavern">โรงเตี๊ยมโคมอำพัน (Tavern)</option>
+        <option value="frostline_pass">ช่องเขาเหมันต์ (Frostline)</option>
+      </select>
+    </label>
+    <span class="sep"></span>
+    <button id="pipBtn" aria-pressed="false">อ้างอิง Proof</button>
+    <button id="tuneBtn" aria-pressed="false">ปรับค่า Lab</button>
+  </div>
+
+  <div id="proofPipBox" hidden>
+    <canvas id="proofPip" width="176" height="176"></canvas>
+    <span>อ้างอิงสูตร Sprite Proof (Ortho 176px)</span>
+  </div>
+
+  <aside id="drawer" hidden>
+    <h2>ค่าโทนทดลอง (เฉพาะใน Lab)</h2>
+    <div class="row">
+      <label for="pHead">สัดส่วนหัว (headBoost)</label>
+      <code id="vHead">1.22</code>
+      <input id="pHead" type="range" min="0.95" max="1.35" step="0.01" value="1.22" />
+    </div>
+    <div class="row">
+      <label for="pOutlinePx">ความหนาเส้นขอบนอก (outlinePx)</label>
+      <code id="vOutlinePx">1.00</code>
+      <input id="pOutlinePx" type="range" min="0" max="2.5" step="0.05" value="1.00" />
+    </div>
+    <div class="row">
+      <label for="pOutlineAlpha">ความเข้มขอบนอก (outlineAlpha)</label>
+      <code id="vOutlineAlpha">0.95</code>
+      <input id="pOutlineAlpha" type="range" min="0" max="1" step="0.05" value="0.95" />
+    </div>
+    <div class="row">
+      <label for="pPalette">น้ำหนักพาเลต (paletteMix)</label>
+      <code id="vPalette">0.73</code>
+      <input id="pPalette" type="range" min="0" max="1" step="0.01" value="0.73" />
+    </div>
+    <div class="row">
+      <label for="pContour">เส้นขอบด้านใน (contourStrength)</label>
+      <code id="vContour">0.65</code>
+      <input id="pContour" type="range" min="0" max="1" step="0.01" value="0.65" />
+    </div>
+    <div style="display:flex; gap:6px;">
+      <button id="resetParamsBtn" style="flex:1">รีเซ็ตค่า Proof</button>
+    </div>
+    <textarea id="paramsJson" readonly aria-label="ค่าพารามิเตอร์ปัจจุบัน"></textarea>
+  </aside>
+
+  <div id="bottombar">
+    <nav id="controls" aria-label="บังคับตัวละคร">
+      <button data-key="KeyW">↑ W</button>
+      <button data-key="KeyA">← A</button>
+      <button data-key="KeyS">↓ S</button>
+      <button data-key="KeyD">→ D</button>
+      <button data-key="KeyJ">ฟัน · J</button>
+      <button data-key="KeyL">ตั้งรับค้าง · L</button>
+      <button data-key="KeyK">กระโดด · K</button>
+      <button id="turnBtn">หมุน +45°</button>
+    </nav>
+    <div id="status">กำลังโหลดโมเดล Knight...</div>
+  </div>
+
+  <script src="/js/shared_data.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { Stage } from '/js/three/stage.js';
+    import { ChibiView } from '/js/three/chibi.js';
+    import { makeShadowTexture } from '/js/three/textures.js';
+    import { DEFAULT_TONE_PARAMS, createToneMaterialSet, ToneOutlinePass } from '/dev/art_tone_shader.js';
+
+    const DT = 1 / 60;
+    const GRAVITY = 28.0;
+    const COS45 = Math.SQRT1_2;
+    const CAM_PITCH = 0.62;
+    const FOV = 22;
+    const HERO = GAME_DATA.HEROES.knight;
+    const WALK_SPEED = HERO.speed || 5.4;
+    const JUMP_FORCE = HERO.jumpForce || 11.2;
+    const COMBO_COOLDOWN = (HERO.basicAttack?.cooldown || 280) / 1000;
+    const COMBO_HITS = HERO.basicAttack?.comboHits || 3;
+
+    const canvas = document.getElementById('view');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    renderer.setPixelRatio(dpr);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.toneMappingExposure = 1.02;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const roomEnv = new RoomEnvironment();
+    const envRT = pmrem.fromScene(roomEnv, 0.04);
+    scene.environment = envRT.texture;
+    scene.environmentIntensity = 0.72;
+    roomEnv.dispose();
+    pmrem.dispose();
+
+    const hemi = new THREE.HemisphereLight('#fff5e0', '#a7bfd9', 1.3);
+    const sun = new THREE.DirectionalLight('#fff0d4', 2.5);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 75 });
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.03;
+    scene.add(hemi, sun, sun.target);
+
+    const camera = new THREE.PerspectiveCamera(FOV, window.innerWidth / window.innerHeight, 0.5, 300);
+
+    // Contact shadow + subtle player ring matching renderer3d.js
+    const shadowDecal = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.4, 1.4),
+      new THREE.MeshBasicMaterial({ map: makeShadowTexture(), color: '#ffffff', transparent: true, depthWrite: false })
+    );
+    shadowDecal.rotation.x = -Math.PI / 2;
+    shadowDecal.renderOrder = 2;
+    const ringDecal = new THREE.Mesh(
+      new THREE.RingGeometry(0.56, 0.63, 36),
+      new THREE.MeshBasicMaterial({ color: '#d4a349', transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide })
+    );
+    ringDecal.rotation.x = -Math.PI / 2;
+    ringDecal.renderOrder = 3;
+    scene.add(shadowDecal, ringDecal);
+
+    let stage = null;
+    let activeBounds = { minX: -14, maxX: 14, minZ: -14, maxZ: 14 };
+    function loadStage(mapId) {
+      const map = GAME_DATA.MAPS[mapId] || GAME_DATA.MAPS.sky_temple;
+      if (stage) {
+        stage.group.removeFromParent();
+        stage.dispose();
+      }
+      stage = new Stage(map);
+      scene.add(stage.group);
+      stage.applyEnvironment(scene, hemi, sun);
+      if (scene.fog?.isFog) {
+        scene.fog.near += 11;
+        scene.fog.far += 15;
+      }
+      const p0 = map.platforms[0];
+      activeBounds = {
+        minX: p0.x + 0.8,
+        maxX: p0.x + p0.w - 0.8,
+        minZ: p0.z + 0.8,
+        maxZ: p0.z + p0.d - 0.8
+      };
+      player.x = THREE.MathUtils.clamp(player.x, activeBounds.minX, activeBounds.maxX);
+      player.z = THREE.MathUtils.clamp(player.z, activeBounds.minZ, activeBounds.maxZ);
+    }
+
+    const labState = {
+      mode: 'split', // 'split' | 'original' | 'tone'
+      paused: false,
+      cape: true,
+      helmet: true,
+      camDist: 41,
+      showPip: false,
+      stageId: 'sky_temple',
+      simTime: 0,
+      params: { ...DEFAULT_TONE_PARAMS }
+    };
+
+    const player = {
+      id: 'local_knight',
+      heroId: 'knight',
+      gear: { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' },
+      x: 0,
+      y: 0,
+      z: 0,
+      vx: 0,
+      vy: 0,
+      vz: 0,
+      facing: Math.PI / 4, // facing camera-front-right (+X+Z direction)
+      grounded: true,
+      state: 'idle',
+      comboStep: 0,
+      guarding: false,
+      jumpCount: 0,
+      isSprinting: false,
+      isRolling: false,
+      isDashing: false,
+      buffs: {}
+    };
+
+    const combat = {
+      attackTimer: 0,
+      attackCooldown: 0,
+      comboResetTimer: 0,
+      comboStep: 0
+    };
+
+    let view = null;
+    let toneSet = null;
+    const outlinePass = new ToneOutlinePass();
+    const env = {
+      dt: DT,
+      fx: null,
+      floorY: (x, z, y) => (stage ? stage.floorY(x, z, y) : 0)
+    };
+
+    function rebuildKnight({ preservePose = true } = {}) {
+      const prevClip = preservePose && view ? view.currentName : 'idle';
+      const prevClipTime = preservePose && view?.current ? view.current.time : 0;
+      const prevYaw = preservePose && view ? view.yaw : (Math.PI / 2 - player.facing);
+
+      player.gear = {
+        weapon: 'knight',
+        armor: 'knight',
+        helmet: labState.helmet ? 'knight' : null,
+        trinket: labState.cape ? 'knight' : null
+      };
+
+      if (toneSet) {
+        toneSet.dispose();
+        toneSet = null;
+      }
+      if (view) {
+        view.dispose();
+        view = null;
+      }
+
+      view = new ChibiView(player);
+      view.time = labState.simTime;
+      view.yaw = prevYaw;
+      view.root.rotation.y = prevYaw;
+      scene.add(view.root);
+
+      if (preservePose && prevClip && view.actions[prevClip]) {
+        view.play(prevClip, 0, true);
+        view.current.time = prevClipTime;
+        view.restorePure();
+        view.mixer.update(0);
+        view.savePure();
+        view.applyLayers(player, 0, true);
+        view.footwork?.apply(view.current, player.grounded, env.floorY, false);
+      } else {
+        view.update(player, { dt: 0, fx: null, floorY: env.floorY });
+      }
+
+      toneSet = createToneMaterialSet(view, labState.params);
+      toneSet.applyOriginal();
+    }
+
+    loadStage(labState.stageId);
+    rebuildKnight({ preservePose: false });
+
+    // Reference Sprite Proof PiP (exact ortho camera + 4-way #40332c matte)
+    const pipCanvas = document.getElementById('proofPip');
+    const pipCtx = pipCanvas.getContext('2d');
+    const pipTile = 176;
+    const pipRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+    pipRenderer.setSize(pipTile, pipTile);
+    pipRenderer.setClearColor(0, 0);
+    pipRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    pipRenderer.toneMapping = THREE.NeutralToneMapping;
+    const pipMatte = document.createElement('canvas');
+    pipMatte.width = pipMatte.height = pipTile;
+    const pipMatteCtx = pipMatte.getContext('2d', { willReadFrequently: true });
+    const pipCam = new THREE.OrthographicCamera(-1.47, 1.47, 1.47, -1.47, 0.01, 32);
+
+    function renderProofPip() {
+      if (!labState.showPip || !view || !toneSet) return;
+      const prevBg = scene.background;
+      const prevFog = scene.fog;
+      const prevStageVis = stage.group.visible;
+      const prevShadowVis = shadowDecal.visible;
+      const prevRingVis = ringDecal.visible;
+
+      scene.background = null;
+      scene.fog = null;
+      stage.group.visible = false;
+      shadowDecal.visible = false;
+      ringDecal.visible = false;
+
+      const p = view.root.position;
+      pipCam.position.set(p.x + 6, p.y + 6.13, p.z + 6);
+      pipCam.lookAt(p.x, p.y + 0.84, p.z);
+
+      toneSet.applyTone(labState.params);
+      pipRenderer.render(scene, pipCam);
+
+      stage.group.visible = prevStageVis;
+      shadowDecal.visible = prevShadowVis;
+      ringDecal.visible = prevRingVis;
+      scene.background = prevBg;
+      scene.fog = prevFog;
+
+      pipMatteCtx.clearRect(0, 0, pipTile, pipTile);
+      pipMatteCtx.drawImage(pipRenderer.domElement, 0, 0);
+      pipMatteCtx.globalCompositeOperation = 'source-in';
+      pipMatteCtx.fillStyle = labState.params.outlineColor;
+      pipMatteCtx.fillRect(0, 0, pipTile, pipTile);
+      pipMatteCtx.globalCompositeOperation = 'source-over';
+
+      pipCtx.clearRect(0, 0, pipTile, pipTile);
+      pipCtx.fillStyle = '#737b69';
+      pipCtx.fillRect(0, 0, pipTile, pipTile);
+      for (const [dx, dy] of [[-1, 0], [0, -1], [1, 0], [0, 1]]) {
+        pipCtx.drawImage(pipMatte, dx, dy);
+      }
+      pipCtx.drawImage(pipRenderer.domElement, 0, 0);
+    }
+
+    // Input state (WASD, J, L, K; lab shortcuts 1/2/3/Tab/P/.)
+    const keys = new Set();
+    function triggerAttack() {
+      if (combat.attackCooldown > 0) return;
+      combat.comboStep = combat.comboResetTimer > 0 ? (combat.comboStep % COMBO_HITS) + 1 : 1;
+      combat.attackTimer = combat.comboStep === 3 ? 0.52 : 0.38;
+      combat.attackCooldown = COMBO_COOLDOWN;
+      combat.comboResetTimer = 0.90;
+      player.state = 'attack';
+      player.comboStep = combat.comboStep;
+      player.guarding = false;
+    }
+
+    function triggerJump() {
+      if (!player.grounded) return;
+      player.grounded = false;
+      player.vy = JUMP_FORCE;
+      player.jumpCount = 1;
+    }
+
+    function handleKey(code, down) {
+      if (down) {
+        if (keys.has(code)) return;
+        keys.add(code);
+        if (code === 'KeyJ') triggerAttack();
+        else if (code === 'KeyK') triggerJump();
+      } else {
+        keys.delete(code);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+      if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyK', 'KeyL'].includes(e.code)) {
+        e.preventDefault();
+        handleKey(e.code, true);
+      } else if (e.code === 'Digit1') {
+        setMode('original');
+      } else if (e.code === 'Digit2') {
+        setMode('tone');
+      } else if (e.code === 'Digit3') {
+        setMode('split');
+      } else if (e.code === 'Tab') {
+        e.preventDefault();
+        setMode(labState.mode === 'tone' ? 'original' : 'tone');
+      } else if (e.code === 'KeyP') {
+        setPaused(!labState.paused);
+      } else if (e.code === 'Period' && labState.paused) {
+        stepFixed(1);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      handleKey(e.code, false);
+    });
+
+    window.addEventListener('blur', () => keys.clear());
+
+    for (const btn of document.querySelectorAll('[data-key]')) {
+      btn.addEventListener('pointerdown', (e) => {
+        btn.setPointerCapture(e.pointerId);
+        handleKey(btn.dataset.key, true);
+      });
+      for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+        btn.addEventListener(ev, () => handleKey(btn.dataset.key, false));
+      }
+    }
+
+    document.getElementById('turnBtn').onclick = () => {
+      player.facing = Math.atan2(Math.sin(player.facing + Math.PI / 4), Math.cos(player.facing + Math.PI / 4));
+      if (labState.paused && view) {
+        view.yaw = Math.PI / 2 - player.facing;
+        view.root.rotation.y = view.yaw;
+      }
+    };
+
+    window.addEventListener('wheel', (e) => {
+      if (e.target !== canvas) return;
+      labState.camDist = THREE.MathUtils.clamp(labState.camDist + Math.sign(e.deltaY) * 2.5, 10, 58);
+      syncCameraSelect();
+    }, { passive: true });
+
+    function stepSimulation(dt) {
+      labState.simTime += dt;
+      combat.attackTimer = Math.max(0, combat.attackTimer - dt);
+      combat.attackCooldown = Math.max(0, combat.attackCooldown - dt);
+      combat.comboResetTimer = Math.max(0, combat.comboResetTimer - dt);
+
+      const ix = Number(keys.has('KeyD')) - Number(keys.has('KeyA'));
+      const iz = Number(keys.has('KeyS')) - Number(keys.has('KeyW'));
+      let mx = 0, mz = 0;
+      if (ix !== 0 || iz !== 0) {
+        mx = (iz + ix) * COS45;
+        mz = (iz - ix) * COS45;
+        const len = Math.hypot(mx, mz) || 1;
+        mx /= len;
+        mz /= len;
+        player.facing = Math.atan2(mz, mx);
+      }
+
+      const attacking = combat.attackTimer > 0;
+      const guarding = !attacking && keys.has('KeyL');
+      player.guarding = guarding;
+
+      if (attacking) {
+        player.state = 'attack';
+        player.comboStep = combat.comboStep;
+        player.vx = 0;
+        player.vz = 0;
+      } else if (guarding) {
+        player.state = 'guard';
+        player.comboStep = 0;
+        player.vx = 0;
+        player.vz = 0;
+      } else {
+        player.state = (mx || mz) ? 'run' : 'idle';
+        player.comboStep = 0;
+        player.vx = mx * WALK_SPEED;
+        player.vz = mz * WALK_SPEED;
+      }
+
+      player.x = THREE.MathUtils.clamp(player.x + player.vx * dt, activeBounds.minX, activeBounds.maxX);
+      player.z = THREE.MathUtils.clamp(player.z + player.vz * dt, activeBounds.minZ, activeBounds.maxZ);
+
+      if (!player.grounded) {
+        player.vy -= GRAVITY * dt;
+        player.y += player.vy * dt;
+        const fy = env.floorY(player.x, player.z, player.y + 0.3) ?? 0;
+        if (player.y <= fy) {
+          player.y = fy;
+          player.vy = 0;
+          player.grounded = true;
+          player.jumpCount = 0;
+        }
+      }
+
+      view.update(player, env);
+
+      const fy = env.floorY(player.x, player.z, player.y + 0.1);
+      if (fy !== null) {
+        const k = Math.max(0.32, 1 - Math.max(0, player.y - fy) * 0.12);
+        shadowDecal.visible = true;
+        shadowDecal.position.set(player.x, fy + 0.024, player.z);
+        shadowDecal.scale.setScalar(k * 1.08);
+        shadowDecal.material.opacity = k * 0.92;
+        ringDecal.visible = true;
+        ringDecal.position.set(player.x, fy + 0.030, player.z);
+      }
+      if (stage) stage.update?.(dt, labState.simTime);
+    }
+
+    function stepFixed(count = 1) {
+      for (let i = 0; i < count; i++) stepSimulation(DT);
+    }
+
+    function updateCamera(aspect) {
+      const targetX = player.x;
+      const targetY = Math.max(-3, Math.min(6, player.y)) * 0.6;
+      const targetZ = player.z;
+      const horiz = labState.camDist * Math.cos(CAM_PITCH);
+      const vert = labState.camDist * Math.sin(CAM_PITCH);
+      camera.aspect = aspect;
+      camera.updateProjectionMatrix();
+      camera.position.set(targetX + horiz * COS45, targetY + vert, targetZ + horiz * COS45);
+      camera.lookAt(targetX, targetY, targetZ);
+      sun.position.set(targetX - 12, targetY + 24, targetZ + 5);
+      sun.target.position.set(targetX, targetY, targetZ);
+      sun.target.updateMatrixWorld();
+    }
+
+    function renderPass(vx, vy, vw, vh, useTone) {
+      updateCamera(vw / Math.max(1, vh));
+      renderer.setViewport(vx, vy, vw, vh);
+      renderer.setScissorTest(true);
+      renderer.setScissor(vx, vy, vw, vh);
+
+      if (useTone) toneSet.applyTone(labState.params);
+      else toneSet.applyOriginal();
+
+      renderer.clear(true, true, false);
+      renderer.render(scene, camera);
+
+      if (useTone) {
+        outlinePass.render(renderer, scene, camera, {
+          stageGroup: stage.group,
+          knightRoot: view.root,
+          hiddenDuringMask: [shadowDecal, ringDecal, view.swordTrail?.mesh],
+          vx, vy, vw, vh,
+          dpr: renderer.getPixelRatio(),
+          params: labState.params
+        });
+      }
+    }
+
+    function renderFrame() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.autoClear = false;
+      renderer.setRenderTarget(null);
+
+      if (labState.mode === 'split') {
+        const half = Math.floor(w / 2);
+        renderPass(0, 0, half, h, false);
+        renderPass(half, 0, w - half, h, true);
+      } else {
+        renderPass(0, 0, w, h, labState.mode === 'tone');
+      }
+
+      renderProofPip();
+      updateStatus();
+    }
+
+    function updateStatus() {
+      const deg = ((THREE.MathUtils.radToDeg(player.facing) % 360) + 360) % 360;
+      const modeLabel = labState.mode === 'split' ? 'A/B Split' : (labState.mode === 'tone' ? 'B: ลดโทน 3D' : 'A: เดิม');
+      document.getElementById('status').textContent =
+        `${modeLabel} | ${labState.paused ? 'PAUSED' : 'LIVE'} | clip=${view.currentName} t=${(view.current?.time || 0).toFixed(2)}s | facing=${deg.toFixed(0)}° | cam=${labState.camDist.toFixed(0)} | ผ้าคลุม=${labState.cape ? 'ใส่' : 'ถอด'} | หมวก=${labState.helmet ? 'ใส่' : 'ถอด'}`;
+    }
+
+    // UI wiring
+    const divider = document.getElementById('divider');
+    const badgeLeft = document.getElementById('badgeLeft');
+    const badgeRight = document.getElementById('badgeRight');
+    const modeButtons = {
+      split: document.getElementById('modeSplit'),
+      original: document.getElementById('modeOrig'),
+      tone: document.getElementById('modeTone')
+    };
+
+    function setMode(mode) {
+      labState.mode = mode;
+      for (const [k, btn] of Object.entries(modeButtons)) btn.setAttribute('aria-pressed', String(k === mode));
+      divider.hidden = mode !== 'split';
+      if (mode === 'split') {
+        badgeLeft.hidden = false;
+        badgeRight.hidden = false;
+        badgeLeft.textContent = 'A · วัสดุเกมปัจจุบัน';
+        badgeRight.textContent = 'B · ลดโทน 3D (Proof)';
+      } else if (mode === 'original') {
+        badgeLeft.hidden = false;
+        badgeRight.hidden = true;
+        badgeLeft.textContent = 'A · วัสดุเกมปัจจุบัน';
+      } else {
+        badgeLeft.hidden = true;
+        badgeRight.hidden = false;
+        badgeRight.textContent = 'B · ลดโทน 3D (Proof)';
+      }
+    }
+
+    function setPaused(paused) {
+      labState.paused = !!paused;
+      const btn = document.getElementById('pauseBtn');
+      btn.setAttribute('aria-pressed', String(labState.paused));
+      btn.textContent = labState.paused ? 'เล่นต่อ (P)' : 'หยุดภาพ (P)';
+      document.getElementById('stepBtn').disabled = !labState.paused;
+    }
+
+    function syncCameraSelect() {
+      const sel = document.getElementById('camPreset');
+      const match = ['41', '26', '15'].find((v) => Math.abs(Number(v) - labState.camDist) < 0.5);
+      if (match) sel.value = match;
+    }
+
+    modeButtons.split.onclick = () => setMode('split');
+    modeButtons.original.onclick = () => setMode('original');
+    modeButtons.tone.onclick = () => setMode('tone');
+    document.getElementById('pauseBtn').onclick = () => setPaused(!labState.paused);
+    document.getElementById('stepBtn').onclick = () => { if (labState.paused) stepFixed(1); };
+
+    document.getElementById('capeBtn').onclick = (e) => {
+      labState.cape = !labState.cape;
+      e.currentTarget.setAttribute('aria-pressed', String(labState.cape));
+      e.currentTarget.textContent = `ผ้าคลุม: ${labState.cape ? 'ใส่' : 'ถอด'}`;
+      rebuildKnight({ preservePose: true });
+    };
+
+    document.getElementById('helmetBtn').onclick = (e) => {
+      labState.helmet = !labState.helmet;
+      e.currentTarget.setAttribute('aria-pressed', String(labState.helmet));
+      e.currentTarget.textContent = `หมวก: ${labState.helmet ? 'ใส่' : 'ถอด'}`;
+      rebuildKnight({ preservePose: true });
+    };
+
+    document.getElementById('camPreset').onchange = (e) => {
+      labState.camDist = Number(e.target.value);
+    };
+
+    document.getElementById('stageSel').onchange = (e) => {
+      labState.stageId = e.target.value;
+      loadStage(labState.stageId);
+    };
+
+    document.getElementById('pipBtn').onclick = (e) => {
+      labState.showPip = !labState.showPip;
+      e.currentTarget.setAttribute('aria-pressed', String(labState.showPip));
+      document.getElementById('proofPipBox').hidden = !labState.showPip;
+    };
+
+    document.getElementById('tuneBtn').onclick = (e) => {
+      const drawer = document.getElementById('drawer');
+      drawer.hidden = !drawer.hidden;
+      e.currentTarget.setAttribute('aria-pressed', String(!drawer.hidden));
+    };
+
+    const sliders = [
+      ['pHead', 'vHead', 'headBoost'],
+      ['pOutlinePx', 'vOutlinePx', 'outlinePx'],
+      ['pOutlineAlpha', 'vOutlineAlpha', 'outlineAlpha'],
+      ['pPalette', 'vPalette', 'paletteMix'],
+      ['pContour', 'vContour', 'contourStrength']
+    ];
+
+    function syncParamUI() {
+      for (const [inputId, valId, key] of sliders) {
+        const val = labState.params[key];
+        document.getElementById(inputId).value = val;
+        document.getElementById(valId).textContent = Number(val).toFixed(2);
+      }
+      document.getElementById('paramsJson').value = JSON.stringify(labState.params, null, 2);
+    }
+
+    for (const [inputId, , key] of sliders) {
+      document.getElementById(inputId).addEventListener('input', (e) => {
+        labState.params[key] = Number(e.target.value);
+        syncParamUI();
+      });
+    }
+
+    document.getElementById('resetParamsBtn').onclick = () => {
+      Object.assign(labState.params, DEFAULT_TONE_PARAMS);
+      syncParamUI();
+    };
+    syncParamUI();
+
+    function resize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      const topBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
+      const badgeTop = `${Math.round(topBottom + 10)}px`;
+      badgeLeft.style.top = badgeTop;
+      badgeRight.style.top = badgeTop;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let acc = 0;
+    let last = performance.now();
+    function loop(now) {
+      const real = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (!labState.paused) {
+        acc += real;
+        while (acc >= DT) {
+          stepSimulation(DT);
+          acc -= DT;
+        }
+      }
+      renderFrame();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // Scriptable API for inspection and reproducible testing
+    window.artToneLab = {
+      setMode,
+      setPaused,
+      stepFrames: (n = 1) => stepFixed(n),
+      setCameraDist: (d) => { labState.camDist = d; syncCameraSelect(); },
+      setCape: (on) => {
+        if (labState.cape === !!on) return;
+        document.getElementById('capeBtn').click();
+      },
+      setHelmet: (on) => {
+        if (labState.helmet === !!on) return;
+        document.getElementById('helmetBtn').click();
+      },
+      setFacing: (rad) => {
+        player.facing = rad;
+        if (view) {
+          view.yaw = Math.PI / 2 - rad;
+          view.root.rotation.y = view.yaw;
+        }
+      },
+      setGuard: (on) => {
+        if (on) keys.add('KeyL');
+        else keys.delete('KeyL');
+      },
+      setMove: (codeList = []) => {
+        for (const k of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) keys.delete(k);
+        for (const k of codeList) keys.add(k);
+      },
+      triggerAttack,
+      toggleProofPip: (on) => {
+        const want = on === undefined ? !labState.showPip : !!on;
+        if (want !== labState.showPip) document.getElementById('pipBtn').click();
+      },
+      setParams: (patch) => {
+        Object.assign(labState.params, patch);
+        syncParamUI();
+      },
+      getState: () => ({
+        mode: labState.mode,
+        paused: labState.paused,
+        cape: labState.cape,
+        helmet: labState.helmet,
+        camDist: labState.camDist,
+        clip: view?.currentName,
+        clipTime: view?.current?.time ?? 0,
+        facing: player.facing,
+        pos: { x: player.x, y: player.y, z: player.z },
+        params: { ...labState.params }
+      })
+    };
+  </script>
+</body>
+</html>
