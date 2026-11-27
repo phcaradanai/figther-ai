@@ -249,3 +249,15 @@ An audit of all 30 Knight clips and live 60 Hz locomotion (`node tools/rig/anato
 | Idle after dodge input (ms) | 117 | 0 |
 | Clips passing `anatomy-audit.mjs --strict` | — | 26 / 26 (8 / 8 live) |
 
+## Skinned Fire Archmage conversion & biomechanics (2026-11-27)
+
+- **Model & gear pipeline (`tools/rig/build_pyromancer.py`, Blender 5.3 headless)**: Built `public/assets/models/hero-mage.glb` (14,000-tri Tree-of-Savior painterly Cycles albedo body with curled right staff fist, relaxed open left casting palm, smooth robe weights, and symmetric `HeroRig`) and `public/assets/models/mage-gear.glb` (sculpted `MageHat`, blazing `MageStaff`, and orbiting `MageOrb`).
+- **Runtime & clips (`public/js/three/mage_motion.js`, `public/js/three/mage_attacks.js`)**: Shared `KnightFootwork` foot planting, velocity-scaled landing compression, floor guard, Flame Hover `fly` loop, upright `R.staff` controller (`staffTilt`), dynamic `MageOrb` orbiter & dropped trinket in `public/js/three/chibi.js`, `?hero=mage` (`fly` + 4 skills) in `public/knight_motion_lab.html`, and regression coverage in `tests/mage_animation.test.mjs`.
+
+| Fire Archmage measure | Procedural rig | Skinned rig |
+| --- | ---: | ---: |
+| Walk / sprint ankle slide P90 (units/s) | 5.14 / 7.12 | 0.24 / 0.32 |
+| Low / high jump hip drop (units) | 0.125 / 0.125 | 0.025 / 0.066 |
+| Idle after dodge input (ms) | 117 | 0 |
+| Clips passing `anatomy-audit.mjs --strict` | — | 27 / 27 (9 / 9 live) |
+

@@ -102,6 +102,9 @@
       walk: { length: 4, at: t => (t > 0.4 && t < 3 ? { speed: WALK, facing: RIGHT } : { facing: RIGHT }) },
       sprint: { length: 4, at: t => (t > 0.4 && t < 3 ? { speed: SPRINT, facing: RIGHT, sprint: true } : { facing: RIGHT }) },
       jump: { length: 2.2, at: t => ({ facing: RIGHT, ...(airborne(t, 0.4) || {}) }) },
+      ...(HERO.mobility?.canFly ? {
+        fly: { length: 2.4, at: t => ({ facing: RIGHT, y: 1.6, grounded: false, isFlying: t > 0.2 && t < 2.1 }) }
+      } : {}),
       runJump: { length: 3, at: t => {
         const air = airborne(t, 0.9);
         return { speed: t > 0.3 && t < 2.4 ? WALK : 0, facing: RIGHT, ...(air || {}), jumpCount: air ? 1 : 0 };
@@ -141,7 +144,7 @@
         at: t => {
           const k = t - 0.3;
           const active = k > 0 && k < 0.55;
-          const speed = (id === 'knight_trinket' || id === 'ninja_weapon') && k > 0 ? 18 * Math.pow(0.91, k * 30) : 0;
+          const speed = (id === 'knight_trinket' || id === 'ninja_weapon' || id === 'mage_trinket') && k > 0 ? 18 * Math.pow(0.91, k * 30) : 0;
           return { facing: RIGHT, speed: speed > 0.3 ? speed : 0, state: active ? 'skill' : 'idle', animSkillId: active ? id : null };
         }
       }])),
