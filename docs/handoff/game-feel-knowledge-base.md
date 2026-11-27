@@ -3,9 +3,9 @@
 `figther-ai` เป็นเกมต่อสู้ในลานผ่าน LAN ใช้ Tree of Savior เป็นหลักอ้างอิง art direction เพื่อให้ตัวละครทุกอาชีพอยู่ในภาษาภาพเดียวกัน ใช้กรณีศึกษาด้านเกมต่อสู้สำหรับการอ่านท่าและการแย่งเกียร์ เริ่มทดสอบ Knight ปะทะ Ninja ที่กล้องเล่นจริงและตรึงฉากไว้เมื่อทดลองเรื่องตัวละคร [Concept และกรณีศึกษาของเกม](game-concept-direction.md)
 
 ## เครื่องมือทดลองและบันทึกผลรอบปัจจุบัน
+- **Movement & Motion Rig Lab (`/dev/motion-rig-lab.html`)**: หน้าแก้ไขและเทียบ **Before | After** ของการเคลื่อนที่ (Knight พุ่งแล้วหยุด `dash_stop`, ลด foot-slide เบรกจาก `17.6cm -> 9.7cm`) และการแก้ข้อต่อท่าโจมตีจริง (`attack2_clean_r1`, ลดดาบทะลุหมวก/แขน `>2cm` จาก `3/13` เฟรม `6.0cm` เหลือ `0/13` เฟรม โดยคงสัมผัส `0.100s` เดิม) พร้อม Save Draft / Export / Import JSON [เปิดไฟล์ Lab](../../public/dev/motion-rig-lab.html) · [คู่มือและผลเทียบ Movement & Motion Rig Lab](motion-rig-lab-guide.md) · [ไฟล์ Presets](../../public/dev/motion_rig_presets.js)
 - **Art & Combat Lab (`/dev/art-combat-lab.html`)**: หน้าเทียบ preset **A (เกมเดิม) / B (Knight ลดโทน 3D) / C (จูนสนาม แสง เงา และ FX ร่วมกัน)** แบบเล่นซ้ำและเลื่อนเฟรมได้ในฉาก `Sky Temple` (Knight vs Ninja) [เปิดไฟล์ Lab](../../public/dev/art-combat-lab.html)
-- **คู่มือการใช้งานและวิธีเพิ่ม Preset / Scenario**: [คู่มือ Art & Combat Lab](art-combat-lab-guide.md)
-- **บันทึกการทดลองและค่าสี/แสง/เงาที่ใช้จริง**: [บันทึกการทดลอง Art & Combat Lab](art-combat-lab-log.md)
+- **คู่มือและบันทึก Art & Combat Lab**: [คู่มือ Art & Combat Lab](art-combat-lab-guide.md) · [บันทึกการทดลอง Art & Combat Lab](art-combat-lab-log.md)
 
 ## แหล่งอ้างอิง
 
