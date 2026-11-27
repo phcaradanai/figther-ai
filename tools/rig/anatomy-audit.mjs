@@ -1,13 +1,13 @@
 // Audits every skinned hero animation clip and live 60 Hz gameplay
 // sequences for true 3D anatomical joint limits, shield orientation (Knight), and pops.
-// Usage: node tools/rig/anatomy-audit.mjs [--hero=knight|ninja|mage|cowboy|all] [--strict]
+// Usage: node tools/rig/anatomy-audit.mjs [--hero=knight|ninja|mage|cowboy|samurai|all] [--strict]
 import { Quaternion, Vector3 } from 'three';
 import { loadChibiViews } from './load-chibi.mjs';
 import { SHIELD_HOLD } from '../../public/js/three/knight_anatomy.js';
 
 const strict = process.argv.includes('--strict');
 const heroArg = process.argv.find(a => a.startsWith('--hero='))?.slice('--hero='.length) || 'knight';
-const heroes = heroArg === 'all' ? ['knight', 'ninja', 'mage', 'cowboy'] : [heroArg];
+const heroes = heroArg === 'all' ? ['knight', 'ninja', 'mage', 'cowboy', 'samurai'] : [heroArg];
 const { ChibiView } = await loadChibiViews();
 const qShield = new Quaternion(...SHIELD_HOLD);
 const deg = r => +(r * 180 / Math.PI).toFixed(1);
@@ -70,6 +70,13 @@ const HERO_CLIPS = {
     'summon', 'nova', 'raise', 'blink',
     'airRise', 'airCut', 'airSpike', 'slamAim', 'slamDive', 'slamImpact'
   ],
+  samurai: [
+    'idle', 'walk', 'run', 'dash', 'jump', 'fall', 'roll',
+    'guard', 'guardHit', 'hurt', 'knockdown', 'dead',
+    'attack1', 'attack2', 'attack3', 'heavy',
+    'spin', 'counter', 'aura', 'rising',
+    'airRise', 'airCut', 'airSpike', 'slamAim', 'slamDive', 'slamImpact'
+  ],
   cowboy: [
     'idle', 'walk', 'run', 'dash', 'jump', 'fall', 'roll',
     'guard', 'guardHit', 'hurt', 'knockdown', 'dead',
@@ -129,8 +136,8 @@ for (const heroId of heroes) {
   }
   view.dispose();
 
-  const walkSpd = heroId === 'ninja' ? 7.0 : (heroId === 'mage' ? 5.1 : (heroId === 'cowboy' ? 5.8 : 5.4));
-  const runSpd = heroId === 'ninja' ? 12.25 : (heroId === 'mage' ? 8.16 : (heroId === 'cowboy' ? 9.0 : 7.5));
+  const walkSpd = heroId === 'ninja' ? 7.0 : (heroId === 'mage' ? 5.1 : (heroId === 'cowboy' ? 5.8 : (heroId === 'samurai' ? 6.6 : 5.4)));
+  const runSpd = heroId === 'ninja' ? 12.25 : (heroId === 'mage' ? 8.16 : (heroId === 'cowboy' ? 9.0 : (heroId === 'samurai' ? 10.5 : 7.5)));
   const SEQS = {
     walk: Array.from({ length: 60 }, (_, i) => ({ z: i * walkSpd * dt, vz: walkSpd })),
     sprint: Array.from({ length: 60 }, (_, i) => ({ z: i * runSpd * dt, vz: runSpd, isSprinting: true })),
@@ -153,6 +160,14 @@ for (const heroId of heroes) {
         ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'ninja_armor' })),
         ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'ninja_helmet' })),
         ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'ninja_trinket' }))
+      ]
+    } : {}),
+    ...(heroId === 'samurai' ? {
+      skills: [
+        ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'samurai_weapon' })),
+        ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'samurai_armor' })),
+        ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'samurai_helmet' })),
+        ...Array.from({ length: 24 }, () => ({ state: 'skill', animSkillId: 'samurai_trinket' }))
       ]
     } : {}),
     ...(heroId === 'cowboy' ? {

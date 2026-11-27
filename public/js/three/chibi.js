@@ -19,6 +19,8 @@ import { buildMageLocomotion, mageIdle } from './mage_motion.js';
 import { buildMageAttacks, buildMageSkills, MAGE_AIRBORNE, MAGE_STRIKES } from './mage_attacks.js';
 import { buildCowboyLocomotion, cowboyIdle } from './cowboy_motion.js';
 import { buildCowboyAttacks, buildCowboySkills, COWBOY_AIRBORNE, COWBOY_SHOTS, COWBOY_STRIKES } from './cowboy_attacks.js';
+import { buildSamuraiLocomotion, samuraiIdle } from './samurai_motion.js';
+import { buildSamuraiAttacks, buildSamuraiSkills, SAMURAI_AIRBORNE, SAMURAI_STRIKES } from './samurai_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
 import { SHIELD_HOLD, enforceHeroAnatomy, solveAnatomicalLeg } from './knight_anatomy.js';
@@ -182,6 +184,35 @@ const SKINNED_HEROES = {
     soleZ: [-0.0980, 0.1744],
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.02, 0]
+  },
+  // Painterly Samurai (source folder art/blender/source/samurai): katana in the right fist, kabuto, back banner.
+  samurai: {
+    url: '/assets/models/hero-samurai.glb',
+    gearUrl: '/assets/models/samurai-gear.glb',
+    hipHeight: 0.8356,
+    alignArms: true,
+    narrowLegRest: true,
+    painterly: true,
+    stepFps: 0,
+    headScale: 1.0,
+    swordScale: 1.0,
+    fused: [],
+    helmetMesh: 'SamuraiHelmet',
+    swordMesh: 'SamuraiKatana',
+    // the fist closes on the hilt: the grip is 0.085 past the wrist and 0.04 into the palm, and the blade rises
+    // along the hand's +Z (up once the arm is raised)
+    swordMount: { p: [0.040, -0.085, 0.0], rx: 0, ry: 0, rz: 0 },
+    swordTrail: {
+      base: [0, 0, 0.20],
+      tip: [0, 0, 0.88],
+      colors: { root: [0.85, 0.12, 0.18], mid: [1.0, 0.28, 0.34], edge: [1.0, 0.92, 0.92] }
+    },
+    backMesh: 'SamuraiFlag',
+    backMount: { p: [0, 0.02, -0.17], scale: 1 },
+    gearHelmetY: -0.30,
+    soleZ: [-0.1365, 0.1794],
+    otherHelmetScale: 0.50,
+    otherHelmetOffset: [0, 0.02, 0]
   }
 };
 const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
@@ -232,7 +263,8 @@ export const SKILL_ANIM = {
   cowboy_helmet: 'rollshot', cowboy_armor: 'toss', cowboy_trinket: 'lasso',
   knight_weapon: 'sweep', knight_helmet: 'warcry', knight_trinket: 'charge',
   striker_weapon: 'flurry',
-  mage_weapon: 'summon', mage_armor: 'nova', mage_helmet: 'raise', mage_trinket: 'blink'
+  mage_weapon: 'summon', mage_armor: 'nova', mage_helmet: 'raise', mage_trinket: 'blink',
+  samurai_armor: 'counter', samurai_helmet: 'aura', samurai_trinket: 'rising'
 };
 
 function mergeKind(mat) {
@@ -1298,7 +1330,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
   if (!fused.has('helmet') && gear.helmet) {
     if (gear.helmet === heroId && spec.helmetMesh && gearScene) {
       const hm = b.glbPart(unscaled(R.head), gearScene, spec.helmetMesh, { painterly: !!spec.painterly });
-      if (hm?.material && (heroId === 'mage' || heroId === 'cowboy')) {
+      if (hm?.material && (heroId === 'mage' || heroId === 'cowboy' || heroId === 'samurai')) {
         const mats = Array.isArray(hm.material) ? hm.material : [hm.material];
         for (const mt of mats) mt.side = THREE.DoubleSide;
       }
@@ -1369,7 +1401,21 @@ function buildSkinnedRig(b, heroId, gear, model) {
     b.glbPart(o, gearScene, spec.orbMesh, { painterly: !!spec.painterly });
     extras.orbiters.push(o);
   }
-  if (!fused.has('trinket') && gear.trinket === heroId && spec.lassoCoil) {
+  if (!fused.has('trinket') && gear.trinket === heroId && spec.backMesh && gearScene) {
+    // Sashimono: the clan banner rides on her back and leans with her speed like a cape
+    const bm = spec.backMount || { p: [0, 0, -0.17], scale: 1 };
+    // The cape spring tips its node about +X as if the cloth hung down; the banner stands up, so the node sits inside
+    // a half-turn about Y (the tip reverses) and the mesh turns back so the cloth still faces the rear.
+    const mountNode = node('flagMount', unscaled(R.torso), bm.p[0], bm.p[1], bm.p[2]);
+    mountNode.rotation.y = Math.PI;
+    const sway = node('cape', mountNode, 0, 0, 0);
+    if (bm.scale && bm.scale !== 1) sway.scale.setScalar(bm.scale);
+    sway.userData.capeScale = 0.45;
+    const hold = node('flagHold', sway, 0, 0, 0);
+    hold.rotation.y = Math.PI;
+    b.glbPart(hold, gearScene, spec.backMesh, { painterly: !!spec.painterly });
+    extras.capes.push(sway);
+  } else if (!fused.has('trinket') && gear.trinket === heroId && spec.lassoCoil) {
     // Bounty Hunter Lasso: a coil of rope hung on the back of her belt (the sculpt has no trinket of its own)
     lassoCoil(b, unscaled(R.torso), spec.lassoCoil);
   } else if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket] && !(spec.capeMesh && gear.trinket === heroId) && !(spec.orbMesh && gear.trinket === heroId)) {
@@ -1432,6 +1478,8 @@ export function buildGearItem(slot, heroId) {
   } else if (slot === 'trinket') {
     if (gearScene && skinned.spec.orbMesh) {
       b.glbPart(g, gearScene, skinned.spec.orbMesh, { p: [0, 0.04, 0], painterly: !!skinned.spec.painterly });
+    } else if (gearScene && skinned?.spec.backMesh) {
+      b.glbPart(g, gearScene, skinned.spec.backMesh, { p: [0, -0.35, 0], painterly: !!skinned.spec.painterly });
     } else if (skinned?.spec.lassoCoil) {
       lassoCoil(b, g, { p: [0, 0, 0], radius: skinned.spec.lassoCoil.radius * 1.6 });
     } else {
@@ -2007,6 +2055,13 @@ function buildClips(style, skinnedKnight = false) {
   const lassoYank = P({ torso: [-0.28, 0.3, 0], head: [-0.1, -0.2, 0], armL: [-0.35, 0, 0.4], foreL: [-1.9, 0, 0], armR: [-1.5, 0, 0.25], foreR: [0, 0, 0], legL: [-0.55, 0, 0.18], shinL: [0.2, 0, 0], legR: [0.55, 0, -0.18], shinR: [0.6, 0, 0], hipsY: 0.52 });
   clips.lasso = makeClip('lasso', [[0, base], [0.05, lassoOut, 'out'], [0.18, lassoYank, 'out'], [0.48, pose(lassoYank, { torso: [-0.3, 0.32, 0] }), 'lin'], [0.64, base, 'io']]);
 
+  clips.counter = clips.windslash.clone();
+  clips.counter.name = 'counter';
+  clips.aura = clips.warcry.clone();
+  clips.aura.name = 'aura';
+  clips.rising = clips.sweep.clone();
+  clips.rising.name = 'rising';
+
   const hurt = P({ torso: [-0.5, 0, 0.12], head: [-0.45, 0, 0], armR: [-0.3, 0, -0.9], foreR: [-0.4, 0, 0], armL: [-0.3, 0, 0.9], foreL: [-0.4, 0, 0], hipsY: 0.6 });
   clips.hurt = makeClip('hurt', [[0, base], [0.05, hurt, 'out'], [0.32, pose(hurt, { torso: [-0.2, 0, 0.05], head: [-0.15, 0, 0] }), 'io']]);
 
@@ -2064,6 +2119,19 @@ function clipsFor(style, skinnedHero = false) {
           clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
         }
       }
+    } else if (skinnedHero === 'samurai') {
+      const ready = pose(STANCE, READY.blade);
+      Object.assign(clips, buildSamuraiLocomotion(makeKnightClip, ready, pose));
+      const idle = samuraiIdle(ready, pose);
+      Object.assign(clips, buildSamuraiAttacks(makeKnightClip, idle, pose), buildSamuraiSkills(makeKnightClip, idle, pose));
+      for (const clip of Object.values(clips)) {
+        if (!clip.tracks.some(track => track.name === 'handL.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handL.quaternion', [0], [0, 0, 0, 1]));
+        }
+        if (!clip.tracks.some(track => track.name === 'handR.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
+        }
+      }
     } else if (skinnedHero === 'cowboy') {
       const ready = pose(STANCE, READY.twingun);
       Object.assign(clips, buildCowboyLocomotion(makeKnightClip, ready, pose));
@@ -2083,9 +2151,9 @@ function clipsFor(style, skinnedHero = false) {
   return CLIP_CACHE.get(key);
 }
 
-const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR', 'airRise', 'airCut', 'airSpike', 'slamDive', 'slamImpact', 'guardHit', 'turnL', 'turnR', 'draw', 'idleFidget']);
+const ONE_SHOT = new Set(['attack1', 'attack2', 'attack3', 'heavy', 'skill', 'spin', 'slam', 'flurry', 'roll', 'sweep', 'warcry', 'seal', 'windslash', 'throw', 'backflip', 'raise', 'summon', 'nova', 'blink', 'rollshot', 'toss', 'lasso', 'counter', 'aura', 'rising', 'hurt', 'knockdown', 'dead', 'brakeL', 'brakeR', 'airRise', 'airCut', 'airSpike', 'slamDive', 'slamImpact', 'guardHit', 'turnL', 'turnR', 'draw', 'idleFidget']);
 // Clips that must finish even if the server state moves on (movement can't cut them)
-const COMMITTED = { spin: 0.78, slam: 0.74, flurry: 0.6, roll: 0.44, sweep: 0.72, warcry: 0.7, charge: 0.6, seal: 0.5, windslash: 0.74, throw: 0.42, backflip: 0.55, raise: 0.7, summon: 0.76, nova: 0.7, blink: 0.38, rollshot: 0.56, toss: 0.38, lasso: 0.5 };
+const COMMITTED = { spin: 0.78, slam: 0.74, flurry: 0.6, roll: 0.44, sweep: 0.72, warcry: 0.7, charge: 0.6, seal: 0.5, windslash: 0.74, throw: 0.42, backflip: 0.55, raise: 0.7, summon: 0.76, nova: 0.7, blink: 0.38, rollshot: 0.56, toss: 0.38, lasso: 0.5, counter: 0.5, aura: 0.56, rising: 0.46 };
 // Sword-and-shield attacks hold their strike pose; moving can't cut the hold short
 const STYLE_COMMIT = {
   shield: { attack1: 0.4, attack2: 0.36, attack3: 0.55, heavy: 0.6 },
@@ -2095,6 +2163,7 @@ const STYLE_COMMIT = {
 };
 const KNIGHT_COMMIT = { ...Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.32 };
 const NINJA_COMMIT = { ...Object.fromEntries(Object.entries(NINJA_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
+const SAMURAI_COMMIT = { ...Object.fromEntries(Object.entries(SAMURAI_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 const COWBOY_COMMIT = { ...Object.fromEntries(Object.entries(COWBOY_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 const MAGE_COMMIT = { ...Object.fromEntries(Object.entries(MAGE_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 // Twin-gun shots timed on the clip: [clip time, 'R' | 'L' | 'B' (both), power (1 big, 2 ground blast)]
@@ -2144,6 +2213,7 @@ const KNIGHT_STANDING = new Set(['idle', 'guard', 'guardHit', 'turnL', 'turnR', 
 const KNIGHT_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
 const NINJA_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(NINJA_STRIKES)]);
 const MAGE_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(MAGE_STRIKES)]);
+const SAMURAI_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(SAMURAI_STRIKES)]);
 const COWBOY_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(COWBOY_STRIKES)]);
 const IDLE_FAMILY = new Set(['idle', 'idleFidget', 'turnL', 'turnR', 'draw']);
 const FIDGET_AFTER = 6;
@@ -2164,6 +2234,8 @@ const NINJA_TRAIL_WINDOWS = Object.fromEntries(Object.entries(NINJA_STRIKES)
   .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
 const NINJA_OFFHAND_TRAILS = Object.fromEntries(Object.entries(NINJA_STRIKES)
   .filter(([, strike]) => strike.offhandTrail).map(([name, strike]) => [name, strike.offhandTrail]));
+const SAMURAI_TRAIL_WINDOWS = Object.fromEntries(Object.entries(SAMURAI_STRIKES)
+  .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
 const MAGE_TRAIL_WINDOWS = Object.fromEntries(Object.entries(MAGE_STRIKES)
   .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
 
@@ -2327,12 +2399,13 @@ export class ChibiView {
     this.skinnedNinja = useSkinned && pl.heroId === 'ninja';
     this.skinnedMage = useSkinned && pl.heroId === 'mage';
     this.skinnedCowboy = useSkinned && pl.heroId === 'cowboy';
-    this.skinnedMotion = this.skinnedKnight || this.skinnedNinja || this.skinnedMage || this.skinnedCowboy;
+    this.skinnedSamurai = useSkinned && pl.heroId === 'samurai';
+    this.skinnedMotion = this.skinnedKnight || this.skinnedNinja || this.skinnedMage || this.skinnedCowboy || this.skinnedSamurai;
     this.soleZ = (useSkinned && skinned.spec.soleZ) || KNIGHT_SOLE_Z;
-    this.heroStrikes = this.skinnedKnight ? KNIGHT_STRIKES : (this.skinnedNinja ? NINJA_STRIKES : (this.skinnedMage ? MAGE_STRIKES : (this.skinnedCowboy ? COWBOY_STRIKES : null)));
-    this.heroAirborne = this.skinnedKnight ? KNIGHT_AIRBORNE : (this.skinnedNinja ? NINJA_AIRBORNE : (this.skinnedMage ? MAGE_AIRBORNE : (this.skinnedCowboy ? COWBOY_AIRBORNE : null)));
-    this.heroCommit = this.skinnedKnight ? KNIGHT_COMMIT : (this.skinnedNinja ? NINJA_COMMIT : (this.skinnedMage ? MAGE_COMMIT : (this.skinnedCowboy ? COWBOY_COMMIT : null)));
-    this.floorClips = this.skinnedKnight ? KNIGHT_FLOOR_CLIPS : (this.skinnedNinja ? NINJA_FLOOR_CLIPS : (this.skinnedMage ? MAGE_FLOOR_CLIPS : (this.skinnedCowboy ? COWBOY_FLOOR_CLIPS : null)));
+    this.heroStrikes = this.skinnedKnight ? KNIGHT_STRIKES : (this.skinnedNinja ? NINJA_STRIKES : (this.skinnedMage ? MAGE_STRIKES : (this.skinnedCowboy ? COWBOY_STRIKES : (this.skinnedSamurai ? SAMURAI_STRIKES : null))));
+    this.heroAirborne = this.skinnedKnight ? KNIGHT_AIRBORNE : (this.skinnedNinja ? NINJA_AIRBORNE : (this.skinnedMage ? MAGE_AIRBORNE : (this.skinnedCowboy ? COWBOY_AIRBORNE : (this.skinnedSamurai ? SAMURAI_AIRBORNE : null))));
+    this.heroCommit = this.skinnedKnight ? KNIGHT_COMMIT : (this.skinnedNinja ? NINJA_COMMIT : (this.skinnedMage ? MAGE_COMMIT : (this.skinnedCowboy ? COWBOY_COMMIT : (this.skinnedSamurai ? SAMURAI_COMMIT : null))));
+    this.floorClips = this.skinnedKnight ? KNIGHT_FLOOR_CLIPS : (this.skinnedNinja ? NINJA_FLOOR_CLIPS : (this.skinnedMage ? MAGE_FLOOR_CLIPS : (this.skinnedCowboy ? COWBOY_FLOOR_CLIPS : (this.skinnedSamurai ? SAMURAI_FLOOR_CLIPS : null))));
     this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
@@ -2362,7 +2435,7 @@ export class ChibiView {
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
     this.mixer = new THREE.AnimationMixer(this.root);
     this.actions = {};
-    const skinnedKey = this.skinnedKnight ? 'knight' : (this.skinnedNinja ? 'ninja' : (this.skinnedMage ? 'mage' : (this.skinnedCowboy ? 'cowboy' : false)));
+    const skinnedKey = this.skinnedKnight ? 'knight' : (this.skinnedNinja ? 'ninja' : (this.skinnedMage ? 'mage' : (this.skinnedCowboy ? 'cowboy' : (this.skinnedSamurai ? 'samurai' : false))));
     for (const [name, clip] of Object.entries(clipsFor(this.style, skinnedKey))) {
       const a = this.mixer.clipAction(clip);
       if (ONE_SHOT.has(name) || (this.skinnedMotion && (name === 'jump' || name === 'fall' || name === 'charge'))) {
@@ -2838,7 +2911,7 @@ export class ChibiView {
       enforceHeroAnatomy(R, {
         lockShield: this.skinnedKnight,
         clampWristR: !ragdoll,
-        clampWristL: (this.skinnedNinja || this.skinnedMage || this.skinnedCowboy) && !ragdoll,
+        clampWristL: (this.skinnedNinja || this.skinnedMage || this.skinnedCowboy || this.skinnedSamurai) && !ragdoll,
         softenKnees: true
       });
     }
@@ -2911,7 +2984,7 @@ export class ChibiView {
     const frozen = pl.buffs?.frozen || pl.state === 'frozen';
     const paused = now < this.hitStopUntil || frozen;
     const clipTime = this.skinnedMotion ? this.current.time : this.time - this.clipStart;
-    const trailWin = this.skinnedNinja ? NINJA_TRAIL_WINDOWS[this.currentName] : (this.skinnedMage ? MAGE_TRAIL_WINDOWS[this.currentName] : SWORD_TRAIL_WINDOWS[this.currentName]);
+    const trailWin = this.skinnedNinja ? NINJA_TRAIL_WINDOWS[this.currentName] : (this.skinnedMage ? MAGE_TRAIL_WINDOWS[this.currentName] : (this.skinnedSamurai ? SAMURAI_TRAIL_WINDOWS[this.currentName] : SWORD_TRAIL_WINDOWS[this.currentName]));
     const offhandWin = this.skinnedNinja ? NINJA_OFFHAND_TRAILS[this.currentName] : null;
     const inSlash = !!((trailWin && clipTime >= trailWin[0] && clipTime <= trailWin[1])
       || (offhandWin && clipTime >= offhandWin[0] && clipTime <= offhandWin[1]));
