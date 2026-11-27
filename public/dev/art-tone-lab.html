@@ -205,7 +205,26 @@
   <div id="badgeRight" class="side-badge">B · ลดโทน 3D (Proof)</div>
 
   <div id="topbar">
-    <span class="brand">Art Tone Lab · Knight</span>
+    <span class="brand" id="brandTitle">Art Tone Lab</span>
+    <label>ตัวละคร
+      <select id="heroSel">
+        <optgroup label="โมเดล 3D หลัก (Skinned)">
+          <option value="knight">อัศวินเกราะเหล็ก (Knight)</option>
+          <option value="ninja">นินจาเงา (Ninja)</option>
+          <option value="mage">จอมเวทย์อัคคี (Mage)</option>
+          <option value="cowboy">คาวบอยปืนคู่ (Cowboy)</option>
+          <option value="samurai">ซามูไรดาบคาตานะ (Samurai)</option>
+        </optgroup>
+        <optgroup label="โมเดล Chibi พื้นฐาน">
+          <option value="witch">แม่มดเหมันต์ (Witch)</option>
+          <option value="cyborg">ไซบอร์กพลาสมา (Cyborg)</option>
+          <option value="viking">ไวกิ้งขวานคู่ (Viking)</option>
+          <option value="striker">นักสู้หมัดเพลิง (Striker)</option>
+          <option value="reaper">ยมทูตเคียวทมิฬ (Reaper)</option>
+        </optgroup>
+      </select>
+    </label>
+    <span class="sep"></span>
     <button id="modeSplit" aria-pressed="true">เทียบคู่ A/B (3)</button>
     <button id="modeOrig" aria-pressed="false">A · เดิม (1)</button>
     <button id="modeTone" aria-pressed="false">B · ลดโทน 3D (2)</button>
@@ -243,6 +262,13 @@
 
   <aside id="drawer" hidden>
     <h2>ค่าโทนทดลอง (เฉพาะใน Lab)</h2>
+    <div class="row">
+      <label for="pColorMode">โหมดสี (colorMode)</label>
+      <select id="pColorMode">
+        <option value="proof">สูตร Proof (เหล็ก/หนัง/น้ำเงิน)</option>
+        <option value="hero">คงสีประจำตัวละคร (ToS)</option>
+      </select>
+    </div>
     <div class="row">
       <label for="pHead">สัดส่วนหัว (headBoost)</label>
       <code id="vHead">1.22</code>
@@ -302,11 +328,34 @@
     const COS45 = Math.SQRT1_2;
     const CAM_PITCH = 0.62;
     const FOV = 22;
-    const HERO = GAME_DATA.HEROES.knight;
-    const WALK_SPEED = HERO.speed || 5.4;
-    const JUMP_FORCE = HERO.jumpForce || 11.2;
-    const COMBO_COOLDOWN = (HERO.basicAttack?.cooldown || 280) / 1000;
-    const COMBO_HITS = HERO.basicAttack?.comboHits || 3;
+    const SKINNED_HERO_IDS = new Set(['knight', 'ninja', 'mage', 'cowboy', 'samurai']);
+    const TRINKET_LABELS = {
+      knight: 'ผ้าคลุม',
+      ninja: 'ผ้าพันคอ',
+      mage: 'ลูกแก้ว',
+      cowboy: 'เชือกบ่วง',
+      samurai: 'ธงหลัง'
+    };
+    const initialHeroParam = new URLSearchParams(location.search).get('hero');
+    const initialHeroId = GAME_DATA.HEROES[initialHeroParam] ? initialHeroParam : 'knight';
+
+    function heroDefaults(heroId) {
+      if (heroId === 'knight') {
+        return { ...DEFAULT_TONE_PARAMS, colorMode: 'proof', headBoost: 1.22 };
+      }
+      if (SKINNED_HERO_IDS.has(heroId)) {
+        return { ...DEFAULT_TONE_PARAMS, colorMode: 'hero', headBoost: 1.22 };
+      }
+      return { ...DEFAULT_TONE_PARAMS, colorMode: 'hero', headBoost: 1.00 };
+    }
+
+    function currentHero() {
+      return GAME_DATA.HEROES[labState.heroId] || GAME_DATA.HEROES.knight;
+    }
+
+    function trinketLabel(heroId) {
+      return TRINKET_LABELS[heroId] || 'ประดับหลัง';
+    }
 
     const canvas = document.getElementById('view');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
@@ -380,6 +429,7 @@
     }
 
     const labState = {
+      heroId: initialHeroId,
       mode: 'split', // 'split' | 'original' | 'tone'
       paused: false,
       cape: true,
@@ -388,13 +438,13 @@
       showPip: false,
       stageId: 'sky_temple',
       simTime: 0,
-      params: { ...DEFAULT_TONE_PARAMS }
+      params: heroDefaults(initialHeroId)
     };
 
     const player = {
-      id: 'local_knight',
-      heroId: 'knight',
-      gear: { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' },
+      id: 'local_hero',
+      heroId: initialHeroId,
+      gear: { weapon: initialHeroId, armor: initialHeroId, helmet: initialHeroId, trinket: initialHeroId },
       x: 0,
       y: 0,
       z: 0,
@@ -429,16 +479,18 @@
       floorY: (x, z, y) => (stage ? stage.floorY(x, z, y) : 0)
     };
 
-    function rebuildKnight({ preservePose = true } = {}) {
+    function rebuildCharacter({ preservePose = true } = {}) {
       const prevClip = preservePose && view ? view.currentName : 'idle';
       const prevClipTime = preservePose && view?.current ? view.current.time : 0;
       const prevYaw = preservePose && view ? view.yaw : (Math.PI / 2 - player.facing);
 
+      const heroId = labState.heroId;
+      player.heroId = heroId;
       player.gear = {
-        weapon: 'knight',
-        armor: 'knight',
-        helmet: labState.helmet ? 'knight' : null,
-        trinket: labState.cape ? 'knight' : null
+        weapon: heroId,
+        armor: heroId,
+        helmet: labState.helmet ? heroId : null,
+        trinket: labState.cape ? heroId : null
       };
 
       if (toneSet) {
@@ -473,7 +525,7 @@
     }
 
     loadStage(labState.stageId);
-    rebuildKnight({ preservePose: false });
+    rebuildCharacter({ preservePose: false });
 
     // Reference Sprite Proof PiP (exact ortho camera + 4-way #40332c matte)
     const pipCanvas = document.getElementById('proofPip');
@@ -496,12 +548,16 @@
       const prevStageVis = stage.group.visible;
       const prevShadowVis = shadowDecal.visible;
       const prevRingVis = ringDecal.visible;
+      const prevTrailVis = view.swordTrail?.mesh ? view.swordTrail.mesh.visible : false;
+      const prevOffTrailVis = view.offhandTrail?.mesh ? view.offhandTrail.mesh.visible : false;
 
       scene.background = null;
       scene.fog = null;
       stage.group.visible = false;
       shadowDecal.visible = false;
       ringDecal.visible = false;
+      if (view.swordTrail?.mesh) view.swordTrail.mesh.visible = false;
+      if (view.offhandTrail?.mesh) view.offhandTrail.mesh.visible = false;
 
       const p = view.root.position;
       pipCam.position.set(p.x + 6, p.y + 6.13, p.z + 6);
@@ -513,6 +569,8 @@
       stage.group.visible = prevStageVis;
       shadowDecal.visible = prevShadowVis;
       ringDecal.visible = prevRingVis;
+      if (view.swordTrail?.mesh) view.swordTrail.mesh.visible = prevTrailVis;
+      if (view.offhandTrail?.mesh) view.offhandTrail.mesh.visible = prevOffTrailVis;
       scene.background = prevBg;
       scene.fog = prevFog;
 
@@ -536,9 +594,12 @@
     const keys = new Set();
     function triggerAttack() {
       if (combat.attackCooldown > 0) return;
-      combat.comboStep = combat.comboResetTimer > 0 ? (combat.comboStep % COMBO_HITS) + 1 : 1;
-      combat.attackTimer = combat.comboStep === 3 ? 0.52 : 0.38;
-      combat.attackCooldown = COMBO_COOLDOWN;
+      const hero = currentHero();
+      const comboHits = hero.basicAttack?.comboHits || 3;
+      const comboCooldown = (hero.basicAttack?.cooldown || 280) / 1000;
+      combat.comboStep = combat.comboResetTimer > 0 ? (combat.comboStep % comboHits) + 1 : 1;
+      combat.attackTimer = combat.comboStep >= comboHits ? 0.52 : 0.36;
+      combat.attackCooldown = comboCooldown;
       combat.comboResetTimer = 0.90;
       player.state = 'attack';
       player.comboStep = combat.comboStep;
@@ -548,7 +609,7 @@
     function triggerJump() {
       if (!player.grounded) return;
       player.grounded = false;
-      player.vy = JUMP_FORCE;
+      player.vy = currentHero().jumpForce || 11.2;
       player.jumpCount = 1;
     }
 
@@ -647,10 +708,11 @@
         player.vx = 0;
         player.vz = 0;
       } else {
+        const walkSpeed = currentHero().speed || 5.4;
         player.state = (mx || mz) ? 'run' : 'idle';
         player.comboStep = 0;
-        player.vx = mx * WALK_SPEED;
-        player.vz = mz * WALK_SPEED;
+        player.vx = mx * walkSpeed;
+        player.vz = mz * walkSpeed;
       }
 
       player.x = THREE.MathUtils.clamp(player.x + player.vx * dt, activeBounds.minX, activeBounds.maxX);
@@ -718,7 +780,7 @@
         outlinePass.render(renderer, scene, camera, {
           stageGroup: stage.group,
           knightRoot: view.root,
-          hiddenDuringMask: [shadowDecal, ringDecal, view.swordTrail?.mesh],
+          hiddenDuringMask: [shadowDecal, ringDecal, view.swordTrail?.mesh, view.offhandTrail?.mesh],
           vx, vy, vw, vh,
           dpr: renderer.getPixelRatio(),
           params: labState.params
@@ -747,8 +809,9 @@
     function updateStatus() {
       const deg = ((THREE.MathUtils.radToDeg(player.facing) % 360) + 360) % 360;
       const modeLabel = labState.mode === 'split' ? 'A/B Split' : (labState.mode === 'tone' ? 'B: ลดโทน 3D' : 'A: เดิม');
+      const tLabel = trinketLabel(labState.heroId);
       document.getElementById('status').textContent =
-        `${modeLabel} | ${labState.paused ? 'PAUSED' : 'LIVE'} | clip=${view.currentName} t=${(view.current?.time || 0).toFixed(2)}s | facing=${deg.toFixed(0)}° | cam=${labState.camDist.toFixed(0)} | ผ้าคลุม=${labState.cape ? 'ใส่' : 'ถอด'} | หมวก=${labState.helmet ? 'ใส่' : 'ถอด'}`;
+        `${labState.heroId} | ${modeLabel} | ${labState.paused ? 'PAUSED' : 'LIVE'} | clip=${view.currentName} t=${(view.current?.time || 0).toFixed(2)}s | facing=${deg.toFixed(0)}° | cam=${labState.camDist.toFixed(0)} | ${tLabel}=${labState.cape ? 'ใส่' : 'ถอด'} | หมวก=${labState.helmet ? 'ใส่' : 'ถอด'}`;
     }
 
     // UI wiring
@@ -795,24 +858,52 @@
       if (match) sel.value = match;
     }
 
+    function syncHeroUI() {
+      const hero = currentHero();
+      document.getElementById('heroSel').value = labState.heroId;
+      document.getElementById('brandTitle').textContent = `Art Tone Lab · ${hero.nameEn}`;
+      document.title = `${hero.nameEn} Art Tone Lab — ทดลองโทนภาพตัวละคร (ลดโทน 3D)`;
+      document.getElementById('capeBtn').textContent = `${trinketLabel(labState.heroId)}: ${labState.cape ? 'ใส่' : 'ถอด'}`;
+    }
+
+    function setHero(heroId) {
+      if (!GAME_DATA.HEROES[heroId]) return;
+      labState.heroId = heroId;
+      Object.assign(labState.params, heroDefaults(heroId));
+      combat.attackTimer = 0;
+      combat.attackCooldown = 0;
+      combat.comboResetTimer = 0;
+      combat.comboStep = 0;
+      player.state = 'idle';
+      player.comboStep = 0;
+      player.guarding = false;
+      player.vx = 0;
+      player.vz = 0;
+      syncHeroUI();
+      syncParamUI();
+      rebuildCharacter({ preservePose: false });
+      resize();
+    }
+
     modeButtons.split.onclick = () => setMode('split');
     modeButtons.original.onclick = () => setMode('original');
     modeButtons.tone.onclick = () => setMode('tone');
+    document.getElementById('heroSel').onchange = (e) => setHero(e.target.value);
     document.getElementById('pauseBtn').onclick = () => setPaused(!labState.paused);
     document.getElementById('stepBtn').onclick = () => { if (labState.paused) stepFixed(1); };
 
     document.getElementById('capeBtn').onclick = (e) => {
       labState.cape = !labState.cape;
       e.currentTarget.setAttribute('aria-pressed', String(labState.cape));
-      e.currentTarget.textContent = `ผ้าคลุม: ${labState.cape ? 'ใส่' : 'ถอด'}`;
-      rebuildKnight({ preservePose: true });
+      e.currentTarget.textContent = `${trinketLabel(labState.heroId)}: ${labState.cape ? 'ใส่' : 'ถอด'}`;
+      rebuildCharacter({ preservePose: true });
     };
 
     document.getElementById('helmetBtn').onclick = (e) => {
       labState.helmet = !labState.helmet;
       e.currentTarget.setAttribute('aria-pressed', String(labState.helmet));
       e.currentTarget.textContent = `หมวก: ${labState.helmet ? 'ใส่' : 'ถอด'}`;
-      rebuildKnight({ preservePose: true });
+      rebuildCharacter({ preservePose: true });
     };
 
     document.getElementById('camPreset').onchange = (e) => {
@@ -845,6 +936,7 @@
     ];
 
     function syncParamUI() {
+      document.getElementById('pColorMode').value = labState.params.colorMode;
       for (const [inputId, valId, key] of sliders) {
         const val = labState.params[key];
         document.getElementById(inputId).value = val;
@@ -852,6 +944,11 @@
       }
       document.getElementById('paramsJson').value = JSON.stringify(labState.params, null, 2);
     }
+
+    document.getElementById('pColorMode').addEventListener('change', (e) => {
+      labState.params.colorMode = e.target.value;
+      syncParamUI();
+    });
 
     for (const [inputId, , key] of sliders) {
       document.getElementById(inputId).addEventListener('input', (e) => {
@@ -861,9 +958,10 @@
     }
 
     document.getElementById('resetParamsBtn').onclick = () => {
-      Object.assign(labState.params, DEFAULT_TONE_PARAMS);
+      Object.assign(labState.params, heroDefaults(labState.heroId));
       syncParamUI();
     };
+    syncHeroUI();
     syncParamUI();
 
     function resize() {
@@ -897,6 +995,7 @@
 
     // Scriptable API for inspection and reproducible testing
     window.artToneLab = {
+      setHero,
       setMode,
       setPaused,
       stepFrames: (n = 1) => stepFixed(n),
@@ -934,6 +1033,7 @@
         syncParamUI();
       },
       getState: () => ({
+        heroId: labState.heroId,
         mode: labState.mode,
         paused: labState.paused,
         cape: labState.cape,

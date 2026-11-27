@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 
 export const DEFAULT_TONE_PARAMS = {
+  colorMode: 'proof',
   paletteMix: 0.73,
   lightDirX: -0.46,
   lightDirY: 0.61,
@@ -35,6 +36,7 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
   const createdMaterials = [];
 
   const uniforms = {
+    uUseHeroColor: { value: initialParams.colorMode === 'hero' ? 1.0 : 0.0 },
     uPaletteMix: { value: initialParams.paletteMix },
     uLightDir: { value: new THREE.Vector3(initialParams.lightDirX, initialParams.lightDirY, initialParams.lightDirZ) },
     uLowRange: { value: new THREE.Vector2(initialParams.lowMin, initialParams.lowMax) },
@@ -55,8 +57,9 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
       alphaTest: source.alphaTest ?? 0,
       toneMapped: false
     });
-    mat.customProgramCacheKey = () => 'art-tone-lab-illustration-v1';
+    mat.customProgramCacheKey = () => 'art-tone-lab-illustration-v2';
     mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uUseHeroColor = uniforms.uUseHeroColor;
       shader.uniforms.uPaletteMix = uniforms.uPaletteMix;
       shader.uniforms.uLightDir = uniforms.uLightDir;
       shader.uniforms.uLowRange = uniforms.uLowRange;
@@ -65,6 +68,7 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
       shader.uniforms.uContourStrength = uniforms.uContourStrength;
 
       shader.fragmentShader =
+        `uniform float uUseHeroColor;\n` +
         `uniform float uPaletteMix;\n` +
         `uniform vec3 uLightDir;\n` +
         `uniform vec2 uLowRange;\n` +
@@ -80,7 +84,15 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
           vec3 steel = mix(vec3(0.24, 0.24, 0.25), vec3(0.69, 0.65, 0.57), value);
           vec3 tanCol = mix(vec3(0.22, 0.11, 0.07), vec3(0.77, 0.53, 0.33), value);
           vec3 cloth = mix(vec3(0.05, 0.086, 0.19), vec3(0.14, 0.27, 0.48), value);
-          vec3 palette = mix(mix(steel, tanCol, warm), cloth, blue);
+          vec3 proofPalette = mix(mix(steel, tanCol, warm), cloth, blue);
+
+          float targetLuma = mix(0.06, 0.58, smoothstep(0.03, 0.72, lightness));
+          float lumaScale = targetLuma / max(lightness, 0.035);
+          vec3 lifted = clamp(base * min(lumaScale, 2.4), 0.0, 0.85);
+          float liftedLuma = dot(lifted, vec3(0.22, 0.68, 0.10));
+          vec3 heroPalette = mix(vec3(liftedLuma), lifted, 0.84) * vec3(1.03, 0.99, 0.93);
+
+          vec3 palette = mix(proofPalette, heroPalette, uUseHeroColor);
           palette = mix(base, palette, uPaletteMix);
           vec3 nrm = normalize(normal);
           float v = dot(nrm, normalize(uLightDir));
@@ -104,7 +116,8 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
     const origMat = obj.material;
     const mapped = Array.isArray(origMat) ? origMat : [origMat];
     const isBackSideOutline = mapped.every((m) => m.side === THREE.BackSide);
-    const toneMat = isBackSideOutline
+    const isUnlitBasic = mapped.every((m) => m.isMeshBasicMaterial && m.side !== THREE.BackSide);
+    const toneMat = (isBackSideOutline || isUnlitBasic)
       ? origMat
       : (Array.isArray(origMat) ? mapped.map(makeIllustrationMaterial) : makeIllustrationMaterial(origMat));
     records.push({
@@ -117,6 +130,7 @@ export function createToneMaterialSet(view, initialParams = DEFAULT_TONE_PARAMS)
   });
 
   function syncUniforms(params) {
+    uniforms.uUseHeroColor.value = params.colorMode === 'hero' ? 1.0 : 0.0;
     uniforms.uPaletteMix.value = params.paletteMix;
     uniforms.uLightDir.value.set(params.lightDirX, params.lightDirY, params.lightDirZ);
     uniforms.uLowRange.value.set(params.lowMin, params.lowMax);
