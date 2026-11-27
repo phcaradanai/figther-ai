@@ -237,3 +237,15 @@ An audit of all 30 Knight clips and live 60 Hz locomotion (`node tools/rig/anato
 | Low / high jump hip drop (units) | 0.015 / 0.064 | 0.023 / 0.064 |
 | Clips passing `anatomy-audit.mjs --strict` | 1 / 30 | 30 / 30 |
 
+## Skinned Shadow Ninja conversion & biomechanics (2026-11-27)
+
+- **Model & gear pipeline (`tools/rig/build_ninja.py`, Blender 5.3 headless)**: Built `public/assets/models/hero-ninja.glb` (12,500-tri Tree-of-Savior painterly Cycles albedo body with curled fists, 96-quad dual-tail `NinjaScarf` cloth mesh, and symmetric `HeroRig`) and `public/assets/models/ninja-gear.glb` (leveled `NinjaBlade` kunai and mannequin-stripped `NinjaHeadband`).
+- **Runtime & clips (`public/js/three/ninja_motion.js`, `public/js/three/ninja_attacks.js`)**: Shared `KnightFootwork` foot planting, landing impact scaling, floor guard, dynamic `CapeCloth` scarf drape, dual-weapon `offhandMount` + `offhandTrail` in `public/js/three/chibi.js` (with explicit `'XYZ'` Euler track baking in `makeClip`), dual-wrist `enforceHeroAnatomy` limits in `public/js/three/knight_anatomy.js`, `?hero=ninja` support in `public/knight_motion_lab.html`, and regression coverage in `tests/ninja_animation.test.mjs`.
+
+| Ninja measure | Procedural rig | Skinned rig |
+| --- | ---: | ---: |
+| Walk / sprint ankle slide P90 (units/s) | 5.18 / 7.17 | 0.37 / 0.53 |
+| Low / high jump hip drop (units) | 0.177 / 0.177 | 0.012 / 0.051 |
+| Idle after dodge input (ms) | 117 | 0 |
+| Clips passing `anatomy-audit.mjs --strict` | — | 26 / 26 (8 / 8 live) |
+

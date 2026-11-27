@@ -218,10 +218,10 @@ export function solveAnatomicalArm(torso, arm, fore, hand, targetWristWorld, upp
 }
 
 /**
- * Clamp/redistribute knight joint rotations at runtime or bake time so knees, elbows,
+ * Clamp/redistribute joint rotations at runtime or bake time so knees, elbows,
  * neck, wrists and shield alignment remain strictly within natural human anatomy.
  */
-export function enforceKnightAnatomy(R, { lockShield = true, clampWristR = true, softenKnees = true } = {}) {
+export function enforceKnightAnatomy(R, { lockShield = true, clampWristR = true, clampWristL = false, softenKnees = true } = {}) {
   // 1. Knees: eliminate hyperextension (x < 0) and sideways buckling (|z| > tol).
   if (softenKnees) {
     for (const side of ['L', 'R']) {
@@ -268,19 +268,22 @@ export function enforceKnightAnatomy(R, { lockShield = true, clampWristR = true,
     R.head.quaternion.setFromEuler(_e);
   }
 
-  // 4. Right wrist within human carpal range.
-  if (clampWristR && R.handR) {
-    _e.setFromQuaternion(R.handR.quaternion, 'XYZ');
+  // 4. Right/Left wrist within human carpal range.
+  for (const [hand, enabled] of [[R.handR, clampWristR], [R.handL, !lockShield && clampWristL]]) {
+    if (!enabled || !hand) continue;
+    _e.setFromQuaternion(hand.quaternion, 'XYZ');
     const wx = clamp(_e.x, -HUMAN_ROM.wristXMax, HUMAN_ROM.wristXMax);
     const wy = clamp(_e.y, -HUMAN_ROM.wristYMax, HUMAN_ROM.wristYMax);
     const wz = clamp(_e.z, -HUMAN_ROM.wristZMax, HUMAN_ROM.wristZMax);
     if (wx !== _e.x || wy !== _e.y || wz !== _e.z) {
-      R.handR.quaternion.setFromEuler(_e.set(wx, wy, wz, 'XYZ'));
+      hand.quaternion.setFromEuler(_e.set(wx, wy, wz, 'XYZ'));
     }
   }
 
-  // 5. Left wrist strapped to shield mount.
+  // 5. Left wrist strapped to shield mount (Knight).
   if (lockShield && R.handL) {
     R.handL.quaternion.copy(_qShield);
   }
 }
+
+export const enforceHeroAnatomy = enforceKnightAnatomy;

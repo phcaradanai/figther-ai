@@ -50,12 +50,17 @@
 
     const DT = 1 / 60;
     const GRAVITY = 28;
-    const WALK = 5.4;
-    const SPRINT = 7.5;
-    const JUMP = 11.2;
-    const RIGHT = -Math.PI / 4; // screen right in the game camera
     const params = new URLSearchParams(location.search);
     const heroId = params.get('hero') || 'knight';
+    const HERO = GAME_DATA.HEROES[heroId] || GAME_DATA.HEROES.knight;
+    const WALK = HERO.speed || 5.4;
+    const SPRINT = Number((WALK * (HERO.mobility?.dashSpeedMult || 1.39)).toFixed(2));
+    const JUMP = HERO.jumpForce || 11.2;
+    const COMBO_MS = (HERO.basicAttack?.cooldown || 280) / 1000;
+    const COMBO_HITS = HERO.basicAttack?.comboHits || 3;
+    const AIR_MODE = HERO.heavyAttack?.air?.mode || 'slam';
+    const SKILL_IDS = Object.values(HERO.skills || {}).map(s => s.id);
+    const RIGHT = -Math.PI / 4; // screen right in the game camera
 
     // Each scenario maps time to the fields the server would send.
     function airborne(t, t0, vy0 = JUMP) {
@@ -107,38 +112,36 @@
         const step = t < 0.3 ? 0 : t < 0.75 ? 1 : t < 1.2 ? 2 : t < 1.8 ? 3 : 0;
         return { facing: RIGHT, state: step ? 'attack' : 'idle', comboStep: step };
       } },
-      // Mashing J: the server allows a swing every 280 ms and holds 'attack' for 238 ms.
-      combo: { length: 2, at: t => {
+      // Mashing J: uses each hero's real combo hits and cooldown.
+      combo: { length: 0.5 + COMBO_HITS * COMBO_MS, at: t => {
         const since = t - 0.3;
-        const step = since < 0 || since >= 0.84 ? 0 : Math.floor(since / 0.28) + 1;
-        const held = step && since - (step - 1) * 0.28 < 0.238;
+        const step = since < 0 || since >= COMBO_HITS * COMBO_MS ? 0 : Math.floor(since / COMBO_MS) + 1;
+        const held = step && since - (step - 1) * COMBO_MS < Math.min(0.238, COMBO_MS * 0.85);
         return { facing: RIGHT, state: held ? 'attack' : 'idle', comboStep: step };
       } },
       heavy: { length: 1.6, at: t => ({ facing: RIGHT, state: t > 0.3 && t < 0.82 ? 'heavy' : 'idle' }) },
-      // Air strikes: J lifts the Knight to at least 3.8 u/s for the first two
-      // presses of a jump; an air heavy lifts to 2 u/s. 'attack' lasts 238 ms, 'heavy' 520 ms.
-      jumpAttack: { length: 2.4, at: flight([[0.30, 'jump'], [0.50, 'attack', 1], [0.78, 'attack', 2], [1.06, 'attack', 3]]) },
-      // Air heavy: hover and aim 0.5 s, plunge 3 units ahead at 22 u/s, 380 ms impact.
+      // Air strikes: J lifts the hero on the first two presses of a jump.
+      jumpAttack: { length: 2.4, at: flight([[0.30, 'jump'], [0.50, 'attack', 1], [0.50 + COMBO_MS, 'attack', 2], [0.50 + COMBO_MS * 2, 'attack', Math.min(COMBO_HITS, 3)]]) },
+      // Air heavy: hover and aim 0.5 s, plunge/dash 3 units ahead, 380 ms impact.
       airHeavy: { length: 2.6, at: t => {
-        const zone = { mode: 'slam', x: Math.cos(RIGHT) * 3, y: 0, z: Math.sin(RIGHT) * 3, radius: 2.6 };
+        const zone = { mode: AIR_MODE, x: Math.cos(RIGHT) * 3, y: 0, z: Math.sin(RIGHT) * 3, radius: 2.6 };
         const rise = airborne(t, 0.3);
         if (t < 0.55) return { facing: RIGHT, ...(rise || {}) };
         const hoverY = airborne(0.55, 0.3).y;
         if (t < 1.05) return { facing: RIGHT, y: hoverY, grounded: false, state: 'heavy', airSlam: { ...zone, phase: 'aim' } };
         const drop = Math.hypot(3, hoverY) / 22;
         const k = Math.min(1, (t - 1.05) / drop);
-        if (k < 1) return { facing: RIGHT, x: zone.x * k, z: zone.z * k, y: hoverY * (1 - k), vy: -hoverY / drop, grounded: false, state: 'heavy', airSlam: { ...zone, phase: 'dive' } };
+        if (k < 1) return { facing: RIGHT, x: zone.x * k, z: zone.z * k, y: hoverY * (1 - k), vy: -hoverY / drop, grounded: false, state: 'heavy', airSlam: { ...zone, phase: AIR_MODE === 'dash' ? 'dash' : 'dive' } };
         const impact = t - 1.05 - drop < 0.38;
         return { facing: RIGHT, x: zone.x, z: zone.z, state: impact ? 'heavy' : 'idle', airSlam: impact ? { ...zone, phase: 'impact' } : null };
       } },
-      // Gear skills hold 'skill' for 550 ms. Chariot Rush launches at 18 u/s and
-      // loses 9% per 30 Hz server tick.
-      ...Object.fromEntries(['knight_weapon', 'knight_armor', 'knight_helmet', 'knight_trinket'].map(id => [id, {
+      // Gear skills hold 'skill' for 550 ms.
+      ...Object.fromEntries(SKILL_IDS.map(id => [id, {
         length: 1.8,
         at: t => {
           const k = t - 0.3;
           const active = k > 0 && k < 0.55;
-          const speed = id === 'knight_trinket' && k > 0 ? 18 * Math.pow(0.91, k * 30) : 0;
+          const speed = (id === 'knight_trinket' || id === 'ninja_weapon') && k > 0 ? 18 * Math.pow(0.91, k * 30) : 0;
           return { facing: RIGHT, speed: speed > 0.3 ? speed : 0, state: active ? 'skill' : 'idle', animSkillId: active ? id : null };
         }
       }])),

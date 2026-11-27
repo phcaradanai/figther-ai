@@ -13,9 +13,11 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { makeToonRamp } from './textures.js';
 import { buildKnightLocomotion, knightIdle } from './knight_motion.js';
 import { buildKnightAttacks, buildKnightSkills, KNIGHT_AIRBORNE, KNIGHT_STRIKES } from './knight_attacks.js';
+import { buildNinjaLocomotion, ninjaIdle } from './ninja_motion.js';
+import { buildNinjaAttacks, buildNinjaSkills, NINJA_AIRBORNE, NINJA_STRIKES } from './ninja_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
-import { SHIELD_HOLD, enforceKnightAnatomy, solveAnatomicalLeg } from './knight_anatomy.js';
+import { SHIELD_HOLD, enforceHeroAnatomy, solveAnatomicalLeg } from './knight_anatomy.js';
 
 const gltfLoader = new GLTFLoader();
 
@@ -84,6 +86,44 @@ const SKINNED_HEROES = {
       { name: 'cape1', weight: 0.22 },
       { name: 'cape2', weight: 0.38 },
       { name: 'cape3', weight: 0.40 }
+    ]
+  },
+  ninja: {
+    url: '/assets/models/hero-ninja.glb',
+    gearUrl: '/assets/models/ninja-gear.glb',
+    hipHeight: 0.76,
+    alignArms: true,
+    narrowLegRest: true,
+    painterly: true,
+    stepFps: 0,
+    headScale: 1.0,
+    swordScale: 1.0,
+    offhandScale: 1.0,
+    fused: [],
+    capeMesh: 'NinjaScarf',
+    helmetMesh: 'NinjaHeadband',
+    swordMesh: 'NinjaBlade',
+    offhandMesh: 'NinjaBlade',
+    swordMount: { p: [-0.008, -0.035, 0.015], rx: 0.16, ry: 0, rz: 0 },
+    offhandMount: { p: [0.008, -0.035, 0.015], rx: 0.16, ry: 0, rz: 0 },
+    swordTrail: {
+      base: [0, 0, 0.04],
+      tip: [0, 0, 0.46],
+      colors: { root: [0.48, 0.16, 0.92], mid: [0.64, 0.28, 0.98], edge: [0.92, 0.95, 1.0] }
+    },
+    offhandTrail: {
+      base: [0, 0, 0.04],
+      tip: [0, 0, 0.46],
+      colors: { root: [0.18, 0.48, 0.94], mid: [0.26, 0.72, 0.98], edge: [0.92, 0.98, 1.0] }
+    },
+    soleZ: [-0.0984, 0.1996],
+    otherHelmetScale: 0.56,
+    otherHelmetOffset: [0, 0.03, 0.01],
+    capeTip: [0.0, -0.2366, -0.0163],
+    capeBones: [
+      { name: 'cape1', weight: 0.25 },
+      { name: 'cape2', weight: 0.37 },
+      { name: 'cape3', weight: 0.38 }
     ]
   }
 };
@@ -296,7 +336,9 @@ class Builder {
       this.cache.set(key, material);
       this.materials.push(material);
     }
-    return this.part(parent, piece.geometry, material, { outline: 0, ...partOpts });
+    const mesh = this.part(parent, piece.geometry, material, { outline: 0, ...partOpts });
+    mesh.name = name;
+    return mesh;
   }
   toon(color, opts = {}) {
     const key = `t${color}|${opts.side || 0}`;
@@ -1196,30 +1238,31 @@ function buildSkinnedRig(b, heroId, gear, model) {
     }
   }
   if (!fused.has('weapon') && gear.weapon) {
-    if (gear.weapon === heroId && gearScene && (spec.swordMesh || spec.shieldMesh)) {
-      if (spec.swordMesh) {
-        const sm = spec.swordMount || { p: [0, -0.03, 0], tilt: 0.35 };
-        const parent = unscaled(R.handR);
+    if (gear.weapon === heroId && gearScene && (spec.swordMesh || spec.shieldMesh || spec.offhandMesh)) {
+      const attachWeapon = (handBone, meshName, mSpec, mScale, trailSpec, isPrimary) => {
+        const sm = mSpec || { p: [0, -0.03, 0], tilt: 0.35 };
+        const parent = unscaled(handBone);
         let w;
         if (sm.rx !== undefined) {
-          // Direct anatomically aligned fist grip (handle passes through curled fist, not extending out fingertips)
-          w = node('swordMount', parent, sm.p[0], sm.p[1], sm.p[2]);
+          w = node(isPrimary ? 'swordMount' : 'offhandMount', parent, sm.p[0], sm.p[1], sm.p[2]);
           w.rotation.set(sm.rx, sm.ry || 0, sm.rz || 0);
         } else if (sm.q) {
-          w = node('swordMount', parent, sm.p[0], sm.p[1], sm.p[2]);
+          w = node(isPrimary ? 'swordMount' : 'offhandMount', parent, sm.p[0], sm.p[1], sm.p[2]);
           w.quaternion.set(...sm.q);
         } else {
           w = mount(parent, sm.tilt);
           w.position.set(sm.p[0], sm.p[1], sm.p[2]);
         }
-        const swScale = spec.swordScale || 1;
+        const swScale = mScale || 1;
         if (swScale !== 1) w.scale.setScalar(swScale);
-        b.glbPart(w, gearScene, spec.swordMesh, { painterly: !!spec.painterly });
-        if (spec.swordTrail) {
-          R.swordMount = w;
-          R.swordTrailSpec = spec.swordTrail;
+        b.glbPart(w, gearScene, meshName, { painterly: !!spec.painterly });
+        if (trailSpec) {
+          if (isPrimary) { R.swordMount = w; R.swordTrailSpec = trailSpec; }
+          else { R.offhandMount = w; R.offhandTrailSpec = trailSpec; }
         }
-      }
+      };
+      if (spec.swordMesh) attachWeapon(R.handR, spec.swordMesh, spec.swordMount, spec.swordScale, spec.swordTrail, true);
+      if (spec.offhandMesh) attachWeapon(R.handL, spec.offhandMesh, spec.offhandMount, spec.offhandScale, spec.offhandTrail, false);
       if (spec.shieldMesh) {
         const shWrap = unscaled(R.handL);
         const shScale = spec.shieldScale || 1;
@@ -1256,10 +1299,14 @@ export function buildGearItem(slot, heroId) {
     const hR = node('h', g, -0.12, 0, 0);
     const hL = node('h', g, 0.12, 0, 0);
     const fL = node('f', g, 0.25, 0.1, 0);
-    if (gearScene && (skinned.spec.swordMesh || skinned.spec.shieldMesh)) {
+    if (gearScene && (skinned.spec.swordMesh || skinned.spec.shieldMesh || skinned.spec.offhandMesh)) {
       if (skinned.spec.swordMesh) {
         const w = mount(hR, skinned.spec.swordMount?.tilt ?? 0.35);
         b.glbPart(w, gearScene, skinned.spec.swordMesh, { painterly: !!skinned.spec.painterly });
+      }
+      if (skinned.spec.offhandMesh) {
+        const wL = mount(hL, skinned.spec.offhandMount?.tilt ?? 0.35);
+        b.glbPart(wL, gearScene, skinned.spec.offhandMesh, { painterly: !!skinned.spec.painterly });
       }
       if (skinned.spec.shieldMesh) b.glbPart(hL, gearScene, skinned.spec.shieldMesh, { painterly: !!skinned.spec.painterly });
     } else {
@@ -1395,7 +1442,7 @@ function makeClip(name, keys, joints = JOINTS) {
     const vals = [];
     for (const [, p] of samples) {
       const e = p[j] || [0, 0, 0];
-      _q.setFromEuler(_e.set(e[0], e[1], e[2]));
+      _q.setFromEuler(_e.set(e[0], e[1], e[2], 'XYZ'));
       vals.push(_q.x, _q.y, _q.z, _q.w);
     }
     tracks.push(new THREE.QuaternionKeyframeTrack(`${j}.quaternion`, times, vals));
@@ -1870,11 +1917,11 @@ function buildClips(style, skinnedKnight = false) {
 }
 
 const CLIP_CACHE = new Map();
-function clipsFor(style, skinnedKnight) {
-  const key = skinnedKnight ? 'skinnedKnight' : style;
+function clipsFor(style, skinnedHero = false) {
+  const key = skinnedHero ? `skinned:${skinnedHero}` : style;
   if (!CLIP_CACHE.has(key)) {
-    const clips = buildClips(style, skinnedKnight);
-    if (skinnedKnight) {
+    const clips = buildClips(style, skinnedHero === 'knight');
+    if (skinnedHero === 'knight') {
       const ready = pose(STANCE, READY.shield);
       Object.assign(clips, buildKnightLocomotion(makeKnightClip, ready, pose));
       const idle = knightIdle(ready, pose);
@@ -1884,6 +1931,19 @@ function clipsFor(style, skinnedKnight) {
       for (const clip of Object.values(clips)) {
         if (!clip.tracks.some(track => track.name === 'handL.quaternion')) {
           clip.tracks.push(new THREE.QuaternionKeyframeTrack('handL.quaternion', [0], SHIELD_HOLD));
+        }
+        if (!clip.tracks.some(track => track.name === 'handR.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
+        }
+      }
+    } else if (skinnedHero === 'ninja') {
+      const ready = pose(STANCE, READY.shinobi);
+      Object.assign(clips, buildNinjaLocomotion(makeKnightClip, ready, pose));
+      const idle = ninjaIdle(ready, pose);
+      Object.assign(clips, buildNinjaAttacks(makeKnightClip, idle, pose), buildNinjaSkills(makeKnightClip, idle, pose));
+      for (const clip of Object.values(clips)) {
+        if (!clip.tracks.some(track => track.name === 'handL.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handL.quaternion', [0], [0, 0, 0, 1]));
         }
         if (!clip.tracks.some(track => track.name === 'handR.quaternion')) {
           clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
@@ -1906,6 +1966,7 @@ const STYLE_COMMIT = {
   twingun: { attack1: 0.16, attack2: 0.16, attack3: 0.4, heavy: 0.44, spin: 0.9 }
 };
 const KNIGHT_COMMIT = { ...Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.32 };
+const NINJA_COMMIT = { ...Object.fromEntries(Object.entries(NINJA_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 // Twin-gun shots timed on the clip: [clip time, 'R' | 'L' | 'B' (both), power (1 big, 2 ground blast)]
 const SHOTS = {
   'twingun:attack1': [[0.05, 'R']],
@@ -1947,6 +2008,7 @@ const LOCOMOTION = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'dash', 'guar
 // Standing clips whose boots are levelled and set on the floor.
 const KNIGHT_STANDING = new Set(['idle', 'guard', 'guardHit', 'turnL', 'turnR', 'draw', 'idleFidget']);
 const KNIGHT_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
+const NINJA_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(NINJA_STRIKES)]);
 const IDLE_FAMILY = new Set(['idle', 'idleFidget', 'turnL', 'turnR', 'draw']);
 const FIDGET_AFTER = 6;
 const easeInOut = (x) => x * x * (3 - 2 * x);
@@ -1962,6 +2024,10 @@ function lerpAngle(a, b, t) {
 // ---------------------------------------------------------------------------
 const SWORD_TRAIL_WINDOWS = Object.fromEntries(Object.entries(KNIGHT_STRIKES)
   .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
+const NINJA_TRAIL_WINDOWS = Object.fromEntries(Object.entries(NINJA_STRIKES)
+  .filter(([, strike]) => strike.trail).map(([name, strike]) => [name, strike.trail]));
+const NINJA_OFFHAND_TRAILS = Object.fromEntries(Object.entries(NINJA_STRIKES)
+  .filter(([, strike]) => strike.offhandTrail).map(([name, strike]) => [name, strike.offhandTrail]));
 
 function basicAttackClip(step, hits) {
   return step >= hits ? 'attack3' : (step % 2 === 1 ? 'attack1' : 'attack2');
@@ -1978,6 +2044,11 @@ class SwordTrail {
     this.localTip = tip.clone().addScaledVector(along, 0.34);
     this.maxSamples = 40;
     this.life = 0.3;
+    this.trailColors = {
+      root: spec.colors?.root || [0.22, 0.5, 0.98],
+      mid: spec.colors?.mid || [0.2, 0.55, 1.0],
+      edge: spec.colors?.edge || [0.94, 0.99, 1.0]
+    };
     this.samples = [];
     this.prevBase = new THREE.Vector3();
     this.prevTip = new THREE.Vector3();
@@ -2084,10 +2155,11 @@ class SwordTrail {
       pos[vi + 4] = s.b.y + (s.t.y - s.b.y) * 0.5;
       pos[vi + 5] = s.b.z + (s.t.z - s.b.z) * 0.5;
       pos[vi + 6] = s.t.x; pos[vi + 7] = s.t.y; pos[vi + 8] = s.t.z;
-      // Clear root, azure body, white-hot edge.
-      col[ci] = 0.22; col[ci + 1] = 0.5; col[ci + 2] = 0.98; col[ci + 3] = 0;
-      col[ci + 4] = 0.2; col[ci + 5] = 0.55; col[ci + 6] = 1.0; col[ci + 7] = 0.82 * fade;
-      col[ci + 8] = 0.94; col[ci + 9] = 0.99; col[ci + 10] = 1.0; col[ci + 11] = 1.0 * fade;
+      const { root, mid, edge } = this.trailColors;
+      // Clear root, saturated body, white-hot edge.
+      col[ci] = root[0]; col[ci + 1] = root[1]; col[ci + 2] = root[2]; col[ci + 3] = 0;
+      col[ci + 4] = mid[0]; col[ci + 5] = mid[1]; col[ci + 6] = mid[2]; col[ci + 7] = 0.82 * fade;
+      col[ci + 8] = edge[0]; col[ci + 9] = edge[1]; col[ci + 10] = edge[2]; col[ci + 11] = 1.0 * fade;
     }
     this.geo.attributes.position.needsUpdate = true;
     this.geo.attributes.color.needsUpdate = true;
@@ -2114,6 +2186,13 @@ export class ChibiView {
     // Keep skinned model even when all gear/armor is knocked off (never revert to procedural chibi!)
     const useSkinned = !!(skinned && (!gear.armor || gear.armor === pl.heroId));
     this.skinnedKnight = useSkinned && pl.heroId === 'knight';
+    this.skinnedNinja = useSkinned && pl.heroId === 'ninja';
+    this.skinnedMotion = this.skinnedKnight || this.skinnedNinja;
+    this.soleZ = (useSkinned && skinned.spec.soleZ) || KNIGHT_SOLE_Z;
+    this.heroStrikes = this.skinnedKnight ? KNIGHT_STRIKES : (this.skinnedNinja ? NINJA_STRIKES : null);
+    this.heroAirborne = this.skinnedKnight ? KNIGHT_AIRBORNE : (this.skinnedNinja ? NINJA_AIRBORNE : null);
+    this.heroCommit = this.skinnedKnight ? KNIGHT_COMMIT : (this.skinnedNinja ? NINJA_COMMIT : null);
+    this.floorClips = this.skinnedKnight ? KNIGHT_FLOOR_CLIPS : (this.skinnedNinja ? NINJA_FLOOR_CLIPS : null);
     this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
@@ -2124,8 +2203,11 @@ export class ChibiView {
     this.swordTrail = this.R.swordMount && this.R.swordTrailSpec
       ? new SwordTrail(this.R.swordMount, this.R.swordTrailSpec)
       : null;
+    this.offhandTrail = this.R.offhandMount && this.R.offhandTrailSpec
+      ? new SwordTrail(this.R.offhandMount, this.R.offhandTrailSpec)
+      : null;
     this.root = this.R.root;
-    this.footwork = this.skinnedKnight ? new KnightFootwork(this.R) : null;
+    this.footwork = this.skinnedMotion ? new KnightFootwork(this.R) : null;
     // The skinned cape's bone chain follows a small cloth strand.
     const capeTip = useSkinned ? skinned.spec.capeTip : null;
     this.cloth = capeTip && this.R.extras.capes.length === 3 && gear.trinket === pl.heroId
@@ -2140,9 +2222,10 @@ export class ChibiView {
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
     this.mixer = new THREE.AnimationMixer(this.root);
     this.actions = {};
-    for (const [name, clip] of Object.entries(clipsFor(this.style, this.skinnedKnight))) {
+    const skinnedKey = this.skinnedKnight ? 'knight' : (this.skinnedNinja ? 'ninja' : false);
+    for (const [name, clip] of Object.entries(clipsFor(this.style, skinnedKey))) {
       const a = this.mixer.clipAction(clip);
-      if (ONE_SHOT.has(name) || (this.skinnedKnight && (name === 'jump' || name === 'fall' || name === 'charge'))) {
+      if (ONE_SHOT.has(name) || (this.skinnedMotion && (name === 'jump' || name === 'fall' || name === 'charge'))) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
       }
@@ -2221,8 +2304,8 @@ export class ChibiView {
     if (this.skinnedKnight && this.current && KNIGHT_SWINGS.has(this.currentName) && (name === 'idle' || KNIGHT_SWINGS.has(name)) && fade > 0) {
       this.current.setEffectiveTimeScale(0);
     }
-    const previousGait = this.skinnedKnight && (this.currentName === 'walk' || this.currentName === 'run');
-    const nextGait = this.skinnedKnight && (name === 'walk' || name === 'run');
+    const previousGait = this.skinnedMotion && (this.currentName === 'walk' || this.currentName === 'run');
+    const nextGait = this.skinnedMotion && (name === 'walk' || name === 'run');
     if (nextGait && !previousGait) this.gaitStart = this.time;
     const gaitPhase = previousGait && nextGait
       ? this.current.time / this.current.getClip().duration : 0;
@@ -2242,7 +2325,7 @@ export class ChibiView {
     this.currentName = name;
     this.clipStart = this.time;
     this.stepForce = true;
-    const commit = (this.skinnedKnight ? KNIGHT_COMMIT[name] : undefined) ?? STYLE_COMMIT[this.style]?.[name] ?? COMMITTED[name];
+    const commit = this.heroCommit?.[name] ?? STYLE_COMMIT[this.style]?.[name] ?? COMMITTED[name];
     this.commitUntil = commit ? this.time + commit : 0;
   }
 
@@ -2299,13 +2382,13 @@ export class ChibiView {
     }
     // A blow that has not landed on screen yet (see holdReaction) does not flinch the victim early.
     const braced = this.time < this.reactionHoldUntil;
-    if (st === 'knockdown' && !braced) return { name: 'knockdown', key: 'kd', fade: this.skinnedKnight ? 0.08 : 0.06 };
-    if (st === 'hurt' && !braced) return { name: 'hurt', key: 'hurt', fade: this.skinnedKnight ? 0.07 : 0.04 };
+    if (st === 'knockdown' && !braced) return { name: 'knockdown', key: 'kd', fade: this.skinnedMotion ? 0.08 : 0.06 };
+    if (st === 'hurt' && !braced) return { name: 'hurt', key: 'hurt', fade: this.skinnedMotion ? 0.07 : 0.04 };
     if (st !== 'attack' && st !== 'heavy') {
       this.strikeKey = null;
       if (pl.grounded) this.airStrikes = 0;
     }
-    if (this.skinnedKnight && pl.airSlam) {
+    if (this.skinnedMotion && pl.airSlam) {
       const phase = pl.airSlam.phase;
       const name = phase === 'aim' ? 'slamAim' : phase === 'impact' ? (pl.grounded ? 'slamImpact' : 'airSpike') : 'slamDive';
       return { name, key: 'slam-' + phase, fade: phase === 'impact' ? 0.03 : 0.08 };
@@ -2317,15 +2400,15 @@ export class ChibiView {
       const ground = basicAttackClip(step, hits);
       // Each chop of the combo ends with the body turned about 100 degrees and the next one
       // starts square on; a little longer fade between swings takes the edge off that turn.
-      const handover = this.skinnedKnight && KNIGHT_SWINGS.has(this.currentName) ? 0.08 : (this.skinnedKnight ? 0.065 : 0.05);
-      return { name: this.skinnedKnight ? this.strikeClip(key, pl, ground) : ground, key, fade: handover };
+      const handover = this.skinnedKnight && KNIGHT_SWINGS.has(this.currentName) ? 0.08 : (this.skinnedMotion ? 0.065 : 0.05);
+      return { name: this.skinnedMotion ? this.strikeClip(key, pl, ground) : ground, key, fade: handover };
     }
-    if (st === 'heavy') return { name: this.skinnedKnight ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.065 };
-    if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: this.skinnedKnight ? 0.07 : 0.05 };
-    if (this.skinnedKnight && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.07 };
+    if (st === 'heavy') return { name: this.skinnedMotion ? this.strikeClip('heavy', pl, 'heavy') : 'heavy', key: 'heavy', fade: 0.065 };
+    if (st === 'skill') return { name: SKILL_ANIM[pl.animSkillId] || 'skill', key: `skill${pl.animSkillId || ''}`, fade: this.skinnedMotion ? 0.07 : 0.05 };
+    if (this.skinnedMotion && pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.07 };
     if (pl.guarding || st === 'guard') {
       if (this.actions.guardHit && this.time < this.blockUntil) return { name: 'guardHit', key: `block${this.blocks}`, fade: 0.05 };
-      return { name: 'guard', key: 'guard', fade: this.skinnedKnight ? 0.12 : 0.1 };
+      return { name: 'guard', key: 'guard', fade: this.skinnedMotion ? 0.12 : 0.1 };
     }
     if (pl.isFlying) return { name: 'fly', key: 'fly', fade: 0.2 };
     if (pl.isRolling) return { name: 'roll', key: `roll${this.rollCount}`, fade: 0.04 };
@@ -2334,10 +2417,10 @@ export class ChibiView {
       return { name: 'dash', key: 'dash', fade: 0.09 };
     }
     if (!pl.grounded) return (pl.vy || 0) > 0
-      ? { name: 'jump', key: this.skinnedKnight ? `jump${pl.jumpCount || 0}` : 'jump', fade: this.skinnedKnight ? 0.075 : 0.12 }
-      : { name: 'fall', key: 'fall', fade: this.skinnedKnight ? 0.095 : 0.2 };
+      ? { name: 'jump', key: this.skinnedMotion ? `jump${pl.jumpCount || 0}` : 'jump', fade: this.skinnedMotion ? 0.075 : 0.12 }
+      : { name: 'fall', key: 'fall', fade: this.skinnedMotion ? 0.095 : 0.2 };
     if (speed > 0.8) {
-      if (this.skinnedKnight && !pl.isSprinting) return { name: 'walk', key: 'walk', fade: 0.13 };
+      if (this.skinnedMotion && !pl.isSprinting) return { name: 'walk', key: 'walk', fade: 0.13 };
       return { name: 'run', key: 'run', fade: 0.14 };
     }
     if (this.skinnedKnight) {
@@ -2534,9 +2617,9 @@ export class ChibiView {
     if (kl) { R.armL.rotateX(-0.45 * kl * ks); R.foreL.rotateX(-0.35 * kl * ks); }
     const lean = 0.12 * Math.max(kr, kl) + 0.45 * Math.sin(this.hitLean * Math.PI * 0.5);
     if (lean) { R.torso.rotateX(-lean); R.head.rotateX(-lean * 0.6); }
-    const planted = this.skinnedKnight ? KNIGHT_STANDING.has(this.currentName) : this.currentName === 'idle' || this.currentName === 'guard';
+    const planted = this.skinnedMotion ? KNIGHT_STANDING.has(this.currentName) : this.currentName === 'idle' || this.currentName === 'guard';
     this.strikeFeetDown = false;
-    if (this.skinnedKnight && pl.grounded && KNIGHT_FLOOR_CLIPS.has(this.currentName)) {
+    if (this.skinnedMotion && pl.grounded && this.floorClips?.has(this.currentName)) {
       const s = R.rigScale;
       const load = this.landingLoad;
       // Level a standing boot before landing/floor checks so sole orientation stays grounded.
@@ -2585,25 +2668,31 @@ export class ChibiView {
       let soleY = Infinity;
       for (const foot of [R.footL, R.footR]) {
         _shoeToBody.multiplyMatrices(_inverseBody, foot.matrixWorld);
-        for (const z of KNIGHT_SOLE_Z) {
+        for (const z of this.soleZ) {
           _vp.set(0, -R.restFootY / s, z / s).applyMatrix4(_shoeToBody);
           soleY = Math.min(soleY, _vp.y);
         }
       }
       // Pull the lowest sole down in a standing pose or planted strike; during walk/run
       // KnightFootwork owns planted foot height, so only prevent floor penetration.
-      const air = KNIGHT_AIRBORNE[this.currentName];
-      const strike = KNIGHT_STRIKES[this.currentName];
+      const air = this.heroAirborne?.[this.currentName];
+      const strike = this.heroStrikes?.[this.currentName];
+      const inRoll = this.currentName === 'roll';
       this.strikeFeetDown = !!strike && !strike.air && !(air && this.current.time > air[0] && this.current.time < air[1]);
       if (planted || this.strikeFeetDown || KNIGHT_BRAKE_CLIPS.has(this.currentName)) {
         R.hips.position.y += -soleY / s;
-      } else if (soleY < 0) {
+      } else if (!inRoll && soleY < 0) {
         R.hips.position.y += -soleY / s;
       }
     }
-    if (this.skinnedKnight) {
+    if (this.skinnedMotion) {
       const ragdoll = this.currentName === 'dead' || this.currentName === 'knockdown';
-      enforceKnightAnatomy(R, { lockShield: !ragdoll, clampWristR: !ragdoll, softenKnees: true });
+      enforceHeroAnatomy(R, {
+        lockShield: this.skinnedKnight,
+        clampWristR: !ragdoll,
+        clampWristL: this.skinnedNinja && !ragdoll,
+        softenKnees: true
+      });
     }
     // Pyromancer wrist: hold the staff upright (tipping it toward the target on thrusts)
     if (this.style === 'pyro' && R.staff) {
@@ -2624,8 +2713,8 @@ export class ChibiView {
     this.time += dt;
     // The server flags a landing the moment the body touches down, but the height drawn here
     // closes the last stretch over the next few frames (about 0.15 s). Until the feet are near the
-    // floor the Knight stays in its air pose, so it does not stand up in mid-air and slide down.
-    if (pl.grounded && env.floorY && this.skinnedKnight) {
+    // floor the skinned hero stays in its air pose, so it does not stand up in mid-air and slide down.
+    if (pl.grounded && env.floorY && this.skinnedMotion) {
       const floor = env.floorY(pl.x, pl.z, pl.y + 0.3);
       if (floor !== null && floor !== undefined && pl.y - floor > 0.1) pl = Object.assign(Object.create(pl), { grounded: false });
     }
@@ -2658,7 +2747,7 @@ export class ChibiView {
     const trigger = `${want.name}|${want.key}`;
     const committed = this.time < this.commitUntil && LOCOMOTION.has(want.name) && want.name !== this.currentName;
     if (trigger !== this.triggerKey && !committed) {
-      const restart = ONE_SHOT.has(want.name) || (this.skinnedKnight && want.name === 'jump');
+      const restart = ONE_SHOT.has(want.name) || (this.skinnedMotion && want.name === 'jump');
       this.play(want.name, want.fade, restart);
       this.triggerKey = trigger;
     }
@@ -2673,9 +2762,11 @@ export class ChibiView {
     // updates to stepFps (e.g. 15 FPS) while snapping instantly on new actions.
     const frozen = pl.buffs?.frozen || pl.state === 'frozen';
     const paused = now < this.hitStopUntil || frozen;
-    const clipTime = this.skinnedKnight ? this.current.time : this.time - this.clipStart;
-    const trailWin = SWORD_TRAIL_WINDOWS[this.currentName];
-    const inSlash = !!(trailWin && clipTime >= trailWin[0] && clipTime <= trailWin[1]);
+    const clipTime = this.skinnedMotion ? this.current.time : this.time - this.clipStart;
+    const trailWin = this.skinnedNinja ? NINJA_TRAIL_WINDOWS[this.currentName] : SWORD_TRAIL_WINDOWS[this.currentName];
+    const offhandWin = this.skinnedNinja ? NINJA_OFFHAND_TRAILS[this.currentName] : null;
+    const inSlash = !!((trailWin && clipTime >= trailWin[0] && clipTime <= trailWin[1])
+      || (offhandWin && clipTime >= offhandWin[0] && clipTime <= offhandWin[1]));
     // Step at 15 FPS for ToS 2D punch on idle/locomotion/holds; run smooth during active blade swings for crisp arc trails
     const effStepFps = inSlash ? 0 : this.stepFps;
     const stepDt = effStepFps > 0 ? 1 / effStepFps : 0;
@@ -2695,19 +2786,23 @@ export class ChibiView {
       this.stepAcc = 0;
       this.stepForce = false;
     }
-    if (this.skinnedKnight) this.updateLanding(pl, paused ? 0 : dt);
+    if (this.skinnedMotion) this.updateLanding(pl, paused ? 0 : dt);
     if (doPose) {
       this.restorePure();
       this.mixer.update(paused ? 0 : poseDt);
       this.savePure();
       this.applyLayers(pl, poseDt, paused);
       if (this.footwork) this.footwork.fx = env.fx;
-      this.footwork?.apply(this.current, pl.grounded, env.floorY, this.strikeFeetDown && !KNIGHT_STRIKES[this.currentName].kneel);
+      this.footwork?.apply(this.current, pl.grounded, env.floorY, this.strikeFeetDown && !this.heroStrikes?.[this.currentName]?.kneel);
     }
     if (this.swordTrail) {
-      const swinging = this.skinnedKnight && trailWin
-        ? this.current.time >= trailWin[0] && this.current.time <= trailWin[1] : inSlash;
+      const swinging = this.skinnedMotion && trailWin
+        ? this.current.time >= trailWin[0] && this.current.time <= trailWin[1] : (trailWin ? inSlash : false);
       this.swordTrail.update(paused ? 0 : dt, swinging && !paused, this.root.parent);
+    }
+    if (this.offhandTrail) {
+      const offSwinging = !!(offhandWin && this.current.time >= offhandWin[0] && this.current.time <= offhandWin[1]);
+      this.offhandTrail.update(paused ? 0 : dt, offSwinging && !paused, this.root.parent);
     }
     if (!paused) this.updateBladeAccent(pl);
 
@@ -2783,19 +2878,19 @@ export class ChibiView {
     const grounded = !!pl.grounded;
     if (grounded && !this.wasGrounded) {
       this.squash = 1;
-      if (env.fx && this.skinnedKnight) {
+      if (env.fx && this.skinnedMotion) {
         // A harder landing throws a bigger, paler cloud (pale enough to read on stone).
         const hard = Math.max(0.35, this.landingStrength);
         env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 3 + Math.round(6 * hard), 0.7 + 0.8 * hard, '#f4ecd9');
       } else if (env.fx) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 5, 0.8);
     } else if (!grounded && this.wasGrounded && (pl.vy || 0) > 1) {
       this.stretch = 1;
-      if (env.fx && this.skinnedKnight) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 3, 0.65, '#f4ecd9');
+      if (env.fx && this.skinnedMotion) env.fx.dustPuff(pl.x, pl.y + 0.05, pl.z, 3, 0.65, '#f4ecd9');
     }
     this.wasGrounded = grounded;
     this.squash = Math.max(0, this.squash - dt * 6);
     this.stretch = Math.max(0, this.stretch - dt * 5);
-    const sq = this.skinnedKnight ? 0
+    const sq = this.skinnedMotion ? 0
       : Math.sin(this.squash * Math.PI * 0.5) * 0.22 - Math.sin(this.stretch * Math.PI * 0.5) * 0.14;
     this.R.body.scale.set(1 + sq * 0.8, 1 - sq, 1 + sq * 0.8);
 
@@ -2867,6 +2962,7 @@ export class ChibiView {
     this.bladeAccent?.release?.(this.bladeAccent.held);
     this.bladeAccent = null;
     this.swordTrail?.dispose();
+    this.offhandTrail?.dispose();
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);
     this.root.removeFromParent();
