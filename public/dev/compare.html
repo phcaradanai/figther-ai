@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mixamo model vs Knight — เทียบท่า</title>
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #c9d9e0; font: 12px "Segoe UI", Tahoma, sans-serif; color: #1d2733; overflow: hidden; }
+    #view, #sheet { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    #sheet { display: none; background: #1b2026; object-fit: contain; }
+    #ui { position: fixed; left: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+      background: rgba(255, 255, 255, 0.88); border-radius: 8px; padding: 6px 8px; max-width: calc(100vw - 16px); }
+    #ui select, #ui button, #ui input { font: inherit; }
+    #labels { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 22vw; font: 600 15px "Segoe UI", sans-serif; color: #1d2733; pointer-events: none; }
+    #info { position: fixed; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.6); color: #fff; padding: 4px 8px; border-radius: 6px; font-family: Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <!--
+    Dev tool, not linked from the game. Puts the Mixamo model (left) and the Knight (right) in the
+    same clip at the same moment, so the way the sword and shield are held can be compared by eye.
+    The model and its clips are not in the repo: copy them into /public/dev/ref/ as model.glb,
+    walk.glb, run.glb, combo.glb, jump.glb, idle.glb and guard.glb (see docs/handoff/motion-standard.md).
+    Console: cmp.sheet('run', 8, { yaw: 90 })  cmp.live('combo1')
+  -->
+  <canvas id="view"></canvas>
+  <canvas id="sheet"></canvas>
+  <div id="ui">
+    <label>ท่า <select id="clip"></select></label>
+    <label>มุม <select id="yaw">
+      <option value="0">หน้า (front)</option>
+      <option value="40">เฉียง (3/4)</option>
+      <option value="90">ข้าง (side)</option>
+      <option value="180">หลัง (back)</option>
+    </select></label>
+    <button id="play">⏸</button>
+    <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" style="width: 240px" />
+  </div>
+  <div id="labels"><span>Mixamo model</span><span>Knight</span></div>
+  <div id="info"></div>
+  <script src="/js/shared_data.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { ChibiView } from '/js/three/chibi.js';
+
+    const REF = '/dev/ref/';
+    // clip key: model clip file, Knight clip, kind. For strikes `at` is the model-clip time of the
+    // blade contact and `strike` the baked [contact, end] (the BAKE table in tools/rig/bake-mixamo.mjs).
+    const CLIPS = {
+      idle: { file: 'idle', knight: 'idle', kind: 'loop' },
+      guard: { file: 'guard', knight: 'guard', kind: 'loop' },
+      walk: { file: 'walk', knight: 'walk', kind: 'gait' },
+      run: { file: 'run', knight: 'run', kind: 'gait' },
+      combo1: { file: 'combo', knight: 'attack1', kind: 'strike', at: 1.12, strike: [0.12, 0.44] },
+      combo2: { file: 'combo', knight: 'attack2', kind: 'strike', at: 2.20, strike: [0.115, 0.42] },
+      combo3: { file: 'combo', knight: 'attack3', kind: 'strike', at: 3.03, strike: [0.19, 0.58] },
+      jump: { file: 'jump', knight: 'jump', kind: 'loop' }
+    };
+
+    const canvas = document.getElementById('view');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.shadowMap.enabled = true;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#c9d9e0');
+    scene.add(new THREE.HemisphereLight('#fff6ec', '#b9a58f', 1.7));
+    const sun = new THREE.DirectionalLight('#fff1e0', 2.2);
+    sun.position.set(-3, 6, 5);
+    sun.castShadow = true;
+    Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 30 });
+    scene.add(sun);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshLambertMaterial({ color: '#e0d5c2' }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const camera = new THREE.PerspectiveCamera(22, 1, 0.3, 100);
+
+    // Knight (right)
+    const gear = Object.fromEntries(GAME_DATA.GEAR_SLOTS.map(slot => [slot, 'knight']));
+    const knight = new ChibiView({ heroId: 'knight', gear, x: 0, y: 0, z: 0, facing: Math.PI / 2, grounded: true });
+    const knightPivot = new THREE.Group();
+    knightPivot.add(knight.root);
+    scene.add(knightPivot);
+    knight.root.rotation.set(0, 0, 0);
+
+    // Mixamo model (left): sword, shield, helmet and body keep their own colours.
+    const loader = new GLTFLoader();
+    const load = name => loader.loadAsync(REF + name + '.glb');
+    const model = await load('model');
+    const paint = {
+      Paladin_J_Nordstrom: ['#d6dbe3', 'sword'],
+      Paladin_J_Nordstrom_Helmet: ['#2f64c8', 'shield'],
+      Paladin_J_Nordstrom_Shield: ['#9aa3b0', 'helmet'],
+      Paladin_J_Nordstrom_Sword: ['#d8b190', 'body']
+    };
+    model.scene.traverse(o => {
+      if (!o.isMesh) return;
+      const [color] = paint[o.name] || ['#cccccc'];
+      o.material = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
+      o.castShadow = true;
+      o.frustumCulled = false;
+    });
+    const modelPivot = new THREE.Group();
+    modelPivot.add(model.scene);
+    scene.add(modelPivot);
+    const mixer = new THREE.AnimationMixer(model.scene);
+    const clips = {};
+    for (const key of new Set(Object.values(CLIPS).map(c => c.file))) {
+      const gltf = await load(key);
+      clips[key] = gltf.animations.find(a => a.duration > 0.05);
+    }
+
+    // Scale the model so its hips sit at the Knight's hip height.
+    function worldY(root, name) {
+      let found = null;
+      root.traverse(o => { if (!found && o.name.replace(/[:_]/g, '').endsWith('mixamorig' + name)) found = o; });
+      return found.getWorldPosition(new THREE.Vector3()).y;
+    }
+    knight.root.updateMatrixWorld(true);
+    const modelScale = knight.R.hips.getWorldPosition(new THREE.Vector3()).y / worldY(model.scene, 'Hips');
+    model.scene.scale.setScalar(modelScale);
+
+    const bone = name => { let b = null; model.scene.traverse(o => { if (!b && o.name.replace(/[:_]/g, '').endsWith('mixamorig' + name)) b = o; }); return b; };
+    const leftFoot = bone('LeftFoot');
+    const hips = bone('Hips');
+
+    function poseModel(file, time) {
+      mixer.stopAllAction();
+      const action = mixer.clipAction(clips[file]);
+      action.play();
+      action.time = Math.min(clips[file].duration, Math.max(0, time));
+      mixer.update(0);
+      model.scene.updateMatrixWorld(true);
+    }
+
+    // Source time of the left heel strike: the Knight's gait clips start there (alignGait).
+    const heelStrike = {};
+    function strikeTime(file) {
+      if (heelStrike[file] !== undefined) return heelStrike[file];
+      const clip = clips[file];
+      let best = 0, reach = -Infinity;
+      const a = new THREE.Vector3(), b = new THREE.Vector3();
+      const frames = Math.round(clip.duration * 30);
+      for (let i = 0; i < frames; i++) {
+        poseModel(file, i / 30);
+        const ahead = leftFoot.getWorldPosition(a).z - hips.getWorldPosition(b).z;
+        if (ahead > reach) { reach = ahead; best = i / 30; }
+      }
+      return (heelStrike[file] = best);
+    }
+
+    // phase 0..1 -> [model clip time, Knight clip time]
+    function timesFor(key, phase) {
+      const c = CLIPS[key];
+      const source = clips[c.file].duration;
+      const action = knight.actions[c.knight];
+      const dur = action.getClip().duration;
+      if (c.kind === 'gait') {
+        const t0 = strikeTime(c.file);
+        return [(t0 + phase * source) % source, phase * dur];
+      }
+      if (c.kind === 'strike') {
+        const [contact, end] = c.strike;
+        const t = phase * end;
+        const windup = Math.min(c.at, 0.3);
+        const follow = Math.min(source - c.at, 0.6);
+        const src = t <= contact ? c.at - windup + windup * (t / contact) : c.at + follow * Math.min(1, (t - contact) / (end - contact));
+        return [src, Math.min(t, dur)];
+      }
+      return [phase * source, phase * dur];
+    }
+
+    function setKnight(name, time) {
+      knight.play(name, 0);
+      knight.current.paused = false;
+      knight.current.time = time;
+      knight.mixer.update(0);
+      knight.root.updateMatrixWorld(true);
+    }
+
+    const state = { key: 'run', yaw: 0, phase: 0, playing: true };
+    function layout(yawDeg) {
+      const yaw = THREE.MathUtils.degToRad(yawDeg);
+      // Side views need room: the two characters stand end to end along x.
+      const gap = 0.9 + 0.5 * Math.abs(Math.sin(yaw));
+      modelPivot.position.set(-gap, 0, 0);
+      knightPivot.position.set(gap, 0, 0);
+      modelPivot.rotation.y = yaw;
+      knightPivot.rotation.y = yaw;
+    }
+    function draw(w, h) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      camera.position.set(0, 1.0, 9.0 + 3.2 * Math.abs(Math.sin(modelPivot.rotation.y)));
+      camera.lookAt(0, 0.9, 0);
+      renderer.render(scene, camera);
+    }
+    function pose(key, phase, yaw) {
+      const c = CLIPS[key];
+      const [mt, kt] = timesFor(key, phase);
+      layout(yaw);
+      poseModel(c.file, mt);
+      setKnight(c.knight, kt);
+      return { model: mt, knight: kt };
+    }
+
+    // Contact sheet: n phases of one clip, model on the left and Knight on the right of each tile.
+    function sheet(key, n = 8, { yaw = 0, cols = 4, w = 330, h = 330, from = 0, to = 1 } = {}) {
+      const out = document.getElementById('sheet');
+      const rows = Math.ceil(n / cols);
+      out.width = cols * w; out.height = rows * h;
+      const g = out.getContext('2d');
+      for (let i = 0; i < n; i++) {
+        const phase = from + (to - from) * (n === 1 ? 0 : i / (n - 1));
+        const t = pose(key, phase, yaw);
+        draw(w, h);
+        const x = (i % cols) * w, y = Math.floor(i / cols) * h;
+        g.drawImage(canvas, 0, 0, w, h, x, y, w, h);
+        g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(x, y, 170, 16);
+        g.fillStyle = '#ffe066'; g.font = '11px Consolas, monospace';
+        g.fillText(`${key} ${(phase * 100).toFixed(0)}%  m${t.model.toFixed(2)} k${t.knight.toFixed(2)}`, x + 3, y + 12);
+        g.strokeStyle = '#333'; g.strokeRect(x, y, w, h);
+      }
+      out.style.display = 'block'; canvas.style.display = 'none';
+      document.getElementById('ui').style.display = 'none';
+      document.getElementById('labels').style.display = 'none';
+      document.getElementById('info').style.display = 'none';
+      return { cols, rows, n };
+    }
+    function live(key = state.key) {
+      state.key = key;
+      document.getElementById('sheet').style.display = 'none';
+      canvas.style.display = 'block';
+      for (const id of ['ui', 'labels', 'info']) document.getElementById(id).style.display = '';
+      document.getElementById('clip').value = key;
+    }
+
+    const clipSelect = document.getElementById('clip');
+    for (const key of Object.keys(CLIPS)) clipSelect.add(new Option(key, key));
+    clipSelect.value = state.key;
+    clipSelect.onchange = () => { state.key = clipSelect.value; };
+    document.getElementById('yaw').onchange = e => { state.yaw = Number(e.target.value); };
+    const playButton = document.getElementById('play');
+    playButton.onclick = () => { state.playing = !state.playing; playButton.textContent = state.playing ? '⏸' : '▶'; };
+    document.getElementById('scrub').oninput = e => { state.playing = false; playButton.textContent = '▶'; state.phase = Number(e.target.value); };
+    let last = performance.now();
+    function frame(now) {
+      requestAnimationFrame(frame);
+      if (document.getElementById('sheet').style.display === 'block') return;
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (state.playing) {
+        const span = { gait: 0.9, strike: 1.8, loop: 2.4 }[CLIPS[state.key].kind];
+        state.phase = (state.phase + dt / span) % 1;
+        document.getElementById('scrub').value = state.phase;
+      }
+      const t = pose(state.key, state.phase, state.yaw);
+      draw(innerWidth, innerHeight);
+      document.getElementById('info').textContent = `${state.key}  ${(state.phase * 100).toFixed(0)}%  model ${t.model.toFixed(2)}s  knight ${t.knight.toFixed(2)}s`;
+    }
+    requestAnimationFrame(frame);
+    window.cmp = { sheet, live, pose, draw, state, knight, model, CLIPS };
+  </script>
+</body>
+</html>

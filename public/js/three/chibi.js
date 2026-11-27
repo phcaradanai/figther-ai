@@ -43,7 +43,12 @@ const SKINNED_HEROES = {
     helmetMesh: 'KnightHelmet',
     swordMesh: 'KnightSword',
     shieldMesh: 'KnightShield',
-    swordMount: { p: [0.029, -0.090, 0.006], rx: 0.38 },
+    // Sword and shield sit on the hands exactly as they do on the Mixamo model (Sword And Shield
+    // Run (1) Model.fbx): `q` turns the blade to the model's angle (it was 9.6 degrees off with the
+    // old rx 0.38), `p` puts the hand the same distance off the blade axis, and `shieldOffset`
+    // centres the shield on the forearm as the model carries it. Measured with public/dev/compare.html.
+    swordMount: { p: [0.0269, -0.0660, 0.0123], q: [0.1283, 0.0227, 0.0521, 0.9901] },
+    shieldOffset: [0.0029, 0.0962, -0.0523],
     swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
@@ -63,7 +68,9 @@ const SKINNED_HEROES = {
       guardHit: '/assets/anims/knight/guardHit.json',
       turnL: '/assets/anims/knight/turnL.json',
       turnR: '/assets/anims/knight/turnR.json',
-      draw: '/assets/anims/knight/draw.json'
+      draw: '/assets/anims/knight/draw.json',
+      jump: '/assets/anims/knight/jump.json',
+      fall: '/assets/anims/knight/fall.json'
     },
     capeBones: [
       { name: 'cape1', weight: 0.22 },
@@ -1190,6 +1197,9 @@ function buildSkinnedRig(b, heroId, gear, model) {
           // Direct anatomically aligned fist grip (handle passes through curled fist, not extending out fingertips)
           w = node('swordMount', parent, sm.p[0], sm.p[1], sm.p[2]);
           w.rotation.set(sm.rx, sm.ry || 0, sm.rz || 0);
+        } else if (sm.q) {
+          w = node('swordMount', parent, sm.p[0], sm.p[1], sm.p[2]);
+          w.quaternion.set(...sm.q);
         } else {
           w = mount(parent, sm.tilt);
           w.position.set(sm.p[0], sm.p[1], sm.p[2]);
@@ -1206,6 +1216,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
         const shWrap = unscaled(R.handL);
         const shScale = spec.shieldScale || 1;
         if (shScale !== 1) shWrap.scale.multiplyScalar(shScale);
+        if (spec.shieldOffset) shWrap.position.set(...spec.shieldOffset);
         b.glbPart(shWrap, gearScene, spec.shieldMesh, { painterly: !!spec.painterly });
       }
     } else if (WEAPONS[gear.weapon]) {
@@ -1394,7 +1405,10 @@ function makeClip(name, keys, joints = JOINTS) {
 function bakedClip(name, data) {
   const tracks = Object.entries(data.rotations).map(([joint, values]) => new THREE.QuaternionKeyframeTrack(`${joint}.quaternion`, data.times, values));
   tracks.push(new THREE.VectorKeyframeTrack('hips.position', data.times, data.hips));
-  return new THREE.AnimationClip(name, data.duration, tracks);
+  const clip = new THREE.AnimationClip(name, data.duration, tracks);
+  // Gaits baked for a ground speed say which, and how much of the cycle is the boot's stance.
+  if (data.groundSpeed) clip.userData = { groundSpeed: data.groundSpeed, stance: data.stance };
+  return clip;
 }
 
 const KNIGHT_JOINTS = [...JOINTS, 'handL', 'handR'];
@@ -2317,7 +2331,9 @@ export class ChibiView {
       if (KNIGHT_BRAKE_CLIPS.has(playing) && this.current.time < this.current.getClip().duration) {
         return { name: playing, key: playing, fade: 0.060 };
       }
-      if ((playing === 'walk' || playing === 'run') && this.time - this.gaitStart >= 0.08) {
+      // The baked Knight stops by fading from the gait straight into its idle: the hand-made
+      // braking poses popped against the baked clips.
+      if (!this.skinnedKnight && (playing === 'walk' || playing === 'run') && this.time - this.gaitStart >= 0.08) {
         const phase = this.current.time / this.current.getClip().duration;
         const name = phase < 0.5 ? 'brakeL' : 'brakeR';
         return { name, key: name, fade: 0.060 };
@@ -2604,7 +2620,7 @@ export class ChibiView {
     }
     if (this.currentName === 'run' || this.currentName === 'walk') {
       const hero = window.GAME_DATA?.HEROES?.[pl.heroId];
-      const rate = this.footwork ? this.footwork.rate(this.currentName, speed)
+      const rate = this.footwork ? this.footwork.rate(this.current.getClip(), speed)
         : Math.max(0.65, Math.min(1.9, speed / (hero?.speed || 5.4)));
       this.current.setEffectiveTimeScale(rate);
     }

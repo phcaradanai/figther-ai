@@ -75,3 +75,53 @@ export function fx(type, extra = {}, ahead = 1.1) {
   r_fx({ id: Math.floor(Math.random() * 1e9), type, x: p.x + Math.cos(p.facing) * ahead, y: p.y + 0.9, z: p.z + Math.sin(p.facing) * ahead, facing: p.facing, color: '#60a5fa', heroId: 'knight', playerId: p.id, originX: p.x, originY: p.y, originZ: p.z, weaponType: 'broadsword', ...extra });
 }
 const r_fx = event => R().processServerFx([event]);
+
+// Records every rendered frame of the local player for `ms` of game time: clip, body and boot
+// positions, and the orientation of the main bones relative to the character. Use it with real
+// input (press / keys) to find jerks: `const log = await a.record(6000, [['KeyD', 100, 1500]])`,
+// then `a.jerks(log)`.
+const TRACKED = ['hips', 'torso', 'head', 'armL', 'foreL', 'handL', 'armR', 'foreR', 'handR', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
+export function record(ms, keys = [], follow = null) {
+  return new Promise(resolve => {
+    const r = R();
+    const frames = [];
+    for (const [code, at, hold] of keys) setTimeout(() => press(code, hold), at);
+    let begin = null;
+    window.__capTick = () => {
+      const e = follow ? r.players.get(follow) : me();
+      if (!e) return;
+      const now = performance.now();
+      if (begin === null) begin = now;
+      const v = e.view, THREE_Q = v.root.quaternion.constructor, V3 = v.root.position.constructor;
+      v.root.updateMatrixWorld(true);
+      const ri = v.root.getWorldQuaternion(new THREE_Q()).invert();
+      const bones = {};
+      for (const name of TRACKED) bones[name] = v.R[name].getWorldQuaternion(new THREE_Q()).premultiply(ri).toArray();
+      const foot = b => v.R[b].getWorldPosition(new V3()).toArray();
+      frames.push({
+        t: now - begin, clip: v.currentName, state: e.pl.state, grounded: e.pl.grounded,
+        x: e.pl.x, z: e.pl.z, vx: e.pl.vx, vz: e.pl.vz, facing: e.pl.facing,
+        root: v.root.position.toArray(), yaw: v.root.rotation.y,
+        hips: v.R.hips.getWorldPosition(new V3()).toArray(), footL: foot('footL'), footR: foot('footR'), bones
+      });
+      if (now - begin >= ms) { window.__capTick = null; resolve(frames); }
+    };
+  });
+}
+
+const angle = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])));
+// Frames where a bone turns far more in one frame than around it, with the clip change (if any) that caused it.
+export function jerks(frames, { minAngle = 0.35, ratio = 3 } = {}) {
+  const out = [];
+  for (let i = 3; i < frames.length - 4; i++) {
+    for (const name of TRACKED) {
+      const d = angle(frames[i].bones[name], frames[i - 1].bones[name]);
+      const around = [-2, -1, 1, 2, 3].map(k => angle(frames[i + k].bones[name], frames[i + k - 1].bones[name])).sort((a, b) => a - b);
+      const typical = around[2];
+      if (d > minAngle && d > typical * ratio + 0.1) {
+        out.push({ i, t: Math.round(frames[i].t), bone: name, turn: +d.toFixed(2), typical: +typical.toFixed(2), from: frames[i - 1].clip, to: frames[i].clip, dt: Math.round(frames[i].t - frames[i - 1].t) });
+      }
+    }
+  }
+  return out;
+}

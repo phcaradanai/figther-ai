@@ -147,7 +147,8 @@ The Knight now uses these baked clips, chosen by the player after comparison:
 | Game clip | Mixamo source | Bake options |
 | --- | --- | --- |
 | `attack1` / `attack2` / `attack3` | One Hand Sword Combo, cut into its three chops (blade peaks at 1.12 / 2.20 / 3.03 s of the 4.6 s file, the `at` field in `BAKE`) | Retimed so each blade lands at 0.13 / 0.10 / 0.20 s (the nearest 30 fps frames to 0.12 / 0.115 / 0.19); contact and trail stored in the clip and copied into `KNIGHT_STRIKES`. All three keep a boot planted and none leaves the floor, so `KNIGHT_AIRBORNE` only lists the skill `charge` now |
-| `walk` / `run` | Sword And Shield Walk / Sword And Shield Run | Rotated so the left heel strikes at phase 0, resampled to 0.40 / 0.40 s for the support-foot solver (a 0.44 s walk cycle made the supporting boot slide 0.13 units; the gait's boot-down fraction is 0.34 for both) |
+| `walk` / `run` | Sword And Shield Walk / Sword And Shield Run | Rotated so the left heel strikes at phase 0, then retimed for the game's ground speed (5.4 / 7.5 u/s): see "Matching the Mixamo model" below |
+| `jump` / `fall` | Sword And Shield Jump (leap 0.17 to 0.5 s, descent 0.5 to 0.8 s) | Hips held at standing height; the landing squat is `updateLanding` |
 
 The first Mixamo pass used the Run file as the walk and Run (2) as the run; the combo came from Slash, attack (2) and attack (3). Those three attacks had a leaping finisher, which the one-handed chops replace. `BAKE` takes a list for a file that holds several strikes.
 | `idle`, `idleFidget` | idle, the 7.5 s Sword And Shield Idle | The fidget plays once after 6 s standing still |
@@ -180,3 +181,25 @@ Tools:
 - `node tools/rig/seam-audit.mjs` — plays scripted input through `ChibiView` and lists one-frame bone pops across clip hand-overs. Remaining known pops are the left arm at attack 1 → 2 (the shield bash starts in three frames) and the first frames of some hand-made skills; they are cuts, not slides.
 - `node tools/rig/shield-from-model.mjs <model.glb>` — re-derives `SHIELD_HOLD` from a Mixamo model with its shield (export it from Blender with `export_skins=True, export_materials='NONE'`; keep the file out of the repo).
 - `?handmade=all` (or a comma list of clip names) on any page plays the hand-made Knight clips in place of the baked ones.
+
+## Matching the Mixamo model (2026-11-27)
+
+The player compared the game with the Mixamo model (Sword And Shield Run (1) Model.fbx) and found the sword angle, the shield and the legs did not match it. `public/dev/compare.html` puts the model and the Knight in the same clip at the same moment (`cmp.sheet('run', 8, { yaw: 40 })`, or open it and pick a clip). It needs the model and clips converted to GLB in `public/dev/ref/` (`model.glb` exported with `export_skins=True, export_materials='NONE'`, then `walk`, `run`, `combo`, `jump`, `idle`, `guard`); those files stay out of the repo (`.git/info/exclude`). Measured against the model:
+
+| What | Before | Now |
+| --- | --- | --- |
+| Blade angle (idle, guard, walk, run) | 9.6° off (`swordMount` rx 0.38) | ≤ 0.5°: `swordMount.q` in `chibi.js`, and the hand sits the model's distance off the blade axis |
+| Shield face / position | face right (1°), centre 0.16 in front of the forearm and 0.06 high | face 1°, centre on the forearm like the model's (`shieldOffset`), within 0.1 cm |
+| Boot spread, walk / run (lateral, game camera) | 0.32 / 0.36 | 0.14 / 0.16, the model's 0.145 / 0.186 |
+| Planted boot slide, run | 2.5 u/s average, 15 u/s spikes | 1.5 u/s average, 10 u/s peak |
+
+How:
+
+- **`reachLegs` (bake).** The Knight's hip sockets are about twice as far apart as the model's, so the model's leg rotations on them splayed the boots. The bake records where the model's boots are relative to its hips (`retarget` returns `feet`) and puts the Knight's boots there, scaled by the ratio of the two leg lengths, with two-bone IK (`KnightFootwork.placeLeg`). The boot keeps its own tilt. Set per clip with `legs: true` in `BAKE`; every fixed clip uses it.
+- **`warpGait` (bake).** The game moves the Knight at 5.4 and 7.5 u/s, which for legs half a unit long is a sprint, much faster than the model's walk or run covers (the walk file at 0.4 s per cycle sweeps a boot back at 2.4 u/s, the run at 3.9 u/s). Played that way the pinned boot was dragged until it let go, and that release was the jerk. So the stance (heel strike to toe-off) is retimed to the pace that keeps the boot still at the game's speed and the rest of the step stretches to fill the cycle (walk 0.34 s, run 0.32 s, so 5.9 and 6.3 steps a second), the seam blurred so toe-off is not a kink. The clip stores `groundSpeed` and `stance`, and `KnightFootwork.rate` / `apply` use them instead of the old fixed 5.4 / 7.45 and 0.34.
+- **Foot lock keeps the tilt.** A planted boot used to be turned flat, so its heel strike and toe-off snapped (0.5 to 0.9 rad in a frame). It now only holds its heading (`footYaw`, taken at the plant) and keeps the clip's pitch.
+- **No hand-made braking.** `brakeL` / `brakeR` popped against the baked clips (0.4 to 0.9 rad on the arms and legs); the Knight now fades from the gait into the idle.
+- **Jump and fall** are cut from Sword And Shield Jump (the leap 0.17 to 0.5 s played over 0.38 s, the descent 0.5 to 0.8 s over 0.32 s) with the hips held at standing height, since the server moves the body. The landing squat stays the game's own.
+- **Combo** keeps the model's yaw swing: each chop ends with the body about 100° round and the next starts square. A crossfade of 0.08 s hides some of it, not all.
+
+`public/dev/combat_capture.js` `record()` / `jerks()` log every rendered frame of real play and list one-frame bone pops; only compare runs at the same frame rate (the preview pane drops to 30 fps when it is not in front, which doubles every per-frame turn).

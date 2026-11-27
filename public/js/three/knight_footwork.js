@@ -32,6 +32,7 @@ export class KnightFootwork {
     this.from = new Vector3();
     this.to = new Vector3();
     this.parentRotation = new Quaternion();
+    this.footWorld = new Quaternion();
     this.swing = new Quaternion();
     this.speed = 0;
     this.pitch = 0;
@@ -63,10 +64,11 @@ export class KnightFootwork {
     this.ready = true;
   }
 
-  rate(actionName, speed) {
-    const nominal = actionName === 'run' ? 7.45 : 5.4;
+  // Playback speed that keeps the planted boot still: the clip is baked for `groundSpeed`.
+  rate(clip, speed) {
+    const nominal = clip.userData?.groundSpeed || (clip.name === 'run' ? 7.45 : 5.4);
     const travelSpeed = this.speed * 0.62 + speed * 0.38;
-    return clamp(travelSpeed / nominal * 1.09, 0.28, 1.85);
+    return clamp(travelSpeed / nominal * (clip.userData?.groundSpeed ? 1 : 1.09), 0.28, 1.85);
   }
 
   locomotionSpeed(speed, actionName) {
@@ -104,8 +106,9 @@ export class KnightFootwork {
     }
     const duration = action.getClip().duration;
     const phase = action.time / duration;
-    // Fraction of the cycle a boot stays down; measured on both gait clips (the walk's left boot is flat for 0.41, the run's for 0.41).
-    const end = 0.34;
+    // Fraction of the cycle a boot stays down: the baked gaits say (the stance of the retimed step),
+    // the hand-made ones are 0.34.
+    const end = action.getClip().userData?.stance ? action.getClip().userData.stance + 0.03 : 0.34;
     for (const [i, leg] of this.legs.entries()) {
       // A running foot is caught just before its contact key, so it does not
       // skim the floor at full swing speed on the last airborne frame.
@@ -123,6 +126,9 @@ export class KnightFootwork {
         leg.planted = true;
         leg.contact.copy(this.ankle);
         leg.yaw = this.yaw;
+        // The boot's own heading when it lands (toes out as the clip has them) is what it keeps.
+        leg.ankle.getWorldQuaternion(this.parentRotation);
+        leg.footYaw = heading.setFromQuaternion(this.parentRotation, 'YXZ').y;
         touched = true;
       }
       const floor = floorY?.(leg.contact.x, leg.contact.z, this.position.y + 0.10);
@@ -141,7 +147,7 @@ export class KnightFootwork {
         * action.getEffectiveWeight();
       if (weight <= 0.001) continue;
       this.target.set(leg.contact.x, ground + rig.restFootY, leg.contact.z).lerp(this.ankle, 1 - weight);
-      this.solve(leg, weight);
+      this.solve(leg, weight, true);
     }
   }
 
@@ -179,8 +185,11 @@ export class KnightFootwork {
     }
   }
 
-  solve(leg, weight) {
+  // keepTilt: leave the boot's pitch and roll as the clip has them (heel strike, flat, toe-off)
+  // and only hold its heading; otherwise stand it flat (strikes).
+  solve(leg, weight, keepTilt = false) {
     const { rig, hip, knee, ankle, direction, bend, target } = this;
+    if (keepTilt) leg.ankle.getWorldQuaternion(this.footWorld);
     leg.thigh.getWorldPosition(hip);
     const reach = leg.upper + leg.lower - 0.014;
     const horizontal = Math.hypot(target.x - hip.x, target.z - hip.z);
@@ -191,6 +200,26 @@ export class KnightFootwork {
       leg.thigh.getWorldPosition(hip);
     }
 
+    this.placeLeg(leg);
+    leg.ankle.parent.getWorldQuaternion(this.parentRotation);
+    if (keepTilt) {
+      const now = heading.setFromQuaternion(this.footWorld, 'YXZ').y;
+      const turn = Math.atan2(Math.sin(leg.footYaw - now), Math.cos(leg.footYaw - now)) * weight;
+      this.footWorld.premultiply(this.swing.setFromAxisAngle(up, turn));
+      leg.ankle.quaternion.copy(this.parentRotation.invert().multiply(this.footWorld));
+      return;
+    }
+    this.swing.setFromAxisAngle(up, leg.yaw);
+    leg.ankle.quaternion.slerp(this.parentRotation.invert().multiply(this.swing), weight);
+  }
+
+  // Bend the thigh and knee so the ankle reaches `this.target` (clamped to the leg's reach),
+  // keeping the knee in the plane it is already bent in. The hips and the boot's own
+  // rotation are left alone; the bake uses this to put a clip's boots where the model's are.
+  placeLeg(leg) {
+    const { hip, knee, ankle, direction, bend, target } = this;
+    leg.thigh.getWorldPosition(hip);
+    const reach = leg.upper + leg.lower - 0.014;
     leg.knee.getWorldPosition(knee);
     leg.ankle.getWorldPosition(ankle);
     direction.copy(target).sub(hip);
@@ -213,10 +242,6 @@ export class KnightFootwork {
     this.from.copy(ankle).sub(knee);
     this.to.copy(hip).addScaledVector(direction, distance).sub(knee);
     this.aim(leg.knee);
-
-    leg.ankle.parent.getWorldQuaternion(this.parentRotation);
-    this.swing.setFromAxisAngle(up, leg.yaw);
-    leg.ankle.quaternion.slerp(this.parentRotation.invert().multiply(this.swing), weight);
   }
 
   aim(bone) {

@@ -14,6 +14,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadChibiViews } from './load-chibi.mjs';
+import { KnightFootwork } from '../../public/js/three/knight_footwork.js';
 
 // Source file → game clip (see docs/handoff/motion-standard.md).
 //   inPlace  remove travel the server already applies
@@ -22,6 +23,12 @@ import { loadChibiViews } from './load-chibi.mjs';
 //   fix      turn the shield to face forward and keep the blade out of the helmet
 //   strike   [contact, end]: retime so the fastest blade lands at `contact` (the
 //            server deals damage on the press) and the swing settles by `end`
+//   legs     put the Knight's boots where the model's are (see reachLegs); true, or
+//            { stride, lateral } multipliers on the model's fore-and-aft and sideways offsets
+//   pace     { speed, cycle } retime a gait for the game's ground speed (see warpGait)
+//   range    [from, to, seconds]: cut that part of the file and play it over `seconds`
+//   flat     keep the hips where they started: the server moves the body, so a jump's own
+//            rise would be counted twice
 //   at       with strike: the source time of this strike's blade contact, for a
 //            file that holds several strikes (a value that is a list bakes one clip
 //            per entry); without it the fastest blade moment of the whole file is used
@@ -31,19 +38,27 @@ export const BAKE = {
   'sword and shield death': { clip: 'dead', speed: 1.25, floor: true },
   // One file, three overhead chops: the blade peaks at 1.12, 2.20 and 3.03 s.
   'one hand sword combo': [
-    { clip: 'attack1', inPlace: true, fix: true, at: 1.12, strike: [0.12, 0.44] },
-    { clip: 'attack2', inPlace: true, fix: true, at: 2.20, strike: [0.115, 0.42] },
-    { clip: 'attack3', inPlace: true, fix: true, at: 3.03, strike: [0.19, 0.58] }
+    { clip: 'attack1', inPlace: true, fix: true, at: 1.12, strike: [0.12, 0.44], legs: true },
+    { clip: 'attack2', inPlace: true, fix: true, at: 2.20, strike: [0.115, 0.42], legs: true },
+    { clip: 'attack3', inPlace: true, fix: true, at: 3.03, strike: [0.19, 0.58], legs: true }
   ],
-  'sword and shield walk': { clip: 'walk', inPlace: true, fix: true, gait: 0.4 },
-  'sword and shield run': { clip: 'run', inPlace: true, fix: true, gait: 0.4 },
-  'sword and shield idle': { clip: 'idle', inPlace: true, fix: true },
-  'long idle': { clip: 'idleFidget', inPlace: true, fix: true },
-  'sword and shield block idle': { clip: 'guard', inPlace: true, fix: true },
-  'sword and shield block (2)': { clip: 'guardHit', inPlace: true, fix: true },
-  'sword and shield turn': { clip: 'turnR', inPlace: true, fix: true, yawFree: true, speed: 2 },
-  'sword and shield turn (2)': { clip: 'turnL', inPlace: true, fix: true, yawFree: true, speed: 2 },
-  'draw sword 1': { clip: 'draw', inPlace: true, fix: true }
+  'sword and shield walk': { clip: 'walk', inPlace: true, fix: true, gait: 0.4, legs: true, pace: { speed: 5.4, cycle: 0.34 } },
+  'sword and shield run': { clip: 'run', inPlace: true, fix: true, gait: 0.4, legs: true, pace: { speed: 7.5, cycle: 0.32 } },
+  'sword and shield idle': { clip: 'idle', inPlace: true, fix: true, legs: true },
+  // The jump file is crouch, leap, tuck at the apex, descent and landing over one second. The
+  // game's rise (server velocity 11.2 against gravity 28) peaks 0.4 s after take-off and the fall
+  // is about as long, so the leap and the descent are cut out and played at those lengths; the
+  // landing squat is the game's own (updateLanding).
+  'sword and shield jump': [
+    { clip: 'jump', inPlace: true, fix: true, legs: true, flat: true, range: [0.17, 0.5, 0.38] },
+    { clip: 'fall', inPlace: true, fix: true, legs: true, flat: true, range: [0.5, 0.8, 0.32] }
+  ],
+  'long idle': { clip: 'idleFidget', inPlace: true, fix: true, legs: true },
+  'sword and shield block idle': { clip: 'guard', inPlace: true, fix: true, legs: true },
+  'sword and shield block (2)': { clip: 'guardHit', inPlace: true, fix: true, legs: true },
+  'sword and shield turn': { clip: 'turnR', inPlace: true, fix: true, legs: true, yawFree: true, speed: 2 },
+  'sword and shield turn (2)': { clip: 'turnL', inPlace: true, fix: true, legs: true, yawFree: true, speed: 2 },
+  'draw sword 1': { clip: 'draw', inPlace: true, fix: true, legs: true }
 };
 
 const FPS = 30;
@@ -80,6 +95,7 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
   for (const joint in bones) rest[joint] = bones[joint].getWorldQuaternion(new Quaternion()).invert();
   const hipsRest = bones.hips.getWorldPosition(new Vector3());
   const scale = restHipsY / hipsRest.y;
+  const legDrop = (hipsRest.y - bones.footL.getWorldPosition(new Vector3()).y) * scale;
   const mixer = new AnimationMixer(scene);
   const action = mixer.clipAction(clip);
   action.play();
@@ -87,6 +103,7 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
   const times = [];
   const rotations = Object.fromEntries(Object.keys(MAP).map(joint => [joint, []]));
   const hips = [];
+  const feet = [];
   const world = {};
   const local = new Quaternion();
   for (let i = 0; i < count; i++) {
@@ -106,6 +123,8 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
     }
     const p = bones.hips.getWorldPosition(new Vector3());
     hips.push((p.x - hipsRest.x) * scale, restHipsY + (p.y - hipsRest.y) * scale, (p.z - hipsRest.z) * scale);
+    // Where the model's boots are, relative to its hips, in its own (facing +Z) axes.
+    feet.push(['footL', 'footR'].flatMap(joint => bones[joint].getWorldPosition(new Vector3()).sub(p).multiplyScalar(scale).toArray()));
   }
   if (inPlace) {
     const [x0, , z0] = hips;
@@ -116,8 +135,54 @@ export function retarget(scene, clip, restHipsY, { inPlace = false, sourceTimes 
       hips[i * 3 + 2] -= z0 + (z1 - z0) * k;
     }
   }
-  return { fps: FPS, duration: times[times.length - 1], times, rotations, hips: hips.map(v => +v.toFixed(4)) };
+  return { fps: FPS, duration: times[times.length - 1], times, rotations, hips: hips.map(v => +v.toFixed(4)), feet, legDrop, restHipsY };
 }
+
+// The Knight's legs are set wider apart than the model's (chibi hips are about twice as wide),
+// so the model's leg rotations on them splay the boots out. Put each boot where the model's
+// boot is: the same distance from the hips' centre line, and the model's stride, scaled by the
+// ratio of the two legs' lengths. `stride` stretches the fore-and-aft swing, `lateral` the
+// sideways offset; the leg's own reach limits both.
+export function reachLegs(view, data, { stride = 1, lateral = 1, minHalf = 0.055 } = {}) {
+  const R = view.R;
+  const out = { ...data, rotations: Object.fromEntries(Object.entries(data.rotations).map(([k, v]) => [k, v.slice()])) };
+  const fw = new KnightFootwork(R);
+  fw.yaw = 0;
+  const hips = new Vector3();
+  const foot = new Quaternion();
+  const parent = new Quaternion();
+  // The legs' lengths: hips to ankle with the leg hanging straight, the Knight's against the model's.
+  const rest = new Quaternion();
+  const keep = ['hips', 'legL', 'legR', 'shinL', 'shinR', 'footL', 'footR'].map(joint => [joint, R[joint].quaternion.clone()]);
+  const keepY = R.hips.position.y;
+  for (const [joint] of keep) R[joint].quaternion.copy(rest);
+  R.hips.position.y = data.restHipsY;
+  R.hips.updateMatrixWorld(true);
+  const ours = R.hips.getWorldPosition(new Vector3()).y - R.footL.getWorldPosition(new Vector3()).y;
+  for (const [joint, q] of keep) R[joint].quaternion.copy(q);
+  R.hips.position.y = keepY;
+  const baseLeg = ours / data.legDrop;
+  for (let i = 0; i < data.times.length; i++) {
+    poseFrame(view, out, i);
+    R.hips.getWorldPosition(hips);
+    for (const [side, leg, joint] of [[0, fw.legs[0], 'L'], [1, fw.legs[1], 'R']]) {
+      const [x, y, z] = data.feet[i].slice(side * 3, side * 3 + 3);
+      const sign = Math.sign(x) || (side === 0 ? 1 : -1);
+      fw.target.set(hips.x + sign * Math.max(minHalf, Math.abs(x) * baseLeg) * lateral, hips.y + y * baseLeg, hips.z + z * baseLeg * stride);
+      leg.ankle.getWorldQuaternion(foot);
+      fw.placeLeg(leg);
+      // Keep the boot's own tilt as the model has it, whatever the leg did.
+      leg.ankle.parent.getWorldQuaternion(parent);
+      leg.ankle.quaternion.copy(parent.invert().multiply(foot));
+      for (const bone of [joint === 'L' ? 'legL' : 'legR', joint === 'L' ? 'shinL' : 'shinR', joint === 'L' ? 'footL' : 'footR']) {
+        R[bone].quaternion.toArray().forEach((v, k) => { out.rotations[bone][i * 4 + k] = +v.toFixed(4); });
+      }
+      R.hips.updateMatrixWorld(true);
+    }
+  }
+  return out;
+}
+
 
 // How the Mixamo shield sits on its forearm, as the Knight's wrist rotation.
 // The model's shield is rigid on LeftForeArm (its prop bone Shield_joint is a child
@@ -272,6 +337,85 @@ export function alignGait(view, data, duration) {
   const hipsTrack = order.flatMap(i => data.hips.slice(i * 3, i * 3 + 3));
   const times = order.map((_, i) => +(duration * i / frames).toFixed(4));
   return { ...data, duration, times, rotations, hips: hipsTrack };
+}
+
+// The game moves the Knight at 5.4 and 7.5 units a second, which for legs half a unit long is
+// a sprint, far faster than the model's own walk or run covers. Played at the model's pace the
+// planted boot would slide across the floor and the boot pinned to it would be dragged until it
+// let go. So retime the cycle: the stance (heel strike to toe-off, the boot sweeping back
+// under the hips) is played at the pace that keeps the boot still on the floor at `speed`,
+// the rest of the step stretches to fill `cycle`. Needs the left heel strike at phase 0 (alignGait).
+// Stores `groundSpeed` (the speed the clip is matched to) and `stance` (its share of the cycle).
+export function warpGait(view, data, { speed, cycle, toeOff = 0.42 }) {
+  const R = view.R;
+  const ankle = new Vector3();
+  const hips = new Vector3();
+  const frames = data.times.length - 1;
+  const z = [];
+  for (let i = 0; i <= frames; i++) {
+    poseFrame(view, data, i);
+    z.push(R.footL.getWorldPosition(ankle).z - R.hips.getWorldPosition(hips).z);
+  }
+  // Toe-off: the boot furthest behind the hips, but never past `toeOff` of the cycle.
+  let off = 0;
+  for (let i = 0; i <= Math.round(toeOff * frames); i++) if (z[i] < z[off]) off = i;
+  const stancePhase = off / frames;
+  const sweep = z[0] - z[off];
+  const half = Math.max(cycle / 2, sweep / speed / 0.7);
+  // Dense keys: the stance is only a couple of 30 fps frames long once compressed.
+  const KEYS = 120;
+  const count = Math.round(half * 2 * KEYS);
+  const duration = count / KEYS;
+  const stanceTime = Math.min(sweep / speed, 0.7 * duration / 2);
+  // Time as a function of the step's phase: slow where the stance is stretched, fast where it is
+  // squeezed. The seam between the two would be a kink in the motion (a jolt at toe-off), so
+  // the rate is blurred over `blur` of the step, then the half cycle is rescaled to its length.
+  const grid = 1000;
+  const halfTime = duration / 2;
+  const slope = i => {
+    const u = (i / grid) * 0.5;
+    return u < stancePhase ? stanceTime / stancePhase : (halfTime - stanceTime) / (0.5 - stancePhase);
+  };
+  const blur = Math.max(1, Math.round(grid * 0.06));
+  const rate = Array.from({ length: grid }, (_, i) => {
+    let sum = 0;
+    for (let k = -blur; k <= blur; k++) sum += slope(((i + k) % grid + grid) % grid);
+    return sum / (2 * blur + 1);
+  });
+  const tauAt = [0];
+  for (let i = 0; i < grid; i++) tauAt.push(tauAt[i] + rate[i]);
+  const total = tauAt[grid];
+  for (let i = 0; i <= grid; i++) tauAt[i] *= halfTime / total;
+  const phaseAt = tau => {
+    let lo = 0, hi = grid;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (tauAt[mid] <= tau) lo = mid; else hi = mid; }
+    const span = tauAt[hi] - tauAt[lo] || 1;
+    return ((lo + (tau - tauAt[lo]) / span) / grid) * 0.5;
+  };
+  const sample = new Quaternion();
+  const next = new Quaternion();
+  const rotations = Object.fromEntries(Object.keys(data.rotations).map(joint => [joint, []]));
+  const hipsTrack = [];
+  const times = [];
+  for (let j = 0; j <= count; j++) {
+    const t = j / KEYS;
+    const step = t >= halfTime ? 1 : 0;
+    const u = phaseAt(Math.min(halfTime, t - step * halfTime));
+    const f = Math.min(frames, (u + step * 0.5) * frames);
+    const i0 = Math.min(frames - 1, Math.floor(f));
+    const a = f - i0;
+    times.push(+t.toFixed(4));
+    for (const joint of Object.keys(data.rotations)) {
+      sample.fromArray(data.rotations[joint], i0 * 4);
+      next.fromArray(data.rotations[joint], (i0 + 1) * 4);
+      sample.slerp(next, a).toArray().forEach(v => rotations[joint].push(+v.toFixed(4)));
+    }
+    for (let k = 0; k < 3; k++) {
+      const p = data.hips[i0 * 3 + k];
+      hipsTrack.push(+(p + (data.hips[(i0 + 1) * 3 + k] - p) * a).toFixed(4));
+    }
+  }
+  return { ...data, duration, times, rotations, hips: hipsTrack, groundSpeed: speed, stance: +(stanceTime / duration).toFixed(3) };
 }
 
 // Remove the hips' turn about the vertical from the first frame on.
@@ -574,20 +718,35 @@ async function main() {
     for (const plan of out ? plans : []) {
       let data = raw;
       let extra = {};
+      if (plan.range) {
+        const [from, to, seconds] = plan.range;
+        const count = Math.round(seconds * FPS) + 1;
+        data = retarget(gltf.scene, source, restHipsY, {
+          inPlace: plan.inPlace, sourceTimes: Array.from({ length: count }, (_, i) => from + (to - from) * i / (count - 1))
+        });
+      }
       if (plan.strike) {
         const [contact, end] = plan.strike;
         data = retarget(gltf.scene, source, restHipsY, {
           inPlace: plan.inPlace, sourceTimes: strikeTimes(plan.at ?? bladeTiming(view, raw).contact, source.duration, contact, end)
         });
       }
+      if (plan.legs) data = reachLegs(view, data, plan.legs === true ? {} : plan.legs);
+      if (plan.flat) {
+        // Standing height, from the file's first frame (before the crouch).
+        const standing = [0, raw.hips[1], 0];
+        data = { ...data, hips: data.hips.map((v, i) => +standing[i % 3].toFixed(4)) };
+      }
       if (plan.yawFree) data = stripYaw(data);
       if (plan.gait) data = alignGait(view, data, plan.gait);
+      if (plan.pace) data = warpGait(view, data, plan.pace);
       if (plan.fix) data = fixHands(view, data);
       if (plan.floor) data = clearFloor(view, data);
       if (plan.speed) data = { ...data, duration: +(data.duration / plan.speed).toFixed(4), times: data.times.map(t => +(t / plan.speed).toFixed(4)) };
       if (plan.strike) extra = plan.at === undefined ? bladeTiming(view, data) : bladeWindowAt(view, data, plan.strike[0]);
       await mkdir(out, { recursive: true });
-      await writeFile(join(out, plan.clip + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...extra, ...data }));
+      const { feet, legDrop, restHipsY: _rest, ...clip } = data;
+      await writeFile(join(out, plan.clip + '.json'), JSON.stringify({ source: 'Mixamo: ' + key, ...extra, ...clip }));
       report['baked:' + plan.clip] = { ...score(view, clipFromData(plan.clip, data)), ...extra };
     }
   }
