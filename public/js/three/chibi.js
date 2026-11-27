@@ -17,6 +17,8 @@ import { buildNinjaLocomotion, ninjaIdle } from './ninja_motion.js';
 import { buildNinjaAttacks, buildNinjaSkills, NINJA_AIRBORNE, NINJA_STRIKES } from './ninja_attacks.js';
 import { buildMageLocomotion, mageIdle } from './mage_motion.js';
 import { buildMageAttacks, buildMageSkills, MAGE_AIRBORNE, MAGE_STRIKES } from './mage_attacks.js';
+import { buildCowboyLocomotion, cowboyIdle } from './cowboy_motion.js';
+import { buildCowboyAttacks, buildCowboySkills, COWBOY_AIRBORNE, COWBOY_SHOTS, COWBOY_STRIKES } from './cowboy_attacks.js';
 import { KnightFootwork } from './knight_footwork.js';
 import { CapeCloth } from './cape_cloth.js';
 import { SHIELD_HOLD, enforceHeroAnatomy, solveAnatomicalLeg } from './knight_anatomy.js';
@@ -153,6 +155,33 @@ const SKINNED_HEROES = {
     soleZ: [-0.0925, 0.2080],
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01]
+  },
+  // Painterly Cowgirl (source folder art/blender/source/cowgirl): the Desperado Cowboy's twin-revolver hero.
+  // Each hand holds its own CowboyGun; `muzzle` is the barrel tip in the gun's frame and drives the shot flashes.
+  cowboy: {
+    url: '/assets/models/hero-cowboy.glb',
+    gearUrl: '/assets/models/cowboy-gear.glb',
+    hipHeight: 0.8218,
+    alignArms: true,
+    narrowLegRest: true,
+    painterly: true,
+    stepFps: 0,
+    headScale: 1.0,
+    swordScale: 1.0,
+    offhandScale: 1.0,
+    fused: [],
+    helmetMesh: 'CowboyHat',
+    swordMesh: 'CowboyGun',
+    offhandMesh: 'CowboyGun',
+    swordMount: { p: [0.030, -0.058, 0.0], rx: 1.5708, ry: 0, rz: 0 },
+    offhandMount: { p: [-0.030, -0.058, 0.0], rx: 1.5708, ry: 0, rz: 0 },
+    muzzle: [0, 0.115, 0.30],
+    gearHelmetY: -0.30,
+    lassoCoil: { p: [-0.20, 0.07, -0.08], radius: 0.10 },
+    trinketMount: { p: [0, -0.02, 0], scale: 0.9 },
+    soleZ: [-0.0980, 0.1744],
+    otherHelmetScale: 0.56,
+    otherHelmetOffset: [0, 0.02, 0]
   }
 };
 const SKIP_SKINNED = typeof location !== 'undefined' && new URLSearchParams(location.search).get('skinned') === '0';
@@ -1097,6 +1126,17 @@ function buildRig(b, heroId, gear) {
   return R;
 }
 
+// A coil of lasso rope (three loops and a hanging tail) as `parent`'s child
+function lassoCoil(b, parent, lc) {
+  const coil = node('lassoCoil', parent, lc.p[0], lc.p[1], lc.p[2]);
+  const rope = b.toon('#c9a56a');
+  for (let i = 0; i < 3; i++) {
+    b.part(coil, G.torus(lc.radius - i * 0.012, 0.016, 6, 18), rope, { p: [i * 0.026 - 0.026, 0, 0], r: [0, Math.PI / 2, 0], outline: 0 });
+  }
+  b.part(coil, G.cyl(0.016, 0.016, 0.14, 6), rope, { p: [0.0, -0.10, 0.05], r: [0.4, 0, 0], outline: 0 });
+  return coil;
+}
+
 function buildSkinnedRig(b, heroId, gear, model) {
   const { spec, scene: srcScene, gearScene } = model;
   const root = new THREE.Group();
@@ -1258,7 +1298,7 @@ function buildSkinnedRig(b, heroId, gear, model) {
   if (!fused.has('helmet') && gear.helmet) {
     if (gear.helmet === heroId && spec.helmetMesh && gearScene) {
       const hm = b.glbPart(unscaled(R.head), gearScene, spec.helmetMesh, { painterly: !!spec.painterly });
-      if (hm?.material && heroId === 'mage') {
+      if (hm?.material && (heroId === 'mage' || heroId === 'cowboy')) {
         const mats = Array.isArray(hm.material) ? hm.material : [hm.material];
         for (const mt of mats) mt.side = THREE.DoubleSide;
       }
@@ -1289,6 +1329,12 @@ function buildSkinnedRig(b, heroId, gear, model) {
         const swScale = mScale || 1;
         if (swScale !== 1) w.scale.setScalar(swScale);
         b.glbPart(w, gearScene, meshName, { painterly: !!spec.painterly });
+        if (spec.muzzle) {
+          // barrel tip: a child frame whose +Z runs down the barrel, read by ChibiView.muzzle()
+          const tip = node('muzzle', w, spec.muzzle[0], spec.muzzle[1], spec.muzzle[2]);
+          if (isPrimary) R.muzzleR = tip;
+          else R.muzzleL = tip;
+        }
         if (trailSpec) {
           if (isPrimary) { R.swordMount = w; R.swordTrailSpec = trailSpec; }
           else { R.offhandMount = w; R.offhandTrailSpec = trailSpec; }
@@ -1323,8 +1369,17 @@ function buildSkinnedRig(b, heroId, gear, model) {
     b.glbPart(o, gearScene, spec.orbMesh, { painterly: !!spec.painterly });
     extras.orbiters.push(o);
   }
-  if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket] && !(spec.capeMesh && gear.trinket === heroId) && !(spec.orbMesh && gear.trinket === heroId)) {
-    TRINKETS[gear.trinket](b, unscaled(R.torso), extras);
+  if (!fused.has('trinket') && gear.trinket === heroId && spec.lassoCoil) {
+    // Bounty Hunter Lasso: a coil of rope hung on the back of her belt (the sculpt has no trinket of its own)
+    lassoCoil(b, unscaled(R.torso), spec.lassoCoil);
+  } else if (!fused.has('trinket') && gear.trinket && TRINKETS[gear.trinket] && !(spec.capeMesh && gear.trinket === heroId) && !(spec.orbMesh && gear.trinket === heroId)) {
+    const tm = spec.trinketMount;
+    const tWrap = unscaled(R.torso);
+    if (tm) {
+      if (tm.p) tWrap.position.set(...tm.p).divideScalar(s);
+      if (tm.scale) tWrap.scale.multiplyScalar(tm.scale);
+    }
+    TRINKETS[gear.trinket](b, tWrap, extras);
   }
   R.extras = extras;
   return R;
@@ -1356,7 +1411,7 @@ export function buildGearItem(slot, heroId) {
     g.rotation.set(-0.9, 0, 0.5);
   } else if (slot === 'helmet') {
     if (gearScene && skinned.spec.helmetMesh) {
-      b.glbPart(g, gearScene, skinned.spec.helmetMesh, { p: [0, -0.22, 0], painterly: !!skinned.spec.painterly });
+      b.glbPart(g, gearScene, skinned.spec.helmetMesh, { p: [0, skinned.spec.gearHelmetY ?? -0.22, 0], painterly: !!skinned.spec.painterly });
     } else {
       HELMETS[heroId]?.(b, g, new THREE.Vector3(0, -0.15, 0));
     }
@@ -1377,6 +1432,8 @@ export function buildGearItem(slot, heroId) {
   } else if (slot === 'trinket') {
     if (gearScene && skinned.spec.orbMesh) {
       b.glbPart(g, gearScene, skinned.spec.orbMesh, { p: [0, 0.04, 0], painterly: !!skinned.spec.painterly });
+    } else if (skinned?.spec.lassoCoil) {
+      lassoCoil(b, g, { p: [0, 0, 0], radius: skinned.spec.lassoCoil.radius * 1.6 });
     } else {
       const t = node('t', g, 0, -0.35, 0.15);
       TRINKETS[heroId]?.(b, t, { capes: [], orbiters: [], thrusters: [] });
@@ -2007,6 +2064,19 @@ function clipsFor(style, skinnedHero = false) {
           clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
         }
       }
+    } else if (skinnedHero === 'cowboy') {
+      const ready = pose(STANCE, READY.twingun);
+      Object.assign(clips, buildCowboyLocomotion(makeKnightClip, ready, pose));
+      const idle = cowboyIdle(ready, pose);
+      Object.assign(clips, buildCowboyAttacks(makeKnightClip, idle, pose), buildCowboySkills(makeKnightClip, idle, pose));
+      for (const clip of Object.values(clips)) {
+        if (!clip.tracks.some(track => track.name === 'handL.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handL.quaternion', [0], [0, 0, 0, 1]));
+        }
+        if (!clip.tracks.some(track => track.name === 'handR.quaternion')) {
+          clip.tracks.push(new THREE.QuaternionKeyframeTrack('handR.quaternion', [0], [0, 0, 0, 1]));
+        }
+      }
     }
     CLIP_CACHE.set(key, clips);
   }
@@ -2025,6 +2095,7 @@ const STYLE_COMMIT = {
 };
 const KNIGHT_COMMIT = { ...Object.fromEntries(Object.entries(KNIGHT_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.32 };
 const NINJA_COMMIT = { ...Object.fromEntries(Object.entries(NINJA_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
+const COWBOY_COMMIT = { ...Object.fromEntries(Object.entries(COWBOY_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 const MAGE_COMMIT = { ...Object.fromEntries(Object.entries(MAGE_STRIKES).map(([name, strike]) => [name, strike.commit])), roll: 0.30 };
 // Twin-gun shots timed on the clip: [clip time, 'R' | 'L' | 'B' (both), power (1 big, 2 ground blast)]
 const SHOTS = {
@@ -2073,6 +2144,7 @@ const KNIGHT_STANDING = new Set(['idle', 'guard', 'guardHit', 'turnL', 'turnR', 
 const KNIGHT_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(KNIGHT_STRIKES), ...KNIGHT_BRAKE_CLIPS]);
 const NINJA_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(NINJA_STRIKES)]);
 const MAGE_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(MAGE_STRIKES)]);
+const COWBOY_FLOOR_CLIPS = new Set(['walk', 'run', 'dash', 'roll', ...KNIGHT_STANDING, ...Object.keys(COWBOY_STRIKES)]);
 const IDLE_FAMILY = new Set(['idle', 'idleFidget', 'turnL', 'turnR', 'draw']);
 const FIDGET_AFTER = 6;
 const easeInOut = (x) => x * x * (3 - 2 * x);
@@ -2254,12 +2326,13 @@ export class ChibiView {
     this.skinnedKnight = useSkinned && pl.heroId === 'knight';
     this.skinnedNinja = useSkinned && pl.heroId === 'ninja';
     this.skinnedMage = useSkinned && pl.heroId === 'mage';
-    this.skinnedMotion = this.skinnedKnight || this.skinnedNinja || this.skinnedMage;
+    this.skinnedCowboy = useSkinned && pl.heroId === 'cowboy';
+    this.skinnedMotion = this.skinnedKnight || this.skinnedNinja || this.skinnedMage || this.skinnedCowboy;
     this.soleZ = (useSkinned && skinned.spec.soleZ) || KNIGHT_SOLE_Z;
-    this.heroStrikes = this.skinnedKnight ? KNIGHT_STRIKES : (this.skinnedNinja ? NINJA_STRIKES : (this.skinnedMage ? MAGE_STRIKES : null));
-    this.heroAirborne = this.skinnedKnight ? KNIGHT_AIRBORNE : (this.skinnedNinja ? NINJA_AIRBORNE : (this.skinnedMage ? MAGE_AIRBORNE : null));
-    this.heroCommit = this.skinnedKnight ? KNIGHT_COMMIT : (this.skinnedNinja ? NINJA_COMMIT : (this.skinnedMage ? MAGE_COMMIT : null));
-    this.floorClips = this.skinnedKnight ? KNIGHT_FLOOR_CLIPS : (this.skinnedNinja ? NINJA_FLOOR_CLIPS : (this.skinnedMage ? MAGE_FLOOR_CLIPS : null));
+    this.heroStrikes = this.skinnedKnight ? KNIGHT_STRIKES : (this.skinnedNinja ? NINJA_STRIKES : (this.skinnedMage ? MAGE_STRIKES : (this.skinnedCowboy ? COWBOY_STRIKES : null)));
+    this.heroAirborne = this.skinnedKnight ? KNIGHT_AIRBORNE : (this.skinnedNinja ? NINJA_AIRBORNE : (this.skinnedMage ? MAGE_AIRBORNE : (this.skinnedCowboy ? COWBOY_AIRBORNE : null)));
+    this.heroCommit = this.skinnedKnight ? KNIGHT_COMMIT : (this.skinnedNinja ? NINJA_COMMIT : (this.skinnedMage ? MAGE_COMMIT : (this.skinnedCowboy ? COWBOY_COMMIT : null)));
+    this.floorClips = this.skinnedKnight ? KNIGHT_FLOOR_CLIPS : (this.skinnedNinja ? NINJA_FLOOR_CLIPS : (this.skinnedMage ? MAGE_FLOOR_CLIPS : (this.skinnedCowboy ? COWBOY_FLOOR_CLIPS : null)));
     this.R = useSkinned
       ? buildSkinnedRig(this.b, pl.heroId, gear, skinned)
       : buildRig(this.b, pl.heroId, gear);
@@ -2289,7 +2362,7 @@ export class ChibiView {
     this.style = (HERO_LOOK[pl.heroId] || HERO_LOOK.knight).style;
     this.mixer = new THREE.AnimationMixer(this.root);
     this.actions = {};
-    const skinnedKey = this.skinnedKnight ? 'knight' : (this.skinnedNinja ? 'ninja' : (this.skinnedMage ? 'mage' : false));
+    const skinnedKey = this.skinnedKnight ? 'knight' : (this.skinnedNinja ? 'ninja' : (this.skinnedMage ? 'mage' : (this.skinnedCowboy ? 'cowboy' : false)));
     for (const [name, clip] of Object.entries(clipsFor(this.style, skinnedKey))) {
       const a = this.mixer.clipAction(clip);
       if (ONE_SHOT.has(name) || (this.skinnedMotion && (name === 'jump' || name === 'fall' || name === 'charge'))) {
@@ -2418,6 +2491,14 @@ export class ChibiView {
 
   // World position of a gun's barrel tip and the direction it points
   muzzle(left, pos, dir) {
+    const tip = left ? this.R.muzzleL : this.R.muzzleR;
+    if (tip) {
+      // sculpted revolver: the real barrel tip, shot straight down the barrel
+      tip.getWorldPosition(pos);
+      tip.getWorldQuaternion(_qa);
+      dir.set(0, 0, 1).applyQuaternion(_qa);
+      return;
+    }
     (left ? this.R.foreL : this.R.foreR).getWorldQuaternion(_qa);
     dir.set(0, -0.989, 0.149).applyQuaternion(_qa);
     (left ? this.R.handL : this.R.handR).getWorldPosition(pos).addScaledVector(dir, 0.4);
@@ -2757,7 +2838,7 @@ export class ChibiView {
       enforceHeroAnatomy(R, {
         lockShield: this.skinnedKnight,
         clampWristR: !ragdoll,
-        clampWristL: (this.skinnedNinja || this.skinnedMage) && !ragdoll,
+        clampWristL: (this.skinnedNinja || this.skinnedMage || this.skinnedCowboy) && !ragdoll,
         softenKnees: true
       });
     }
@@ -2874,7 +2955,7 @@ export class ChibiView {
     if (!paused) this.updateBladeAccent(pl);
 
     // Timed gun shots (twin gunner): fire each scheduled shot as the clip passes it
-    const shots = SHOTS[`${this.style}:${this.currentName}`];
+    const shots = this.skinnedCowboy ? COWBOY_SHOTS[this.currentName] : SHOTS[`${this.style}:${this.currentName}`];
     if (shots && env.fx && this.current) {
       const ct = this.current.time;
       if (this.shotAction !== this.current || ct < this.shotT) {
