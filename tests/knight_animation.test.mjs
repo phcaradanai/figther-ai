@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { LoopOnce, Vector3 } from 'three';
+import { DoubleSide, LoopOnce, Quaternion, Raycaster, Vector3 } from 'three';
 import { loadChibiViews } from '../tools/rig/load-chibi.mjs';
 import { swingFor } from '../public/js/three/knight_holy_vfx.js';
 
@@ -195,6 +195,51 @@ test('a Knight impact only goes to hits from the Knight that swung', () => {
   // A second Knight does not overwrite the first one's swing.
   swings.set('knight2', { at: 1100, x: -4, z: 0, facing: Math.PI, step: 3, fin: true });
   assert.equal(swingFor(swings, hit, 1200).step, 1);
+});
+
+test('the left hand and forearm stay behind the shield instead of poking through it', t => {
+  const knight = new ChibiView(base);
+  t.after(() => knight.dispose());
+  let shield = null;
+  knight.R.handL.traverse(o => { if (o.isMesh && !o.isSkinnedMesh) shield = o; });
+  assert.ok(shield, 'the shield mesh hangs on the left hand');
+  for (const material of [].concat(shield.material)) material.side = DoubleSide;
+  const skinned = [];
+  knight.root.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); });
+  const raycaster = new Raycaster();
+  const point = new Vector3();
+  const face = new Vector3();
+  const quaternion = new Quaternion();
+  for (const [name, state, frames] of [['idle', {}, 30], ['guard', { guarding: true, state: 'guard' }, 30], ['run', { vz: 7.5, isSprinting: true }, 40], ['attack', { state: 'attack', comboStep: 2 }, 8]]) {
+    advance(knight, state, frames);
+    shield.updateMatrixWorld(true);
+    knight.R.handL.getWorldQuaternion(quaternion);
+    face.set(0, -1, 0).applyQuaternion(quaternion).normalize();
+    for (const bone of [knight.R.handL, knight.R.foreL]) {
+      let checked = 0;
+      let exposed = 0;
+      for (const mesh of skinned) {
+        const index = mesh.skeleton.bones.indexOf(bone);
+        if (index < 0) continue;
+        mesh.skeleton.update();
+        const { skinIndex, skinWeight } = mesh.geometry.attributes;
+        for (let i = 0; i < skinIndex.count; i++) {
+          let weight = 0;
+          for (let c = 0; c < 4; c++) if (skinIndex.getComponent(i, c) === index) weight += skinWeight.getComponent(i, c);
+          if (weight <= 0.5) continue;
+          mesh.localToWorld(mesh.getVertexPosition(i, point));
+          // A vertex is behind the shield when the shield's surface lies ahead of it along the face.
+          raycaster.set(point.clone().addScaledVector(face, -0.4), face);
+          raycaster.far = 0.8;
+          const hits = raycaster.intersectObject(shield, false);
+          checked++;
+          if (!hits.length || hits[hits.length - 1].distance - 0.4 < 0) exposed++;
+        }
+      }
+      assert.ok(checked > 100, `${name}: found the ${bone.name} vertices`);
+      assert.equal(exposed, 0, `${name}: ${exposed} of ${checked} ${bone.name} vertices stick out in front of the shield`);
+    }
+  }
 });
 
 test('Knight keeps its ankles under its body through ground and air poses', t => {

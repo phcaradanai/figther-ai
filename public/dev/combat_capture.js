@@ -28,7 +28,13 @@ export const press = (code, hold = 60) => {
   window.dispatchEvent(new KeyboardEvent('keydown', { code, key: code, bubbles: true }));
   setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code, key: code, bubbles: true })), hold);
 };
-export const me = () => [...R().players.values()][0];
+// The local player is the one the camera follows (another tab's player may be in the room too).
+export const me = () => {
+  const r = R(), t = r.camTarget;
+  const all = [...r.players.values()];
+  if (!t || all.length < 2) return all[0];
+  return all.sort((p, q) => Math.hypot(p.pl.x - t.x, p.pl.z - t.z) - Math.hypot(q.pl.x - t.x, q.pl.z - t.z))[0];
+};
 export const closeSheet = () => document.getElementById('__sheet')?.remove();
 
 // Tiles follow the character: n frames, `step` ms of game time apart, around `size` css px.

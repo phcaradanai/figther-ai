@@ -189,7 +189,7 @@ The player compared the game with the Mixamo model (Sword And Shield Run (1) Mod
 | What | Before | Now |
 | --- | --- | --- |
 | Blade angle (idle, guard, walk, run) | 9.6° off (`swordMount` rx 0.38) | ≤ 0.5°: `swordMount.q` in `chibi.js`, and the hand sits the model's distance off the blade axis |
-| Shield face / position | face right (1°), centre 0.16 in front of the forearm and 0.06 high | face 1°, centre on the forearm like the model's (`shieldOffset`), within 0.1 cm |
+| Shield face / position | face right (1°), centre 0.16 in front of the forearm and 0.06 high | face 1°; centre on the forearm like the model's as far as the Knight's fist allows (`shieldOffset`). Exactly the model's position pushed the fist 7.6 cm out through the shield's face, so the shield sits 0.07 forward of that and a test (`the left hand and forearm stay behind the shield`) ray-casts every hand and forearm vertex to keep them behind it |
 | Boot spread, walk / run (lateral, game camera) | 0.32 / 0.36 | 0.14 / 0.16, the model's 0.145 / 0.186 |
 | Planted boot slide, run | 2.5 u/s average, 15 u/s spikes | 1.5 u/s average, 10 u/s peak |
 

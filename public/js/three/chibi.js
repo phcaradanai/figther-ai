@@ -46,9 +46,12 @@ const SKINNED_HEROES = {
     // Sword and shield sit on the hands exactly as they do on the Mixamo model (Sword And Shield
     // Run (1) Model.fbx): `q` turns the blade to the model's angle (it was 9.6 degrees off with the
     // old rx 0.38), `p` puts the hand the same distance off the blade axis, and `shieldOffset`
-    // centres the shield on the forearm as the model carries it. Measured with public/dev/compare.html.
+    // puts the shield on the forearm as the model carries it, as far back as the Knight's big fist
+    // allows: the model's exact position (y 0.096) pushed the fist 7.6 cm out through the shield's
+    // face, so y stops at 0.026, where no hand or forearm vertex is in front of the shield surface.
+    // Measured with public/dev/compare.html.
     swordMount: { p: [0.0269, -0.0660, 0.0123], q: [0.1283, 0.0227, 0.0521, 0.9901] },
-    shieldOffset: [0.0029, 0.0962, -0.0523],
+    shieldOffset: [0.0029, 0.026, -0.0523],
     swordTrail: { base: [0, 0, 0.16], tip: [0, 0, 1.04] },
     otherHelmetScale: 0.56,
     otherHelmetOffset: [0, 0.03, 0.01],
