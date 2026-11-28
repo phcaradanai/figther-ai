@@ -176,7 +176,10 @@ export const MOVEMENT_PRESETS = {
   }
 };
 
+export const VALID_IK_CHANNELS = new Set(['hipsPos', 'footL', 'footR', 'handL', 'handR', 'bladeTip']);
+
 export const RIG_PRESET_ORDER = [
+  'attack2_ik_r2',
   'attack2_clean_r1',
   'attack2_baseline',
   'attack1_baseline',
@@ -192,7 +195,29 @@ export const RIG_PRESETS = {
     rigVersion: RIG_SPEC_VERSION,
     label: 'Baseline · attack2 (เกมเดิม)',
     summary: 'คลิปเดิม: ดาบทะลุ armL 3.4cm ที่ 0.000s, ข้อมือขวาดีด -45.3°/เฟรม และดาบทะลุหมวก 6.0cm ที่ 0.367s',
-    keyframes: []
+    keyframes: [],
+    footLocks: []
+  },
+  attack2_ik_r2: {
+    id: 'attack2_ik_r2',
+    heroId: 'knight',
+    clip: 'attack2',
+    rigVersion: RIG_SPEC_VERSION,
+    label: 'Fixed r2 · attack2 IK มือ-ดาบ + ล็อกเท้าคืนท่า',
+    summary: 'ใช้ IK ลากมือขวา + ปลายดาบอ้อมหมวก/แขนซ้าย (0/13 เฟรม >2cm, คงสัมผัส 0.100s เดิม) และล็อกเท้าซ้าย–ขวาติดพื้นช่วงคืนท่า 0.200–0.400s',
+    keyframes: [
+      { t: 0.000, joints: {}, ik: { handR: [0.02, 1.44, 0.46], bladeTip: [0.36, 2.02, 0.85] } },
+      { t: 0.067, joints: {} },
+      { t: 0.100, joints: {} },
+      { t: 0.200, joints: {}, ik: { handR: [-0.36, 0.96, -0.36], bladeTip: [-0.95, 1.18, -0.92] } },
+      { t: 0.333, joints: {}, ik: { handR: [-0.40, 1.24, -0.26], bladeTip: [-0.92, 1.92, -0.36] } },
+      { t: 0.367, joints: {}, ik: { handR: [-0.42, 1.28, -0.14], bladeTip: [-0.92, 1.88, 0.22] } },
+      { t: 0.400, joints: {}, ik: { handR: [-0.40, 1.30, -0.06], bladeTip: [-0.92, 1.76, 0.48] } }
+    ],
+    footLocks: [
+      { foot: 'footL', startT: 0.200, endT: 0.400, pos: [0.108, 0.135, -0.154], snapGround: true },
+      { foot: 'footR', startT: 0.200, endT: 0.400, pos: [-0.109, 0.135, 0.214], snapGround: true }
+    ]
   },
   attack2_clean_r1: {
     id: 'attack2_clean_r1',
@@ -247,21 +272,40 @@ export function presetsForClip(clip) {
 }
 
 export function defaultPresetForClip(clip) {
-  if (clip === 'attack2') return 'attack2_clean_r1';
+  if (clip === 'attack2') return 'attack2_ik_r2';
   return `${clip}_baseline`;
+}
+
+export function cloneFootLocks(footLocks = []) {
+  return (footLocks || [])
+    .filter(lk => lk && (lk.foot === 'footL' || lk.foot === 'footR') && Array.isArray(lk.pos) && lk.pos.length === 3)
+    .map(lk => ({
+      foot: lk.foot,
+      startT: Number(Number(lk.startT).toFixed(4)),
+      endT: Number(Number(lk.endT).toFixed(4)),
+      pos: lk.pos.slice(0, 3).map(v => Number(Number(v).toFixed(4))),
+      snapGround: lk.snapGround !== false
+    }))
+    .sort((a, b) => a.startT - b.startT);
 }
 
 export function cloneKeyframes(keyframes = []) {
   return (keyframes || [])
-    .map(kf => ({
-      t: Number(Number(kf.t).toFixed(4)),
-      ...(Number.isFinite(kf.hipsYCm) && kf.hipsYCm !== 0 ? { hipsYCm: Number(kf.hipsYCm) } : {}),
-      ...(Array.isArray(kf.swordMountPosCm) ? { swordMountPosCm: kf.swordMountPosCm.slice(0, 3).map(Number) } : {}),
-      ...(Array.isArray(kf.swordMountRotDeg) ? { swordMountRotDeg: kf.swordMountRotDeg.slice(0, 3).map(Number) } : {}),
-      joints: Object.fromEntries(
-        Object.entries(kf.joints || {}).map(([j, vec]) => [j, vec.slice(0, 3).map(Number)])
-      )
-    }))
+    .map(kf => {
+      const ikEntries = Object.entries(kf.ik || {})
+        .filter(([ch, vec]) => VALID_IK_CHANNELS.has(ch) && Array.isArray(vec) && vec.length === 3)
+        .map(([ch, vec]) => [ch, vec.slice(0, 3).map(v => Number(Number(v).toFixed(4)))]);
+      return {
+        t: Number(Number(kf.t).toFixed(4)),
+        ...(Number.isFinite(kf.hipsYCm) && kf.hipsYCm !== 0 ? { hipsYCm: Number(kf.hipsYCm) } : {}),
+        ...(Array.isArray(kf.swordMountPosCm) ? { swordMountPosCm: kf.swordMountPosCm.slice(0, 3).map(Number) } : {}),
+        ...(Array.isArray(kf.swordMountRotDeg) ? { swordMountRotDeg: kf.swordMountRotDeg.slice(0, 3).map(Number) } : {}),
+        ...(ikEntries.length ? { ik: Object.fromEntries(ikEntries) } : {}),
+        joints: Object.fromEntries(
+          Object.entries(kf.joints || {}).map(([j, vec]) => [j, vec.slice(0, 3).map(Number)])
+        )
+      };
+    })
     .sort((a, b) => a.t - b.t);
 }
 
@@ -279,7 +323,7 @@ function isZero3(v) {
 
 export function sampleRigKeyframes(keyframes, t) {
   const sorted = cloneKeyframes(keyframes);
-  const empty = { joints: {}, hipsYCm: 0, swordMountPosCm: [0, 0, 0], swordMountRotDeg: [0, 0, 0] };
+  const empty = { joints: {}, hipsYCm: 0, swordMountPosCm: [0, 0, 0], swordMountRotDeg: [0, 0, 0], ik: {} };
   if (!sorted.length) return empty;
 
   let a = sorted[0];
@@ -310,6 +354,19 @@ export function sampleRigKeyframes(keyframes, t) {
     if (!isZero3(v)) joints[name] = v;
   }
 
+  const ik = {};
+  for (const ch of VALID_IK_CHANNELS) {
+    const va = a.ik?.[ch];
+    const vb = b.ik?.[ch];
+    if (va && vb) {
+      ik[ch] = { pos: lerp3(va, vb, k), weight: 1 };
+    } else if (va) {
+      if (1 - k > 1e-4) ik[ch] = { pos: va.slice(), weight: 1 - k };
+    } else if (vb) {
+      if (k > 1e-4) ik[ch] = { pos: vb.slice(), weight: k };
+    }
+  }
+
   const ha = Number(a.hipsYCm || 0);
   const hb = Number(b.hipsYCm || 0);
   const hipsYCm = ha + (hb - ha) * k;
@@ -317,7 +374,7 @@ export function sampleRigKeyframes(keyframes, t) {
   const swordMountPosCm = lerp3(a.swordMountPosCm || [0, 0, 0], b.swordMountPosCm || [0, 0, 0], k);
   const swordMountRotDeg = lerp3(a.swordMountRotDeg || [0, 0, 0], b.swordMountRotDeg || [0, 0, 0], k);
 
-  return { joints, hipsYCm, swordMountPosCm, swordMountRotDeg };
+  return { joints, hipsYCm, swordMountPosCm, swordMountRotDeg, ik };
 }
 
 export function buildExportPayload({
@@ -327,7 +384,8 @@ export function buildExportPayload({
   presetId = 'custom_draft',
   label = 'Custom Draft',
   movementParams = null,
-  keyframes = []
+  keyframes = [],
+  footLocks = []
 } = {}) {
   return {
     schema: SCHEMA_ID,
@@ -339,7 +397,8 @@ export function buildExportPayload({
     label,
     updatedAt: new Date().toISOString(),
     movementParams: movementParams ? { ...movementParams } : { ...MOVEMENT_PRESETS.dash_grounded_r1 },
-    keyframes: cloneKeyframes(keyframes)
+    keyframes: cloneKeyframes(keyframes),
+    footLocks: cloneFootLocks(footLocks)
   };
 }
 
@@ -437,7 +496,42 @@ export function validateImportPayload(raw, expected = {}) {
           }
         }
       }
+      if (kf.ik !== undefined) {
+        if (!kf.ik || typeof kf.ik !== 'object' || Array.isArray(kf.ik)) {
+          errors.push(`keyframe #${idx} ik ต้องเป็นอ็อบเจกต์`);
+        } else {
+          for (const [ch, vec] of Object.entries(kf.ik)) {
+            if (!VALID_IK_CHANNELS.has(ch)) {
+              errors.push(`keyframe #${idx} พบจุดจับ IK "${ch}" ที่ไม่รองรับใน rig "${RIG_SPEC_VERSION}"`);
+            } else if (!isVec3Finite(vec)) {
+              errors.push(`keyframe #${idx} พิกัด IK "${ch}" ต้องเป็นอาเรย์ 3 ตัวเลข [x, y, z]`);
+            }
+          }
+        }
+      }
     });
+  }
+
+  if (data.footLocks !== undefined) {
+    if (!Array.isArray(data.footLocks)) {
+      errors.push('footLocks ต้องเป็นอาเรย์');
+    } else {
+      data.footLocks.forEach((lk, idx) => {
+        if (!lk || typeof lk !== 'object') {
+          errors.push(`footLock #${idx} ไม่ใช่อ็อบเจกต์`);
+          return;
+        }
+        if (lk.foot !== 'footL' && lk.foot !== 'footR') {
+          errors.push(`footLock #${idx} ชื่อเท้า "${lk.foot || '-'}" ไม่ถูกต้อง (ต้องเป็น footL หรือ footR)`);
+        }
+        if (typeof lk.startT !== 'number' || typeof lk.endT !== 'number' || !Number.isFinite(lk.startT) || !Number.isFinite(lk.endT) || lk.startT < 0 || lk.endT < lk.startT || lk.endT > 10) {
+          errors.push(`footLock #${idx} ช่วงเวลา [${lk.startT}, ${lk.endT}] ไม่ถูกต้อง`);
+        }
+        if (!isVec3Finite(lk.pos)) {
+          errors.push(`footLock #${idx} พิกัด pos ต้องเป็นอาเรย์ 3 ตัวเลข [x, y, z]`);
+        }
+      });
+    }
   }
 
   if (expected.mode && data.mode && expected.mode !== data.mode) {
@@ -448,6 +542,12 @@ export function validateImportPayload(raw, expected = {}) {
     ok: errors.length === 0,
     errors,
     warnings,
-    data: errors.length === 0 ? { ...data, keyframes: cloneKeyframes(data.keyframes) } : null
+    data: errors.length === 0
+      ? {
+          ...data,
+          keyframes: cloneKeyframes(data.keyframes),
+          footLocks: cloneFootLocks(data.footLocks || [])
+        }
+      : null
   };
 }

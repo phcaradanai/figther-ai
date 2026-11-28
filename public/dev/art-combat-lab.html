@@ -206,6 +206,15 @@
     <button id="scenHit" aria-pressed="true">โดน · Hit</button>
     <button id="scenBlock" aria-pressed="false">บล็อก · Block</button>
     <button id="scenMiss" aria-pressed="false">พลาด · Miss</button>
+    <button id="scenAttack2" aria-pressed="false">ฟันสวน · attack2</button>
+    <span class="sep"></span>
+    <label>ท่า attack2
+      <select id="rigPoseSel">
+        <option value="c_only">C ใช้ attack2_ik_r2 · A/B เดิม</option>
+        <option value="baseline_all">ทุกช่อง Baseline เดิม</option>
+        <option value="ik_all">ทุกช่อง attack2_ik_r2</option>
+      </select>
+    </label>
     <span class="sep"></span>
     <label>กล้อง
       <select id="camSel">
@@ -238,6 +247,7 @@
       <button id="nextFrameBtn">+1 เฟรม (.)</button>
       <button id="jumpStandBtn">ท่ายืน (0.15s)</button>
       <button id="jumpContactBtn">เฟรมสัมผัส (0.44s)</button>
+      <button id="jumpRecoveryBtn" hidden>คืนท่า (0.67s)</button>
       <input id="scrub" type="range" min="0" max="1.25" step="0.0166667" value="0" />
       <span id="timeLabel" style="font:12px Consolas,monospace; min-width:86px;">0.00 / 1.25s</span>
     </div>
@@ -260,6 +270,8 @@
     import { createToneMaterialSet, ToneOutlinePass } from '/dev/art_tone_shader.js';
     import { PRESETS, PRESET_ORDER, PRESET_REVISION } from '/dev/art_combat_presets.js';
     import { DUEL_CAMERA, SCENARIOS, SCENARIO_ORDER } from '/dev/art_combat_scenarios.js';
+    import { RIG_PRESETS } from '/dev/motion_rig_presets.js';
+    import { applyMotionRigPose, snapshotRigPose, restoreRigPose } from '/dev/motion_rig_ik.js';
 
     const DT = 1 / 60;
     const COS45 = Math.SQRT1_2;
@@ -403,6 +415,8 @@
       viewMode: 'triptych', // 'triptych' | 'A' | 'B' | 'C'
       scenarioId: 'hit',
       inspectPresetId: 'C',
+      rigPoseMode: 'c_only',
+      knightRestMount: null,
       camDist: DUEL_CAMERA.camDist,
       paused: false,
       simTime: 0,
@@ -488,6 +502,10 @@
       knightView.time = 0;
       ninjaView.time = 0;
       scene.add(knightView.root, ninjaView.root);
+      labState.knightRestMount = {
+        pos: knightView.R.swordMount.position.clone(),
+        quat: knightView.R.swordMount.quaternion.clone()
+      };
       knightToneSet = createToneMaterialSet(knightView, PRESETS.B.knightTone);
 
       // Warm up 1 tick at t=0 so both fighters stand planted in their initial pose.
@@ -539,8 +557,9 @@
           labState.swingTriggered = true;
           const dx = Math.cos(knight.facing);
           const dz = Math.sin(knight.facing);
+          const stepNum = sc.comboStep || 1;
           knight.state = 'attack';
-          knight.comboStep = 1;
+          knight.comboStep = stepNum;
           knight.vx = dx * sc.lunge;
           knight.vz = dz * sc.lunge;
 
@@ -558,7 +577,7 @@
             originY: knight.y,
             originZ: knight.z,
             weaponType: 'broadsword',
-            comboStep: 1,
+            comboStep: stepNum,
             isFinisher: false
           };
 
@@ -599,8 +618,8 @@
           }
         }
 
-        // End Knight swing window after commit/attack1 duration
-        if (labState.swingTriggered && labState.simTime >= sc.swingAt + 0.34 && knight.state === 'attack') {
+        // End Knight swing window after commit/attack duration
+        if (labState.swingTriggered && labState.simTime >= sc.swingAt + (sc.swingDuration || 0.34) && knight.state === 'attack') {
           knight.state = 'idle';
           knight.comboStep = 0;
         }
@@ -879,28 +898,41 @@
       renderer.setScissorTest(true);
       renderer.setScissor(vx, vy, vw, vh);
 
-      applyPresetForPass(preset);
-      renderer.clear(true, true, false);
-      renderer.render(scene, camera);
+      const useAttack2Ik = labState.scenarioId === 'attack2_hit'
+        && knightView?.currentName === 'attack2'
+        && (labState.rigPoseMode === 'ik_all' || (labState.rigPoseMode === 'c_only' && preset.id === 'C'));
+      const poseSnap = useAttack2Ik ? snapshotRigPose(knightView.R) : null;
+      try {
+        if (useAttack2Ik && labState.knightRestMount) {
+          const ikPreset = RIG_PRESETS.attack2_ik_r2;
+          applyMotionRigPose(knightView, labState.knightRestMount, knightView.current.time, ikPreset.keyframes, ikPreset.footLocks);
+        }
 
-      if (preset.knightTone) {
-        outlinePass.render(renderer, scene, camera, {
-          stageGroup: stage.group,
-          knightRoot: knightView.root,
-          hiddenDuringMask: [
-            ninjaView.root,
-            knightShadow, ninjaShadow, knightRing, ninjaRing, guardDome,
-            fx.group, fx.add.points, fx.norm.points,
-            knightVfx.group, knightVfx.holy?.group,
-            knightView.swordTrail?.mesh
-          ],
-          vx, vy, vw, vh,
-          dpr: renderer.getPixelRatio(),
-          params: preset.knightTone
-        });
+        applyPresetForPass(preset);
+        renderer.clear(true, true, false);
+        renderer.render(scene, camera);
+
+        if (preset.knightTone) {
+          outlinePass.render(renderer, scene, camera, {
+            stageGroup: stage.group,
+            knightRoot: knightView.root,
+            hiddenDuringMask: [
+              ninjaView.root,
+              knightShadow, ninjaShadow, knightRing, ninjaRing, guardDome,
+              fx.group, fx.add.points, fx.norm.points,
+              knightVfx.group, knightVfx.holy?.group,
+              knightView.swordTrail?.mesh
+            ],
+            vx, vy, vw, vh,
+            dpr: renderer.getPixelRatio(),
+            params: preset.knightTone
+          });
+        }
+
+        drawOverlayForPass(vx, vw, vh, preset);
+      } finally {
+        if (poseSnap) restoreRigPose(knightView.R, poseSnap);
       }
-
-      drawOverlayForPass(vx, vw, vh, preset);
     }
 
     function renderFrame() {
@@ -946,7 +978,8 @@
     const scenButtons = {
       hit: document.getElementById('scenHit'),
       block: document.getElementById('scenBlock'),
-      miss: document.getElementById('scenMiss')
+      miss: document.getElementById('scenMiss'),
+      attack2_hit: document.getElementById('scenAttack2')
     };
     const badgeA = document.getElementById('badgeA');
     const badgeB = document.getElementById('badgeB');
@@ -977,6 +1010,15 @@
     function setScenario(id, { seekTo = null, autoPlay = true } = {}) {
       for (const [k, btn] of Object.entries(scenButtons)) btn.setAttribute('aria-pressed', String(k === id));
       resetScenario(id);
+      const sc = SCENARIOS[labState.scenarioId];
+      document.getElementById('jumpContactBtn').textContent = `เฟรมสัมผัส (${sc.inspectContactTime.toFixed(2)}s)`;
+      const recBtn = document.getElementById('jumpRecoveryBtn');
+      if (sc.inspectRecoveryTime !== undefined) {
+        recBtn.hidden = false;
+        recBtn.textContent = `คืนท่า (${sc.inspectRecoveryTime.toFixed(2)}s)`;
+      } else {
+        recBtn.hidden = true;
+      }
       if (seekTo !== null) {
         setPaused(true);
         seek(seekTo);
@@ -1007,6 +1049,7 @@
     for (const [id, btn] of Object.entries(scenButtons)) btn.onclick = () => setScenario(id);
     for (const pid of PRESET_ORDER) document.getElementById('inspect' + pid).onclick = () => setInspectPreset(pid);
 
+    document.getElementById('rigPoseSel').onchange = (e) => { labState.rigPoseMode = e.target.value; };
     document.getElementById('camSel').onchange = (e) => { labState.camDist = Number(e.target.value); };
     document.getElementById('inspectBtn').onclick = (e) => {
       const drawer = document.getElementById('presetDrawer');
@@ -1030,6 +1073,12 @@
     document.getElementById('jumpContactBtn').onclick = () => {
       setPaused(true);
       seek(SCENARIOS[labState.scenarioId].inspectContactTime);
+    };
+    document.getElementById('jumpRecoveryBtn').onclick = () => {
+      const sc = SCENARIOS[labState.scenarioId];
+      if (sc.inspectRecoveryTime === undefined) return;
+      setPaused(true);
+      seek(sc.inspectRecoveryTime);
     };
     document.getElementById('scrub').addEventListener('input', (e) => {
       setPaused(true);

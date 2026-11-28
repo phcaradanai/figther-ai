@@ -16,19 +16,20 @@
   - `1` — `A · เกมปัจจุบัน (Baseline)`
   - `2` — `B · เฉพาะ Knight ลดโทน 3D (Proof)`
   - `3` — `C · จูนสนาม แสง เงา และ FX (C-r1)`
-- **เลือกฉากทดสอบ**: ปุ่ม `โดน · Hit`, `บล็อก · Block`, `พลาด · Miss`
+- **เลือกฉากทดสอบ**: ปุ่ม `โดน · Hit`, `บล็อก · Block`, `พลาด · Miss`, และ `ฟันสวน · attack2` (`attack2_hit`) สำหรับเทียบท่า `attack2` ระหว่าง Baseline (`A/B`) กับ `attack2_ik_r2` (`C`)
+- **ตัวเลือกเทียบท่า Rig (`#rigPoseSel`)**: สลับได้ระหว่าง `C ใช้ attack2_ik_r2 · A/B เดิม` (ค่าเริ่มต้น), `ทั้ง 3 ช่องใช้ท่าเดิม`, และ `ทั้ง 3 ช่องใช้ attack2_ik_r2`
 - **เล่นซ้ำ / หยุด / เลื่อนเฟรม**:
   - `R` — เล่นซ้ำตั้งแต่ `0.00s`
   - `P` หรือ `Space` — หยุดภาพ / เล่นต่อ
   - `,` / `.` — ถอย / เดินทีละ 1 เฟรม (`1/60s`)
-  - ปุ่ม `ท่ายืน (0.15s)` และ `เฟรมสัมผัส (0.44s)` — กระโดดไปเฟรมมาตรฐานทันที
+  - ปุ่ม `ท่ายืน (0.15s)`, `เฟรมสัมผัส (0.44s)` (อัปเดตอัตโนมัติเป็น `0.40s` ในฉาก `attack2_hit`), และ `คืนท่า (0.67s)` — กระโดดไปเฟรมมาตรฐานทันที
   - แถบเลื่อนเวลา (scrubber) — ลากดูได้ทุกเฟรมในช่วง `0.00s – 1.25s`
 - **กล้อง**: เปลี่ยนระหว่าง `ระยะเกมจริง (41)` กับ `ระยะกลาง (24)` (มุมก้ม `0.62 rad`, `FOV = 22` เท่ากับเกมจริง)
 - **ค่า Preset**: กดปุ่ม `ค่า Preset` เพื่อดู JSON ของ A, B หรือ C แบบละเอียด
 
 ## 3. สิ่งที่ใช้ของเกมจริง vs สิ่งที่จำลองใน Lab
 - **ใช้ของเกมจริง**:
-  - โมเดลและแอนิเมชัน `ChibiView` ของ **Knight** (`attack1`) และ **Ninja** (`idle` / `hurt` / `guard` / `guardHit`) จาก [chibi.js](../../public/js/three/chibi.js)
+  - โมเดลและแอนิเมชัน `ChibiView` ของ **Knight** (`attack1`, และ `attack2` ที่แก้ทับด้วย [motion_rig_ik.js](../../public/dev/motion_rig_ik.js) + preset `attack2_ik_r2` จาก [motion_rig_presets.js](../../public/dev/motion_rig_presets.js)) และ **Ninja** (`idle` / `hurt` / `guard` / `guardHit`) จาก [chibi.js](../../public/js/three/chibi.js)
   - ฉาก `sky_temple` จาก [stage.js](../../public/js/three/stage.js)
   - ระบบเอฟเฟกต์จริง `FxSystem`, `KnightThreeVFX`, `KnightHolyVFX` และ `SwordTrail` จาก [fx.js](../../public/js/three/fx.js) และ [knight_holy_vfx.js](../../public/js/three/knight_holy_vfx.js)
   - กติกา damage (`11`), range (`2.3u`), block chip (`2`), knockback (`3.5 * 0.85`), lunge (`2.4`) และ hit-stop จาก [shared_data.js](../../public/js/shared_data.js) และ [server.js](../../server.js)
