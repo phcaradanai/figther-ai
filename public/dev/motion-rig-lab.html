@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Movement &amp; Motion Rig Lab — figther-ai (Knight)</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    body {
+      background: #141918;
+      color: #f4ead6;
+      font: 12px/1.4 "Segoe UI", Tahoma, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #topbar {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      z-index: 20;
+      display: flex;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      white-space: nowrap;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      border-radius: 10px;
+      background: rgba(20, 25, 24, 0.94);
+      border: 1px solid rgba(235, 198, 128, 0.28);
+      backdrop-filter: blur(6px);
+    }
+    #topbar button, #topbar .nav-pill, #topbar select {
+      padding: 3px 6px;
+      font-size: 11px;
+    }
+    .brand {
+      font-weight: 700;
+      font-size: 12px;
+      color: #f6cf83;
+      margin-right: 2px;
+    }
+    .sep {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+    button, select, input, textarea {
+      font: inherit;
+      color: inherit;
+    }
+    button, .nav-pill {
+      padding: 4px 9px;
+      border-radius: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06);
+      color: #f3e8d2;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    button:hover, .nav-pill:hover { background: rgba(255, 255, 255, 0.14); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button[aria-pressed="true"] {
+      background: #d99b38;
+      color: #161816;
+      border-color: #f8d288;
+      font-weight: 700;
+    }
+    .nav-pill {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(125, 211, 252, 0.36);
+      color: #bae6fd;
+      font-weight: 600;
+    }
+    select, input[type="number"], textarea {
+      background: rgba(12, 16, 15, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      padding: 3px 6px;
+    }
+    #canvasArea {
+      position: fixed;
+      left: 8px;
+      top: 50px;
+      right: 360px;
+      bottom: 84px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(235, 198, 128, 0.24);
+      background: #1b2220;
+    }
+    #view, #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #overlay { pointer-events: none; z-index: 4; }
+    #divSplit {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      margin-left: -1px;
+      background: rgba(247, 213, 138, 0.85);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+      z-index: 6;
+    }
+    .pane-badge {
+      position: absolute;
+      top: 10px;
+      z-index: 7;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+      background: rgba(18, 22, 21, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      pointer-events: none;
+    }
+    #badgeBefore { left: 10px; color: #e2e8f0; border-color: rgba(148, 163, 184, 0.55); }
+    #badgeAfter { left: calc(50% + 10px); color: #fde68a; border-color: rgba(245, 194, 107, 0.78); }
+    #camHint {
+      position: absolute;
+      right: 10px;
+      bottom: 8px;
+      z-index: 7;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(18, 22, 21, 0.78);
+      color: #cbd5e1;
+      font-size: 11px;
+      pointer-events: none;
+    }
+
+    #sidebar {
+      position: fixed;
+      top: 50px;
+      right: 8px;
+      bottom: 84px;
+      width: 344px;
+      z-index: 15;
+      overflow-y: auto;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(20, 25, 24, 0.94);
+      border: 1px solid rgba(235, 198, 128, 0.28);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card h3 {
+      font-size: 12px;
+      color: #f6cf83;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+    }
+    .checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      color: #e2e8f0;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 8px;
+      align-items: center;
+    }
+    .slider-row label {
+      color: #d9d0bd;
+      font-size: 11px;
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+    }
+    .slider-row input[type="range"] { width: 100%; accent-color: #eab308; }
+    .slider-row input[type="number"] { width: 64px; text-align: right; font-family: Consolas, monospace; }
+
+    #jointList {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      max-height: 158px;
+      overflow-y: auto;
+    }
+    .joint-btn {
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 4px 6px;
+      text-align: left;
+    }
+    .joint-btn.keyed { border-color: rgba(74, 222, 128, 0.55); }
+    .joint-btn[aria-pressed="true"] { background: #38bdf8; color: #0f172a; border-color: #bae6fd; }
+
+    .kf-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .kf-pill {
+      font: 11px Consolas, monospace;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(56, 189, 248, 0.42);
+      color: #bae6fd;
+    }
+    .kf-pill.active {
+      background: #f59e0b;
+      color: #111827;
+      border-color: #fde68a;
+      font-weight: 700;
+    }
+
+    .msg-banner {
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.35;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(15, 23, 42, 0.72);
+      color: #cbd5e1;
+      user-select: text;
+    }
+    .msg-banner.ok { border-color: rgba(74, 222, 128, 0.65); background: rgba(20, 83, 45, 0.42); color: #bbf7d0; }
+    .msg-banner.err { border-color: rgba(248, 113, 113, 0.78); background: rgba(127, 29, 29, 0.52); color: #fecaca; }
+    .msg-banner.warn { border-color: rgba(251, 191, 36, 0.72); background: rgba(120, 53, 15, 0.48); color: #fde68a; }
+
+    #jsonBox {
+      width: 100%;
+      height: 108px;
+      font: 11px/1.35 Consolas, monospace;
+      resize: vertical;
+      user-select: text;
+    }
+
+    #bottombar {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      z-index: 20;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: rgba(20, 25, 24, 0.94);
+      border: 1px solid rgba(235, 198, 128, 0.28);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .timeline-row, .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-row {
+      justify-content: space-between;
+      font-size: 11px;
+      color: #d6cbb3;
+    }
+    #scrub { flex: 1; min-width: 160px; accent-color: #eab308; }
+    .timing-pill {
+      padding: 2px 7px;
+      border-radius: 5px;
+      font: 11px Consolas, monospace;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+    .timing-pill.server { background: rgba(168, 85, 247, 0.2); border-color: rgba(192, 132, 252, 0.5); color: #e9d5ff; }
+    .timing-pill.contact { background: rgba(245, 158, 11, 0.22); border-color: rgba(251, 191, 36, 0.65); color: #fde68a; }
+    .timing-pill.active { box-shadow: 0 0 0 2px #fde047; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <span class="brand">Movement &amp; Motion Rig Lab · Knight</span>
+    <button id="modeMovementBtn" aria-pressed="true">Movement (พุ่งแล้วหยุด)</button>
+    <button id="modeRigBtn" aria-pressed="false">Motion Rig (แก้ท่าโจมตี)</button>
+    <span class="sep"></span>
+    <button id="layoutSplitBtn" aria-pressed="true">Before | After</button>
+    <button id="layoutBeforeBtn" aria-pressed="false">Before เต็ม</button>
+    <button id="layoutAfterBtn" aria-pressed="false">After เต็ม</button>
+    <span class="sep"></span>
+    <label>กล้อง
+      <select id="camSel">
+        <option value="game">มุมเกมจริง (game)</option>
+        <option value="side">ด้านข้าง (side)</option>
+        <option value="front">ด้านหน้า (front)</option>
+        <option value="closeup">3/4 ข้อต่อชัด (closeup)</option>
+      </select>
+    </label>
+    <button id="resetCamBtn">รีเซ็ตมุม</button>
+    <span class="sep"></span>
+    <a class="nav-pill" href="/dev/art-combat-lab.html">Art &amp; Combat Lab ↗</a>
+    <a class="nav-pill" href="/knight_motion_lab.html">Knight Motion Lab ↗</a>
+  </div>
+
+  <div id="canvasArea">
+    <canvas id="view"></canvas>
+    <canvas id="overlay"></canvas>
+    <div id="divSplit"></div>
+    <div id="badgeBefore" class="pane-badge">Before · เกมปัจจุบัน</div>
+    <div id="badgeAfter" class="pane-badge">After · ฉบับทดลอง</div>
+    <div id="camHint">ลากเมาส์หมุนกล้อง · Scroll ซูม</div>
+  </div>
+
+  <aside id="sidebar">
+    <div class="card">
+      <h3>ตัวช่วยแสดงผล (Overlays)</h3>
+      <div id="movOverlays" class="checks">
+        <label><input id="optGrid" type="checkbox" checked /> ตารางพื้น 1m</label>
+        <label><input id="optRootPath" type="checkbox" checked /> เส้นทาง Root</label>
+        <label><input id="optFootMarkers" type="checkbox" checked /> จุดแตะพื้น/รอยไถลเท้า</label>
+      </div>
+      <div id="rigOverlays" class="checks" hidden>
+        <label><input id="optSkeleton" type="checkbox" checked /> เส้นกระดูก &amp; ข้อต่อ</label>
+        <label><input id="optAxes" type="checkbox" checked /> แกนข้อต่อที่เลือก</label>
+        <label><input id="optBladeArc" type="checkbox" checked /> วิถีปลายดาบ</label>
+        <label><input id="optRigFeet" type="checkbox" checked /> ตำแหน่งเท้ากับพื้น</label>
+        <label><input id="optTarget" type="checkbox" checked /> วงระยะโจมตี + หุ่นเทียบ</label>
+      </div>
+    </div>
+
+    <div id="movementPanel" class="card">
+      <h3>โหมด Movement — พุ่งแล้วหยุด (dash_stop)</h3>
+      <div class="row">
+        <label style="flex:1">Preset
+          <select id="movPresetSel" style="width:100%"></select>
+        </label>
+      </div>
+      <div id="movSummary" class="msg-banner"></div>
+      <div id="movControls" style="display:flex; flex-direction:column; gap:6px;"></div>
+      <div class="checks">
+        <label><input id="optBrakeFootLock" type="checkbox" checked /> ล็อกเท้าหน้าตอนเบรก (Foot-Lock IK)</label>
+        <label><input id="optAfterimages" type="checkbox" checked /> ภาพติดตาบอกทิศ (Afterimages)</label>
+        <label><input id="optDashDust" type="checkbox" checked /> ฝุ่นออกตัว/เบรก (Dust)</label>
+      </div>
+      <div class="row">
+        <button id="movUndoBtn">Undo</button>
+        <button id="movResetBtn">Reset Preset</button>
+      </div>
+    </div>
+
+    <div id="rigPanel" class="card" hidden>
+      <h3>โหมด Motion Rig — แก้ท่าโจมตี</h3>
+      <div class="row">
+        <label style="flex:1">ท่า (Clip)
+          <select id="clipSel" style="width:100%"></select>
+        </label>
+      </div>
+      <div class="row">
+        <label style="flex:1">Preset
+          <select id="rigPresetSel" style="width:100%"></select>
+        </label>
+      </div>
+      <div id="rigSummary" class="msg-banner"></div>
+
+      <div>
+        <div style="font-weight:600; margin-bottom:4px; color:#bae6fd;">เลือกข้อต่อ / จุดจับ (คลิกเพื่อแก้)</div>
+        <div id="jointList"></div>
+      </div>
+
+      <div id="jointEditor" style="display:flex; flex-direction:column; gap:6px; border-top:1px solid rgba(255,255,255,0.1); padding-top:6px;">
+        <div class="row" style="justify-content:space-between;">
+          <strong id="selJointTitle" style="color:#7dd3fc;">-</strong>
+          <span id="selJointReadout" style="font:11px Consolas,monospace; color:#fde68a;"></span>
+        </div>
+        <div id="jointSliders" style="display:flex; flex-direction:column; gap:5px;"></div>
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:6px; display:flex; flex-direction:column; gap:5px;">
+        <div class="row">
+          <button id="upsertKfBtn" style="flex:1; background:rgba(34,197,94,0.22); border-color:rgba(74,222,128,0.55); color:#bbf7d0;">เพิ่ม/แก้ Keyframe เฟรมนี้</button>
+          <button id="deleteKfBtn">ลบ KF</button>
+        </div>
+        <div class="row">
+          <button id="rigUndoBtn">Undo (Ctrl+Z)</button>
+          <button id="rigResetFrameBtn">Reset เฟรมนี้</button>
+          <button id="rigResetAllBtn">Reset ทั้งท่า</button>
+        </div>
+        <div style="font-size:11px; color:#94a3b8;">Keyframes ที่บันทึกในท่า:</div>
+        <div id="kfPills" class="kf-pills"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>บันทึกและส่งต่อ (Draft / Export / Import)</h3>
+      <div class="row">
+        <button id="saveDraftBtn" style="flex:1; background:rgba(245,158,11,0.22); border-color:rgba(251,191,36,0.6); color:#fde68a;">Save Draft</button>
+        <button id="loadDraftBtn" style="flex:1" disabled>Load Draft</button>
+      </div>
+      <div class="row">
+        <button id="exportJsonBtn" style="flex:1">Export JSON</button>
+        <button id="importFileBtn" style="flex:1">Import ไฟล์ JSON</button>
+        <input id="importFileInput" type="file" accept=".json,application/json" hidden />
+      </div>
+      <textarea id="jsonBox" placeholder="กด Export JSON หรือวาง JSON เพื่อกด Import จากช่องนี้..."></textarea>
+      <div class="row">
+        <button id="importTextBtn" style="flex:1">Import JSON จากช่องด้านบน</button>
+      </div>
+      <div id="persistMsg" class="msg-banner">ยังไม่มี Draft ในเครื่อง</div>
+    </div>
+  </aside>
+
+  <div id="bottombar">
+    <div class="timeline-row">
+      <button id="replayBtn">เล่นซ้ำ (R)</button>
+      <button id="playBtn" aria-pressed="false">หยุด (Space)</button>
+      <label>ความเร็ว
+        <select id="rateSel">
+          <option value="1">1x</option>
+          <option value="0.5">0.5x</option>
+          <option value="0.25">0.25x</option>
+          <option value="0.1">0.1x</option>
+        </select>
+      </label>
+      <button id="prevFrameBtn">-1 เฟรม (,)</button>
+      <button id="nextFrameBtn">+1 เฟรม (.)</button>
+      <span id="markerButtons" class="row"></span>
+      <input id="scrub" type="range" min="0" max="1.35" step="0.0166667" value="0" />
+      <span id="timeLabel" style="font:12px Consolas,monospace; min-width:96px; text-align:right;">0.000 / 1.350s</span>
+    </div>
+    <div class="status-row">
+      <span id="scenarioDesc"></span>
+      <span id="combatTimingTrack" class="row" hidden>
+        <span id="pillServer" class="timing-pill server">ยืนยันเซิร์ฟเวอร์ (0.000s)</span>
+        <span id="pillContact" class="timing-pill contact">อาวุธถึงเป้า (0.100s)</span>
+      </span>
+      <span id="statusMetrics" style="font-family:Consolas,monospace; color:#fde68a;"></span>
+    </div>
+  </div>
+
+  <script src="/js/shared_data.js"></script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { ChibiView } from '/js/three/chibi.js';
+    import { FxSystem } from '/js/three/fx.js';
+    import { enforceHeroAnatomy, solveAnatomicalLeg } from '/js/three/knight_anatomy.js';
+    import {
+      SCHEMA_ID,
+      RIG_SPEC_VERSION,
+      JOINT_SPECS,
+      JOINT_SPEC_MAP,
+      MOVEMENT_PRESET_ORDER,
+      MOVEMENT_PRESETS,
+      RIG_PRESETS,
+      presetsForClip,
+      defaultPresetForClip,
+      cloneKeyframes,
+      sampleRigKeyframes,
+      buildExportPayload,
+      validateImportPayload
+    } from '/dev/motion_rig_presets.js';
+    import {
+      DASH_PHYSICS,
+      DASH_SCENARIO,
+      precomputeDashPath,
+      ATTACK_SCENARIOS
+    } from '/dev/motion_rig_scenarios.js';
+
+    const DT = 1 / 60;
+    const D2R = Math.PI / 180;
+    const R2D = 180 / Math.PI;
+    const DRAFT_STORAGE_KEY = 'figther_ai.motion_rig_lab.draft.v1';
+
+    // Keep internal ChibiView clocks strictly deterministic during 60 Hz seeks and replays.
+    let simNowMs = 1000;
+    performance.now = () => simNowMs;
+
+    const DASH_FRAMES = precomputeDashPath(DT);
+    const KNIGHT_GEAR = { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' };
+
+    const canvasArea = document.getElementById('canvasArea');
+    const canvas = document.getElementById('view');
+    const overlay = document.getElementById('overlay');
+    const octx = overlay.getContext('2d');
+    const divSplit = document.getElementById('divSplit');
+    const badgeBefore = document.getElementById('badgeBefore');
+    const badgeAfter = document.getElementById('badgeAfter');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.toneMappingExposure = 1.02;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setScissorTest(true);
+
+    const camera = new THREE.PerspectiveCamera(24, 1, 0.2, 180);
+
+    // Checker texture + 1m grid helper shared across both panes
+    const floorTex = (() => {
+      const c = document.createElement('canvas');
+      c.width = c.height = 128;
+      const g = c.getContext('2d');
+      g.fillStyle = '#d9d3c3';
+      g.fillRect(0, 0, 128, 128);
+      g.fillStyle = '#c8c0ac';
+      g.fillRect(0, 0, 64, 64);
+      g.fillRect(64, 64, 64, 64);
+      g.strokeStyle = '#9b917d';
+      g.lineWidth = 2;
+      g.strokeRect(0, 0, 128, 128);
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(40, 40);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    })();
+
+    const SKEL_EDGES = [
+      ['hips', 'torso'], ['torso', 'head'],
+      ['torso', 'armL'], ['armL', 'foreL'], ['foreL', 'handL'],
+      ['torso', 'armR'], ['armR', 'foreR'], ['foreR', 'handR'],
+      ['hips', 'legL'], ['legL', 'shinL'], ['shinL', 'footL'],
+      ['hips', 'legR'], ['legR', 'shinR'], ['shinR', 'footR']
+    ];
+    const SKEL_JOINTS = ['hips', 'torso', 'head', 'armL', 'foreL', 'handL', 'armR', 'foreR', 'handR', 'legL', 'shinL', 'footL', 'legR', 'shinR', 'footR'];
+
+    function makeAfterimageGhost() {
+      const g = new THREE.Group();
+      const bodyMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.25, depthWrite: false });
+      const shieldMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.3, depthWrite: false });
+      const trimMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.25, depthWrite: false });
+
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.34, 4, 8), bodyMat);
+      torso.position.y = 0.72;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), trimMat);
+      head.position.set(0, 1.14, 0.04);
+      const shield = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.44, 0.34), shieldMat);
+      shield.position.set(0.24, 0.74, 0.20);
+      const cape = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.44, 0.05), shieldMat);
+      cape.position.set(0, 0.66, -0.22);
+      cape.rotation.x = 0.42;
+      g.add(torso, head, shield, cape);
+      g.userData.mats = [bodyMat, shieldMat, trimMat];
+      g.visible = false;
+      return g;
+    }
+
+    function buildPane(label) {
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#273134');
+      scene.fog = new THREE.Fog('#273134', 28, 70);
+
+      const hemi = new THREE.HemisphereLight('#fff5e6', '#69747a', 1.45);
+      const sun = new THREE.DirectionalLight('#fff0d8', 1.85);
+      sun.position.set(-5, 11, 4);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(1024, 1024);
+      Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 35 });
+      scene.add(hemi, sun, sun.target);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(80, 80),
+        new THREE.MeshLambertMaterial({ map: floorTex })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      const grid = new THREE.GridHelper(40, 40, 0x475569, 0x64748b);
+      grid.position.y = 0.004;
+      scene.add(grid);
+
+      // Movement path overlay
+      const pathPts = DASH_FRAMES.map(f => new THREE.Vector3(f.x, 0.015, f.z));
+      const rootPathLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(pathPts),
+        new THREE.LineBasicMaterial({ color: 0xfacc15 })
+      );
+      const burstEndPt = DASH_FRAMES.find(f => f.t >= DASH_SCENARIO.burstEndAt) || DASH_FRAMES[DASH_FRAMES.length - 1];
+      const stopPt = DASH_FRAMES[DASH_FRAMES.length - 1];
+      const markerGeo = new THREE.RingGeometry(0.10, 0.16, 20);
+      const dashStartRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide }));
+      dashStartRing.rotation.x = -Math.PI / 2;
+      dashStartRing.position.set(0, 0.016, 0);
+      const dashBurstRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide }));
+      dashBurstRing.rotation.x = -Math.PI / 2;
+      dashBurstRing.position.set(burstEndPt.x, 0.016, burstEndPt.z);
+      const dashStopRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0x4ade80, side: THREE.DoubleSide }));
+      dashStopRing.rotation.x = -Math.PI / 2;
+      dashStopRing.position.set(stopPt.x, 0.016, stopPt.z);
+      const movGroup = new THREE.Group();
+      movGroup.add(rootPathLine, dashStartRing, dashBurstRing, dashStopRing);
+
+      // Ground contact foot rings & slide trail
+      const footRingGeo = new THREE.RingGeometry(0.08, 0.13, 20);
+      const footRingL = new THREE.Mesh(footRingGeo, new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide }));
+      const footRingR = new THREE.Mesh(footRingGeo, new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide }));
+      footRingL.rotation.x = -Math.PI / 2;
+      footRingR.rotation.x = -Math.PI / 2;
+
+      const brakeAnchorRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.14, 0.19, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+      );
+      brakeAnchorRing.rotation.x = -Math.PI / 2;
+      brakeAnchorRing.visible = false;
+
+      const footTrailGeoL = new THREE.BufferGeometry();
+      footTrailGeoL.setAttribute('position', new THREE.BufferAttribute(new Float32Array(256 * 3), 3));
+      const footTrailL = new THREE.Line(footTrailGeoL, new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
+      const footTrailGeoR = new THREE.BufferGeometry();
+      footTrailGeoR.setAttribute('position', new THREE.BufferAttribute(new Float32Array(256 * 3), 3));
+      const footTrailR = new THREE.Line(footTrailGeoR, new THREE.LineBasicMaterial({ color: 0xf97316 }));
+      const footGroup = new THREE.Group();
+      footGroup.add(footRingL, footRingR, brakeAnchorRing, footTrailL, footTrailR);
+
+      const ghosts = [makeAfterimageGhost(), makeAfterimageGhost(), makeAfterimageGhost(), makeAfterimageGhost()];
+      ghosts.forEach(g => scene.add(g));
+      scene.add(movGroup, footGroup);
+
+      // Motion Rig Overlays
+      const rigGroup = new THREE.Group();
+      const boneLinePos = new Float32Array(SKEL_EDGES.length * 2 * 3);
+      const boneLineGeo = new THREE.BufferGeometry();
+      boneLineGeo.setAttribute('position', new THREE.BufferAttribute(boneLinePos, 3));
+      const boneLines = new THREE.LineSegments(
+        boneLineGeo,
+        new THREE.LineBasicMaterial({ color: 0x7dd3fc, depthTest: false, transparent: true, opacity: 0.92 })
+      );
+      boneLines.renderOrder = 10;
+
+      const jointSpheres = {};
+      const sphereGeo = new THREE.SphereGeometry(0.032, 10, 8);
+      for (const j of SKEL_JOINTS) {
+        const m = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.95 }));
+        m.renderOrder = 11;
+        jointSpheres[j] = m;
+        rigGroup.add(m);
+      }
+      rigGroup.add(boneLines);
+
+      const axesHelper = new THREE.AxesHelper(0.32);
+      axesHelper.material.depthTest = false;
+      axesHelper.renderOrder = 12;
+
+      const bladeArcGeo = new THREE.BufferGeometry();
+      const bladeArcLine = new THREE.Line(bladeArcGeo, new THREE.LineBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 0.9 }));
+      bladeArcLine.renderOrder = 9;
+      const bladeContactDot = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 10), new THREE.MeshBasicMaterial({ color: 0x4ade80, depthTest: false }));
+      bladeContactDot.renderOrder = 12;
+      const bladeCurrDot = new THREE.Mesh(new THREE.SphereGeometry(0.044, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+      bladeCurrDot.renderOrder = 13;
+      const clipDotsGroup = new THREE.Group();
+      const bladeGroup = new THREE.Group();
+      bladeGroup.add(bladeArcLine, bladeContactDot, bladeCurrDot, clipDotsGroup);
+
+      // Target dummy & attack range ring
+      const targetGroup = new THREE.Group();
+      const rangeRing = new THREE.Mesh(
+        new THREE.RingGeometry(2.26, 2.34, 48),
+        new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+      );
+      rangeRing.rotation.x = -Math.PI / 2;
+      rangeRing.position.y = 0.01;
+      const dummyMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.24, 0.24, 1.32, 14),
+        new THREE.MeshLambertMaterial({ color: 0x64748b, transparent: true, opacity: 0.45 })
+      );
+      dummyMesh.position.y = 0.66;
+      const dummyHead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.20, 12, 10),
+        new THREE.MeshLambertMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.5 })
+      );
+      dummyHead.position.y = 1.48;
+      targetGroup.add(rangeRing, dummyMesh, dummyHead);
+
+      scene.add(rigGroup, axesHelper, bladeGroup, targetGroup);
+
+      const fx = new FxSystem(scene);
+      const player = {
+        heroId: 'knight',
+        gear: { ...KNIGHT_GEAR },
+        x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
+        facing: DASH_PHYSICS.facing,
+        grounded: true,
+        state: 'idle',
+        comboStep: 0,
+        isDashing: false,
+        isSprinting: false
+      };
+      const view = new ChibiView(player);
+      view.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      scene.add(view.root);
+
+      const restSwordMount = {
+        pos: view.R.swordMount.position.clone(),
+        quat: view.R.swordMount.quaternion.clone()
+      };
+
+      return {
+        label,
+        scene,
+        sun,
+        grid,
+        movGroup,
+        footGroup,
+        footRingL,
+        footRingR,
+        brakeAnchorRing,
+        footTrailL,
+        footTrailR,
+        ghosts,
+        rigGroup,
+        boneLines,
+        jointSpheres,
+        axesHelper,
+        bladeGroup,
+        bladeArcLine,
+        bladeContactDot,
+        bladeCurrDot,
+        clipDotsGroup,
+        targetGroup,
+        rangeRing,
+        dummyMesh,
+        dummyHead,
+        fx,
+        player,
+        view,
+        restSwordMount,
+        metrics: { brakeSlideCm: 0, torsoLeanDeg: 0, minFootCm: 0, maxClipCm: 0, worstJoint: '-' }
+      };
+    }
+
+    const beforePane = buildPane('Before');
+    const afterPane = buildPane('After');
+
+    // Orbit camera state relative to active target
+    const camState = {
+      preset: 'game',
+      yawOffset: 0,
+      pitchOffset: 0,
+      distScale: 1
+    };
+
+    const CAM_BASES = {
+      game: { azim: Math.PI / 4, pitch: 0.62, dist: 15.5, targetY: 0.72 },
+      side: { azim: -Math.PI * 0.75, pitch: 0.12, dist: 9.2, targetY: 0.75 },
+      front: { azim: Math.PI / 4, pitch: 0.14, dist: 8.0, targetY: 0.78 },
+      closeup: { azim: Math.PI / 4 + 0.55, pitch: 0.24, dist: 4.8, targetY: 0.85 }
+    };
+
+    // Mutable Lab State
+    const state = {
+      mode: 'movement', // 'movement' | 'rig'
+      layout: 'split',  // 'split' | 'before' | 'after'
+      playing: true,
+      rate: 1,
+      time: 0,
+      movPresetId: 'dash_grounded_r1',
+      movementParams: { ...MOVEMENT_PRESETS.dash_grounded_r1 },
+      clip: 'attack2',
+      rigPresetId: 'attack2_clean_r1',
+      keyframes: cloneKeyframes(RIG_PRESETS.attack2_clean_r1.keyframes),
+      selectedJoint: 'handR',
+      undoStack: [],
+      arcDirty: true
+    };
+
+    function currentDuration() {
+      return state.mode === 'movement' ? DASH_SCENARIO.length : ATTACK_SCENARIOS[state.clip].duration;
+    }
+
+    function snapshotUndo() {
+      state.undoStack.push(JSON.stringify({
+        mode: state.mode,
+        clip: state.clip,
+        movPresetId: state.movPresetId,
+        movementParams: state.movementParams,
+        rigPresetId: state.rigPresetId,
+        keyframes: state.keyframes
+      }));
+      if (state.undoStack.length > 60) state.undoStack.shift();
+    }
+
+    function applyUndo() {
+      if (!state.undoStack.length) return false;
+      const prev = JSON.parse(state.undoStack.pop());
+      state.mode = prev.mode;
+      state.clip = prev.clip;
+      state.movPresetId = prev.movPresetId;
+      state.movementParams = { ...prev.movementParams };
+      state.rigPresetId = prev.rigPresetId;
+      state.keyframes = cloneKeyframes(prev.keyframes);
+      state.arcDirty = true;
+      syncUI();
+      evaluateFrame();
+      return true;
+    }
+
+    function resetChibiView(pane, facing) {
+      pane.view.dispose();
+      pane.fx.clear?.();
+      pane.player = {
+        heroId: 'knight',
+        gear: { ...KNIGHT_GEAR },
+        x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0,
+        facing,
+        grounded: true,
+        state: 'idle',
+        comboStep: 0,
+        isDashing: false,
+        isSprinting: false
+      };
+      pane.view = new ChibiView(pane.player);
+      pane.view.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      pane.scene.add(pane.view.root);
+      pane.restSwordMount = {
+        pos: pane.view.R.swordMount.position.clone(),
+        quat: pane.view.R.swordMount.quaternion.clone()
+      };
+    }
+
+    const _qTmp = new THREE.Quaternion();
+    const _eTmp = new THREE.Euler();
+    const _vTmp = new THREE.Vector3();
+    const _vFootL = new THREE.Vector3();
+    const _vFootR = new THREE.Vector3();
+    const _vHip = new THREE.Vector3();
+    const _vTarget = new THREE.Vector3();
+    const _vAnkle = new THREE.Vector3();
+    const _invBody = new THREE.Matrix4();
+    const _shoeMat = new THREE.Matrix4();
+
+    function smoothstep01(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / Math.max(1e-6, edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    function computeLowestSoleY(view) {
+      const R = view.R;
+      const s = R.rigScale;
+      R.footL.updateWorldMatrix(true, false);
+      R.footR.updateWorldMatrix(true, false);
+      _invBody.copy(R.body.matrixWorld).invert();
+      let soleY = Infinity;
+      for (const foot of [R.footL, R.footR]) {
+        _shoeMat.multiplyMatrices(_invBody, foot.matrixWorld);
+        for (const z of view.soleZ) {
+          _vTmp.set(0, -R.restFootY / s, z / s).applyMatrix4(_shoeMat);
+          soleY = Math.min(soleY, _vTmp.y);
+        }
+      }
+      return soleY;
+    }
+
+    function applyMovementModifiers(pane, frameData, params, anchorState) {
+      const R = pane.view.R;
+      const s = R.rigScale;
+      const t = frameData.t;
+
+      // Envelope weights across dash_stop timeline
+      const wStart = DASH_SCENARIO.windupAt;
+      const dStart = DASH_SCENARIO.dashAt;
+      const bStart = DASH_SCENARIO.burstEndAt - 0.08; // 0.53s deceleration catch begins
+      const recDur = Math.max(0.10, Number(params.recoverDuration || 0.22));
+      const bEnd = bStart + recDur;
+
+      const windupW = t >= wStart && t < dStart
+        ? Math.sin(Math.PI * ((t - wStart) / Math.max(1e-5, dStart - wStart)))
+        : 0;
+      const dashW = t >= dStart && t < bStart + 0.06
+        ? smoothstep01(dStart, dStart + 0.045, t) * (1 - smoothstep01(bStart - 0.04, bStart + 0.06, t))
+        : 0;
+      const brakeW = t >= bStart - 0.02 && t <= bEnd
+        ? smoothstep01(bStart - 0.02, bStart + 0.05, t) * (1 - smoothstep01(bStart + recDur * 0.45, bEnd, t))
+        : 0;
+
+      if (params.enabled) {
+        const leanDeg =
+          (params.windupLeanDeg || 0) * windupW +
+          (params.dashLeanDeg || 0) * dashW +
+          (params.brakeLeanDeg || 0) * brakeW;
+        const leanRad = leanDeg * D2R;
+        const hipDropCm =
+          (params.windupHipDropCm || 0) * windupW +
+          (params.dashHipDropCm || 0) * dashW +
+          (params.brakeHipDropCm || 0) * brakeW;
+
+        R.torso.rotateX(leanRad);
+        R.head.rotateX(-leanRad * 0.65);
+        R.hips.position.y -= (hipDropCm / 100) / s;
+
+        if (dashW > 0.01) {
+          R.armL.rotateX(-0.22 * dashW);
+          R.armR.rotateX(0.24 * dashW);
+          const leadF = ((params.leadFootFlexDeg || 0) * D2R) * dashW;
+          const trailF = ((params.trailFootExtendDeg || 0) * D2R) * dashW;
+          R.legL.rotateX(-leadF * 0.55);
+          R.shinL.rotateX(leadF * 0.9);
+          R.legR.rotateX(trailF * 0.55);
+          R.footR.rotateX(trailF * 0.55);
+        }
+
+        if (brakeW > 0.01 && params.brakeFootLock) {
+          pane.view.root.updateMatrixWorld(true);
+          R.footL.getWorldPosition(_vFootL);
+          if (!anchorState.locked) {
+            anchorState.locked = true;
+            anchorState.pos.set(_vFootL.x, R.restFootY, _vFootL.z);
+          }
+          _vTarget.copy(_vFootL).lerp(anchorState.pos, Math.min(0.95, brakeW * 1.1));
+          const fw = pane.view.footwork;
+          if (fw) {
+            solveAnatomicalLeg(R.hips, R.legL, R.shinL, R.footL, _vTarget, fw.legs[0].upper, fw.legs[0].lower, 1);
+            // Keep planted boot level on stone floor during braking catch
+            R.hips.updateMatrixWorld(true);
+            R.shinL.getWorldQuaternion(_qTmp);
+            _eTmp.setFromQuaternion(_qTmp, 'YXZ');
+            const levelQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), _eTmp.y);
+            R.footL.quaternion.slerp(_qTmp.invert().multiply(levelQ), Math.min(0.92, brakeW));
+          }
+          pane.brakeAnchorRing.visible = true;
+          pane.brakeAnchorRing.position.set(anchorState.pos.x, 0.017, anchorState.pos.z);
+        } else {
+          pane.brakeAnchorRing.visible = false;
+        }
+      } else {
+        pane.brakeAnchorRing.visible = false;
+      }
+
+      enforceHeroAnatomy(R, { lockShield: true, clampWristR: true, clampWristL: false, softenKnees: true });
+      pane.view.root.updateMatrixWorld(true);
+
+      // Keep lowest boot from sinking beneath ground plane during hip drops
+      const soleY = computeLowestSoleY(pane.view);
+      if (soleY < 0) {
+        R.hips.position.y += -soleY / s;
+        pane.view.root.updateMatrixWorld(true);
+      }
+
+      // Measure torso lean relative to world vertical for HUD
+      R.torso.getWorldQuaternion(_qTmp);
+      _eTmp.setFromQuaternion(_qTmp, 'YXZ');
+      pane.metrics.torsoLeanDeg = Number((_eTmp.x * R2D).toFixed(1));
+    }
+
+    function updateMovementVisuals(pane, frameIdx, params) {
+      const f = DASH_FRAMES[frameIdx];
+      const R = pane.view.R;
+      R.footL.getWorldPosition(_vFootL);
+      R.footR.getWorldPosition(_vFootR);
+
+      const liftL = _vFootL.y - R.restFootY;
+      const liftR = _vFootR.y - R.restFootY;
+      pane.footRingL.position.set(_vFootL.x, 0.012, _vFootL.z);
+      pane.footRingR.position.set(_vFootR.x, 0.012, _vFootR.z);
+      pane.footRingL.material.color.setHex(liftL < 0.035 ? 0x22c55e : 0xfacc15);
+      pane.footRingR.material.color.setHex(liftR < 0.035 ? 0x22c55e : 0xfacc15);
+
+      // Directional Afterimages
+      const showGhost = params.enabled && params.showAfterimages && f.t >= DASH_SCENARIO.dashAt + 0.03 && f.t <= DASH_SCENARIO.burstEndAt + 0.08;
+      const yaw = Math.PI / 2 - f.facing;
+      const leanRad = (params.dashLeanDeg || 24) * D2R;
+      for (let i = 0; i < pane.ghosts.length; i++) {
+        const g = pane.ghosts[i];
+        const backIdx = Math.max(0, frameIdx - (i + 1) * 2);
+        const bf = DASH_FRAMES[backIdx];
+        if (showGhost && bf.t >= DASH_SCENARIO.dashAt - 0.02 && Math.hypot(f.x - bf.x, f.z - bf.z) > 0.12) {
+          g.visible = true;
+          g.position.set(bf.x, 0, bf.z);
+          g.rotation.set(leanRad * 0.6, yaw, 0, 'YXZ');
+          const alpha = 0.34 - i * 0.07;
+          g.userData.mats.forEach(m => { m.opacity = Math.max(0.06, alpha); });
+        } else {
+          g.visible = false;
+        }
+      }
+    }
+
+    function simulateDashTo(pane, targetFrame, params, trailStore) {
+      simNowMs = 1000;
+      resetChibiView(pane, DASH_PHYSICS.facing);
+      pane.fx.clear?.();
+      const env = { dt: DT, fx: pane.fx, floorY: () => 0 };
+      const anchorState = { locked: false, pos: new THREE.Vector3() };
+
+      const brakeTrailsL = [];
+      const brakeTrailsR = [];
+      let launchDusted = false;
+      let brakeDusted = false;
+      let brakeStartL = null;
+      let maxDriftCm = 0;
+
+      for (let i = 0; i <= targetFrame; i++) {
+        const s = DASH_FRAMES[i];
+        simNowMs = 1000 + Math.round(s.t * 1000);
+        Object.assign(pane.player, {
+          x: s.x,
+          y: 0,
+          z: s.z,
+          vx: s.vx,
+          vz: s.vz,
+          vy: 0,
+          facing: s.facing,
+          grounded: true,
+          state: s.isDashing ? 'run' : (s.speed > 0.8 ? 'run' : 'idle'),
+          isDashing: s.isDashing,
+          isSprinting: s.speed > 6.0
+        });
+        pane.view.update(pane.player, env);
+        applyMovementModifiers(pane, s, params, anchorState);
+
+        if (params.enabled && params.showDust) {
+          if (!launchDusted && s.t >= DASH_SCENARIO.dashAt) {
+            launchDusted = true;
+            pane.fx.dustPuff(s.x - Math.cos(s.facing) * 0.25, 0.04, s.z - Math.sin(s.facing) * 0.25, 6, 1.05, '#f4ecd9');
+          }
+          if (!brakeDusted && s.t >= DASH_SCENARIO.burstEndAt - 0.06) {
+            brakeDusted = true;
+            pane.fx.dustPuff(s.x + Math.cos(s.facing) * 0.3, 0.04, s.z + Math.sin(s.facing) * 0.3, 5, 0.95, '#e2e8f0');
+          }
+        }
+        pane.fx.update(DT);
+
+        // Track braking foot slide across [0.533s .. 0.78s]
+        if (s.t >= 0.533 && s.t <= 0.78) {
+          pane.view.R.footL.getWorldPosition(_vFootL);
+          pane.view.R.footR.getWorldPosition(_vFootR);
+          brakeTrailsL.push(_vFootL.x, 0.015, _vFootL.z);
+          brakeTrailsR.push(_vFootR.x, 0.015, _vFootR.z);
+          if (!brakeStartL) brakeStartL = _vFootL.clone();
+          const drift = Math.hypot(_vFootL.x - brakeStartL.x, _vFootL.z - brakeStartL.z) * 100;
+          if (drift > maxDriftCm) maxDriftCm = drift;
+        }
+      }
+
+      // Write foot slide trail buffers
+      for (const [line, pts] of [[pane.footTrailL, brakeTrailsL], [pane.footTrailR, brakeTrailsR]]) {
+        const attr = line.geometry.attributes.position;
+        const count = Math.min(256, Math.floor(pts.length / 3));
+        for (let k = 0; k < count * 3; k++) attr.array[k] = pts[k];
+        attr.needsUpdate = true;
+        line.geometry.setDrawRange(0, count);
+      }
+
+      pane.metrics.brakeSlideCm = Number(maxDriftCm.toFixed(1));
+      updateMovementVisuals(pane, targetFrame, params);
+    }
+
+    // Approximate body collision spheres for live Rig diagnostic feedback (helmet, chest, armL)
+    const _vHead = new THREE.Vector3();
+    const _vTorso = new THREE.Vector3();
+    const _vArmL = new THREE.Vector3();
+    const _vTip = new THREE.Vector3();
+
+    function applyRigPose(pane, clipId, t, keyframes, computeArc = false) {
+      const view = pane.view;
+      const R = view.R;
+      const spec = ATTACK_SCENARIOS[clipId];
+      const action = view.actions[clipId];
+      if (!action) return;
+
+      const clip = action.getClip();
+      const yaw = Math.PI / 2 - spec.facing;
+
+      function poseAt(sampleT) {
+        view.mixer.stopAllAction();
+        action.reset();
+        action.setEffectiveWeight(1);
+        action.play();
+        action.time = Math.max(0, Math.min(sampleT, clip.duration));
+        view.mixer.update(0);
+        view.root.position.set(0, 0, 0);
+        view.root.rotation.set(0, yaw, 0);
+
+        // Always restore rest swordMount before layering keyframes
+        R.swordMount.position.copy(pane.restSwordMount.pos);
+        R.swordMount.quaternion.copy(pane.restSwordMount.quat);
+
+        const sample = sampleRigKeyframes(keyframes, sampleT);
+        for (const [jointId, degs] of Object.entries(sample.joints)) {
+          if (!R[jointId]) continue;
+          _qTmp.setFromEuler(_eTmp.set(degs[0] * D2R, degs[1] * D2R, degs[2] * D2R, 'XYZ'));
+          R[jointId].quaternion.multiply(_qTmp);
+        }
+
+        const hasHandLOverride = Boolean(sample.joints.handL);
+        enforceHeroAnatomy(R, {
+          lockShield: !hasHandLOverride,
+          clampWristR: true,
+          clampWristL: false,
+          softenKnees: true
+        });
+
+        view.root.updateMatrixWorld(true);
+        const soleY = computeLowestSoleY(view);
+        if (Math.abs(soleY) > 1e-5) {
+          R.hips.position.y += -soleY / R.rigScale;
+        }
+        if (sample.hipsYCm) {
+          R.hips.position.y += (sample.hipsYCm / 100) / R.rigScale;
+        }
+        if (sample.swordMountPosCm) {
+          R.swordMount.position.x += sample.swordMountPosCm[0] / 100;
+          R.swordMount.position.y += sample.swordMountPosCm[1] / 100;
+          R.swordMount.position.z += sample.swordMountPosCm[2] / 100;
+        }
+        if (sample.swordMountRotDeg) {
+          _qTmp.setFromEuler(_eTmp.set(
+            sample.swordMountRotDeg[0] * D2R,
+            sample.swordMountRotDeg[1] * D2R,
+            sample.swordMountRotDeg[2] * D2R,
+            'XYZ'
+          ));
+          R.swordMount.quaternion.multiply(_qTmp);
+        }
+        view.root.updateMatrixWorld(true);
+
+        // Evaluate approximate blade proximity to helmet, torso & left arm
+        R.head.getWorldPosition(_vHead);
+        _vHead.y += 0.14;
+        R.torso.getWorldPosition(_vTorso);
+        _vTorso.y += 0.12;
+        R.foreL.getWorldPosition(_vArmL);
+        let maxClip = 0;
+        let part = '-';
+        for (let s = 0; s <= 12; s++) {
+          _vTip.set(0, 0, 0.16 + 0.88 * (s / 12)).applyMatrix4(R.swordMount.matrixWorld);
+          const checks = [
+            ['helmet', 0.25 - _vTip.distanceTo(_vHead)],
+            ['torso', 0.21 - _vTip.distanceTo(_vTorso)],
+            ['armL', 0.17 - _vTip.distanceTo(_vArmL)]
+          ];
+          for (const [pName, depth] of checks) {
+            if (depth > maxClip) { maxClip = depth; part = pName; }
+          }
+        }
+        _vTip.set(0, 0, 1.04).applyMatrix4(R.swordMount.matrixWorld);
+        return { tip: _vTip.clone(), clipCm: Number((maxClip * 100).toFixed(1)), part };
+      }
+
+      if (computeArc) {
+        const samples = [];
+        const clipPts = [];
+        const steps = 24;
+        for (let i = 0; i <= steps; i++) {
+          const st = (i / steps) * clip.duration;
+          const res = poseAt(st);
+          samples.push(res.tip);
+          if (res.clipCm > 2.0) clipPts.push(res.tip);
+        }
+        pane.bladeArcLine.geometry.dispose();
+        pane.bladeArcLine.geometry = new THREE.BufferGeometry().setFromPoints(samples);
+
+        const cRes = poseAt(spec.visualContactAt);
+        pane.bladeContactDot.position.copy(cRes.tip);
+
+        while (pane.clipDotsGroup.children.length) {
+          const ch = pane.clipDotsGroup.children.pop();
+          ch.geometry.dispose();
+          ch.material.dispose();
+        }
+        for (const pt of clipPts) {
+          const dot = new THREE.Mesh(
+            new THREE.SphereGeometry(0.036, 8, 6),
+            new THREE.MeshBasicMaterial({ color: 0xef4444, depthTest: false })
+          );
+          dot.renderOrder = 11;
+          dot.position.copy(pt);
+          pane.clipDotsGroup.add(dot);
+        }
+      }
+
+      const cur = poseAt(t);
+      pane.bladeCurrDot.position.copy(cur.tip);
+      pane.metrics.maxClipCm = cur.clipCm;
+      pane.metrics.worstJoint = cur.part;
+
+      // Update skeleton overlay + axes helper
+      const posArr = pane.boneLines.geometry.attributes.position.array;
+      for (let i = 0; i < SKEL_EDGES.length; i++) {
+        const [aName, bName] = SKEL_EDGES[i];
+        R[aName].getWorldPosition(_vTmp);
+        posArr[i * 6] = _vTmp.x;
+        posArr[i * 6 + 1] = _vTmp.y;
+        posArr[i * 6 + 2] = _vTmp.z;
+        R[bName].getWorldPosition(_vTmp);
+        posArr[i * 6 + 3] = _vTmp.x;
+        posArr[i * 6 + 4] = _vTmp.y;
+        posArr[i * 6 + 5] = _vTmp.z;
+      }
+      pane.boneLines.geometry.attributes.position.needsUpdate = true;
+      for (const j of SKEL_JOINTS) {
+        const sp = pane.jointSpheres[j];
+        R[j].getWorldPosition(_vTmp);
+        sp.position.copy(_vTmp);
+        const sel = j === state.selectedJoint;
+        sp.material.color.setHex(sel ? 0xfacc15 : 0x38bdf8);
+        sp.scale.setScalar(sel ? 1.55 : 1.0);
+      }
+
+      const axisNode = R[state.selectedJoint] || R.handR;
+      axisNode.getWorldPosition(pane.axesHelper.position);
+      axisNode.getWorldQuaternion(pane.axesHelper.quaternion);
+
+      // Update target dummy & range ring + feet
+      const tx = Math.cos(spec.facing) * (spec.attackRange * 0.85);
+      const tz = Math.sin(spec.facing) * (spec.attackRange * 0.85);
+      pane.dummyMesh.position.set(tx, 0.66, tz);
+      pane.dummyHead.position.set(tx, 1.48, tz);
+      pane.rangeRing.scale.setScalar(spec.attackRange / 2.3);
+
+      R.footL.getWorldPosition(_vFootL);
+      R.footR.getWorldPosition(_vFootR);
+      pane.footRingL.position.set(_vFootL.x, 0.012, _vFootL.z);
+      pane.footRingR.position.set(_vFootR.x, 0.012, _vFootR.z);
+      pane.metrics.minFootCm = Number((Math.min(_vFootL.y, _vFootR.y) - R.restFootY).toFixed(3) * 100);
+      pane.ghosts.forEach(g => { g.visible = false; });
+      pane.brakeAnchorRing.visible = false;
+      pane.footTrailL.geometry.setDrawRange(0, 0);
+      pane.footTrailR.geometry.setDrawRange(0, 0);
+    }
+
+    function updateVisibility() {
+      const isMov = state.mode === 'movement';
+      const showGrid = document.getElementById('optGrid').checked;
+      const showRootPath = document.getElementById('optRootPath').checked;
+      const showFootMarkers = document.getElementById('optFootMarkers').checked;
+      const showSkeleton = document.getElementById('optSkeleton').checked;
+      const showAxes = document.getElementById('optAxes').checked;
+      const showBladeArc = document.getElementById('optBladeArc').checked;
+      const showRigFeet = document.getElementById('optRigFeet').checked;
+      const showTarget = document.getElementById('optTarget').checked;
+
+      for (const pane of [beforePane, afterPane]) {
+        pane.grid.visible = isMov ? showGrid : true;
+        pane.movGroup.visible = isMov && showRootPath;
+        pane.footGroup.visible = isMov ? showFootMarkers : showRigFeet;
+        pane.rigGroup.visible = !isMov && showSkeleton;
+        pane.axesHelper.visible = !isMov && showAxes;
+        pane.bladeGroup.visible = !isMov && showBladeArc;
+        pane.targetGroup.visible = !isMov && showTarget;
+      }
+    }
+
+    function evaluateFrame() {
+      const dur = currentDuration();
+      state.time = Math.max(0, Math.min(dur, state.time));
+
+      if (state.mode === 'movement') {
+        const frameIdx = Math.min(DASH_FRAMES.length - 1, Math.max(0, Math.round(state.time / DT)));
+        simulateDashTo(beforePane, frameIdx, MOVEMENT_PRESETS.baseline);
+        simulateDashTo(afterPane, frameIdx, state.movementParams);
+      } else {
+        const baseKeyframes = (RIG_PRESETS[`${state.clip}_baseline`]?.keyframes) || [];
+        applyRigPose(beforePane, state.clip, state.time, baseKeyframes, state.arcDirty);
+        applyRigPose(afterPane, state.clip, state.time, state.keyframes, state.arcDirty);
+        state.arcDirty = false;
+      }
+
+      updateVisibility();
+      updateTimelineUI();
+      updateSelectedJointReadout();
+    }
+
+    function renderScene() {
+      const rect = canvasArea.getBoundingClientRect();
+      const W = Math.max(1, Math.floor(rect.width));
+      const H = Math.max(1, Math.floor(rect.height));
+      const pr = renderer.getPixelRatio();
+      if (canvas.width !== Math.floor(W * pr) || canvas.height !== Math.floor(H * pr)) {
+        renderer.setSize(W, H, false);
+        overlay.width = W;
+        overlay.height = H;
+      }
+
+      const panes = state.layout === 'split'
+        ? [[beforePane, 0, 0, Math.floor(W / 2), H], [afterPane, Math.floor(W / 2), 0, W - Math.floor(W / 2), H]]
+        : state.layout === 'before'
+          ? [[beforePane, 0, 0, W, H]]
+          : [[afterPane, 0, 0, W, H]];
+
+      const base = CAM_BASES[camState.preset] || CAM_BASES.game;
+      const azim = base.azim + camState.yawOffset;
+      const pitch = Math.max(-0.2, Math.min(1.35, base.pitch + camState.pitchOffset));
+      const dist = Math.max(2.2, Math.min(28, base.dist * camState.distScale));
+
+      for (const [pane, x, y, w, h] of panes) {
+        const p = pane.view.root.position;
+        const focusX = state.mode === 'movement' && camState.preset === 'game' ? 1.05 : p.x;
+        const focusZ = state.mode === 'movement' && camState.preset === 'game' ? -1.05 : p.z;
+        const target = new THREE.Vector3(focusX, base.targetY, focusZ);
+        const dir = new THREE.Vector3(
+          Math.cos(pitch) * Math.cos(azim),
+          Math.sin(pitch),
+          Math.cos(pitch) * Math.sin(azim)
+        );
+        camera.position.copy(target).addScaledVector(dir, dist);
+        camera.lookAt(target);
+        camera.aspect = w / Math.max(1, h);
+        camera.updateProjectionMatrix();
+
+        pane.sun.position.set(target.x - 5, 11, target.z + 4);
+        pane.sun.target.position.copy(target);
+
+        renderer.setViewport(x, y, w, h);
+        renderer.setScissor(x, y, w, h);
+        renderer.render(pane.scene, camera);
+      }
+
+      draw2DOverlay(W, H);
+    }
+
+    function draw2DOverlay(W, H) {
+      octx.clearRect(0, 0, W, H);
+      octx.font = '12px Consolas, monospace';
+      if (state.mode === 'movement') {
+        const f = DASH_FRAMES[Math.min(DASH_FRAMES.length - 1, Math.round(state.time / DT))];
+        const line1 = `phase=${f.phase}  speed=${f.speed.toFixed(2)}u/s  travel=${Math.hypot(f.x, f.z).toFixed(2)}u`;
+        const bText = `Before slide=${beforePane.metrics.brakeSlideCm}cm  lean=${beforePane.metrics.torsoLeanDeg}°`;
+        const aText = `After  slide=${afterPane.metrics.brakeSlideCm}cm  lean=${afterPane.metrics.torsoLeanDeg}°`;
+        octx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        octx.fillRect(10, H - 56, 442, 46);
+        octx.fillStyle = '#e2e8f0';
+        octx.fillText(line1, 18, H - 38);
+        octx.fillStyle = '#fde68a';
+        octx.fillText(`${bText} | ${aText}`, 18, H - 20);
+      } else {
+        const spec = ATTACK_SCENARIOS[state.clip];
+        const bClip = beforePane.metrics.maxClipCm > 2 ? `CLIP ${beforePane.metrics.maxClipCm}cm (${beforePane.metrics.worstJoint})` : `CLEAR (${beforePane.metrics.maxClipCm}cm)`;
+        const aClip = afterPane.metrics.maxClipCm > 2 ? `CLIP ${afterPane.metrics.maxClipCm}cm (${afterPane.metrics.worstJoint})` : `CLEAR (${afterPane.metrics.maxClipCm}cm)`;
+        octx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+        octx.fillRect(10, H - 56, 468, 46);
+        octx.fillStyle = '#e9d5ff';
+        octx.fillText(`ServerConfirm=${spec.serverConfirmAt.toFixed(3)}s | VisualContact=${spec.visualContactAt.toFixed(3)}s`, 18, H - 38);
+        octx.fillStyle = '#fde68a';
+        octx.fillText(`Before: ${bClip}  |  After: ${aClip}`, 18, H - 20);
+      }
+    }
+
+    // ---- UI Population & Binding ----
+    const movPresetSel = document.getElementById('movPresetSel');
+    for (const id of MOVEMENT_PRESET_ORDER) {
+      movPresetSel.add(new Option(MOVEMENT_PRESETS[id].label, id));
+    }
+
+    const clipSel = document.getElementById('clipSel');
+    for (const [id, spec] of Object.entries(ATTACK_SCENARIOS)) {
+      clipSel.add(new Option(spec.label, id));
+    }
+
+    const rigPresetSel = document.getElementById('rigPresetSel');
+    function rebuildRigPresetDropdown() {
+      rigPresetSel.innerHTML = '';
+      for (const p of presetsForClip(state.clip)) {
+        rigPresetSel.add(new Option(p.label, p.id));
+      }
+      if (state.rigPresetId === 'custom_draft') {
+        rigPresetSel.add(new Option('Draft · แก้ไขเอง', 'custom_draft'));
+      }
+      rigPresetSel.value = state.rigPresetId;
+    }
+
+    const MOV_FIELDS = [
+      ['windupLeanDeg', 'โน้มเตรียมก่อนพุ่ง (°)', -25, 10, 0.5],
+      ['windupHipDropCm', 'ย่อสะโพกตอนเตรียม (cm)', 0, 14, 0.5],
+      ['dashLeanDeg', 'องศาโน้มตัวตอนพุ่ง (°)', -10, 45, 0.5],
+      ['dashHipDropCm', 'ย่อสะโพกตอนพุ่ง (cm)', 0, 18, 0.5],
+      ['leadFootFlexDeg', 'พับขา/เท้าหน้านำทาง (°)', 0, 35, 0.5],
+      ['trailFootExtendDeg', 'เหยียดเท้าหลังถีบ (°)', 0, 35, 0.5],
+      ['brakeLeanDeg', 'เอนต้านตอนหยุด (°)', -30, 15, 0.5],
+      ['brakeHipDropCm', 'ย่อสะโพกตอนลงน้ำหนัก (cm)', 0, 16, 0.5],
+      ['recoverDuration', 'ช่วงคืนท่าเข้ายีน (s)', 0.10, 0.45, 0.01]
+    ];
+
+    const movControlsEl = document.getElementById('movControls');
+    const movInputMap = {};
+    for (const [key, label, min, max, step] of MOV_FIELDS) {
+      const row = document.createElement('div');
+      row.className = 'slider-row';
+      const lbl = document.createElement('label');
+      lbl.textContent = label;
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.min = min; range.max = max; range.step = step;
+      const num = document.createElement('input');
+      num.type = 'number';
+      num.min = min; num.max = max; num.step = step;
+      row.append(lbl, range, num);
+      movControlsEl.appendChild(row);
+      movInputMap[key] = { range, num };
+
+      const commit = (val, pushUndo) => {
+        if (pushUndo) snapshotUndo();
+        const clamped = Math.max(min, Math.min(max, Number(val) || 0));
+        state.movementParams[key] = clamped;
+        state.movementParams.enabled = true;
+        range.value = clamped;
+        num.value = clamped;
+        evaluateFrame();
+      };
+      range.addEventListener('pointerdown', () => snapshotUndo());
+      range.addEventListener('input', () => commit(range.value, false));
+      num.addEventListener('change', () => commit(num.value, true));
+    }
+
+    // Joint list + joint sliders
+    const jointListEl = document.getElementById('jointList');
+    const jointBtns = {};
+    for (const spec of JOINT_SPECS) {
+      const btn = document.createElement('button');
+      btn.className = 'joint-btn';
+      btn.dataset.joint = spec.id;
+      btn.textContent = spec.label;
+      btn.onclick = () => selectJoint(spec.id);
+      jointListEl.appendChild(btn);
+      jointBtns[spec.id] = btn;
+    }
+
+    function findKeyframeAt(t, tol = 0.009) {
+      return state.keyframes.find(kf => Math.abs(kf.t - t) <= tol) || null;
+    }
+
+    function ensureKeyframeAtCurrentTime() {
+      const t = Number(state.time.toFixed(3));
+      let kf = findKeyframeAt(t);
+      if (!kf) {
+        const sampled = sampleRigKeyframes(state.keyframes, t);
+        kf = {
+          t,
+          joints: Object.fromEntries(Object.entries(sampled.joints).map(([k, v]) => [k, v.map(n => Number(n.toFixed(1)))])),
+          ...(Math.abs(sampled.hipsYCm) > 0.01 ? { hipsYCm: Number(sampled.hipsYCm.toFixed(1)) } : {})
+        };
+        state.keyframes.push(kf);
+        state.keyframes = cloneKeyframes(state.keyframes);
+        kf = findKeyframeAt(t);
+      }
+      return kf;
+    }
+
+    function setJointOffsetOnCurrentFrame(jointId, vec3, hipsYCm = null, isMountPos = null) {
+      const kf = ensureKeyframeAtCurrentTime();
+      if (jointId === 'swordMount') {
+        if (isMountPos) kf.swordMountPosCm = isMountPos.map(v => Number(v.toFixed(2)));
+        if (vec3) kf.swordMountRotDeg = vec3.map(v => Number(v.toFixed(1)));
+      } else {
+        if (vec3) kf.joints[jointId] = vec3.map(v => Number(v.toFixed(1)));
+        if (hipsYCm !== null) kf.hipsYCm = Number(hipsYCm.toFixed(2));
+      }
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      rebuildRigPresetDropdown();
+      renderKeyframePills();
+      evaluateFrame();
+    }
+
+    const jointSlidersEl = document.getElementById('jointSliders');
+    function rebuildJointEditor() {
+      const spec = JOINT_SPEC_MAP[state.selectedJoint] || JOINT_SPECS[0];
+      document.getElementById('selJointTitle').textContent = spec.label;
+      jointSlidersEl.innerHTML = '';
+
+      const sample = sampleRigKeyframes(state.keyframes, state.time);
+      const curRot = spec.isMount ? (sample.swordMountRotDeg || [0, 0, 0]) : (sample.joints[spec.id] || [0, 0, 0]);
+
+      ['X', 'Y', 'Z'].forEach((axisName, idx) => {
+        const axisKey = axisName.toLowerCase();
+        const [min, max] = spec.rangeDeg[axisKey];
+        const disabled = min === max;
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+        const lbl = document.createElement('label');
+        lbl.textContent = `หมุนแกน ${axisName} (°)${disabled ? ' [ล็อกตามสรีระ]' : ''}`;
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = min; range.max = max; range.step = 0.5;
+        range.value = curRot[idx] || 0;
+        range.disabled = disabled;
+        range.dataset.axis = axisKey;
+        const num = document.createElement('input');
+        num.type = 'number';
+        num.min = min; num.max = max; num.step = 0.5;
+        num.value = Number((curRot[idx] || 0).toFixed(1));
+        num.disabled = disabled;
+        num.dataset.axisNum = axisKey;
+
+        const apply = (val, pushUndo) => {
+          if (pushUndo) snapshotUndo();
+          const sNow = sampleRigKeyframes(state.keyframes, state.time);
+          const next = (spec.isMount ? sNow.swordMountRotDeg : (sNow.joints[spec.id] || [0, 0, 0])).slice();
+          next[idx] = Math.max(min, Math.min(max, Number(val) || 0));
+          range.value = next[idx];
+          num.value = next[idx];
+          setJointOffsetOnCurrentFrame(spec.id, next, null, null);
+        };
+        range.addEventListener('pointerdown', () => snapshotUndo());
+        range.addEventListener('input', () => apply(range.value, false));
+        num.addEventListener('change', () => apply(num.value, true));
+        row.append(lbl, range, num);
+        jointSlidersEl.appendChild(row);
+      });
+
+      if (spec.hasHipsY) {
+        const [minY, maxY] = spec.hipsYRangeCm;
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+        const lbl = document.createElement('label');
+        lbl.textContent = 'ความสูงสะโพก (cm)';
+        const range = document.createElement('input');
+        range.type = 'range'; range.min = minY; range.max = maxY; range.step = 0.5;
+        range.value = sample.hipsYCm || 0;
+        const num = document.createElement('input');
+        num.type = 'number'; num.min = minY; num.max = maxY; num.step = 0.5;
+        num.value = Number((sample.hipsYCm || 0).toFixed(1));
+        const apply = (val, pushUndo) => {
+          if (pushUndo) snapshotUndo();
+          const c = Math.max(minY, Math.min(maxY, Number(val) || 0));
+          range.value = c; num.value = c;
+          setJointOffsetOnCurrentFrame('hips', null, c, null);
+        };
+        range.addEventListener('pointerdown', () => snapshotUndo());
+        range.addEventListener('input', () => apply(range.value, false));
+        num.addEventListener('change', () => apply(num.value, true));
+        row.append(lbl, range, num);
+        jointSlidersEl.appendChild(row);
+      }
+
+      if (spec.isMount) {
+        ['X', 'Y', 'Z'].forEach((axisName, idx) => {
+          const [minP, maxP] = spec.posRangeCm;
+          const row = document.createElement('div');
+          row.className = 'slider-row';
+          const lbl = document.createElement('label');
+          lbl.textContent = `เลื่อนจุดจับดาบ ${axisName} (cm)`;
+          const range = document.createElement('input');
+          range.type = 'range'; range.min = minP; range.max = maxP; range.step = 0.2;
+          range.value = (sample.swordMountPosCm?.[idx] || 0);
+          const num = document.createElement('input');
+          num.type = 'number'; num.min = minP; num.max = maxP; num.step = 0.2;
+          num.value = Number((sample.swordMountPosCm?.[idx] || 0).toFixed(1));
+          const apply = (val, pushUndo) => {
+            if (pushUndo) snapshotUndo();
+            const sNow = sampleRigKeyframes(state.keyframes, state.time);
+            const nextPos = (sNow.swordMountPosCm || [0, 0, 0]).slice();
+            nextPos[idx] = Math.max(minP, Math.min(maxP, Number(val) || 0));
+            range.value = nextPos[idx]; num.value = nextPos[idx];
+            setJointOffsetOnCurrentFrame('swordMount', null, null, nextPos);
+          };
+          range.addEventListener('pointerdown', () => snapshotUndo());
+          range.addEventListener('input', () => apply(range.value, false));
+          num.addEventListener('change', () => apply(num.value, true));
+          row.append(lbl, range, num);
+          jointSlidersEl.appendChild(row);
+        });
+      }
+      updateSelectedJointReadout();
+    }
+
+    function updateSelectedJointReadout() {
+      const node = afterPane.view.R[state.selectedJoint];
+      if (!node) return;
+      _eTmp.setFromQuaternion(node.quaternion, 'XYZ');
+      const deg = [(_eTmp.x * R2D).toFixed(0), (_eTmp.y * R2D).toFixed(0), (_eTmp.z * R2D).toFixed(0)].join(',');
+      document.getElementById('selJointReadout').textContent = `Local=(${deg})°`;
+
+      const kf = findKeyframeAt(state.time);
+      for (const spec of JOINT_SPECS) {
+        const btn = jointBtns[spec.id];
+        btn.setAttribute('aria-pressed', spec.id === state.selectedJoint ? 'true' : 'false');
+        const hasKey = Boolean(
+          kf && (
+            (spec.isMount && (kf.swordMountPosCm || kf.swordMountRotDeg)) ||
+            (!spec.isMount && (kf.joints?.[spec.id] || (spec.hasHipsY && kf.hipsYCm)))
+          )
+        );
+        btn.classList.toggle('keyed', hasKey);
+      }
+    }
+
+    function renderKeyframePills() {
+      const wrap = document.getElementById('kfPills');
+      wrap.innerHTML = '';
+      for (const kf of cloneKeyframes(state.keyframes)) {
+        const pill = document.createElement('button');
+        pill.className = 'kf-pill' + (Math.abs(kf.t - state.time) <= 0.009 ? ' active' : '');
+        pill.textContent = `${kf.t.toFixed(3)}s`;
+        pill.onclick = () => {
+          state.playing = false;
+          state.time = kf.t;
+          rebuildJointEditor();
+          evaluateFrame();
+        };
+        wrap.appendChild(pill);
+      }
+    }
+
+    function selectJoint(jointId) {
+      if (!JOINT_SPEC_MAP[jointId]) return;
+      state.selectedJoint = jointId;
+      rebuildJointEditor();
+      evaluateFrame();
+    }
+
+    function updateTimelineUI() {
+      const dur = currentDuration();
+      const scrub = document.getElementById('scrub');
+      scrub.max = dur;
+      scrub.value = state.time;
+      document.getElementById('timeLabel').textContent = `${state.time.toFixed(3)} / ${dur.toFixed(3)}s`;
+      const playBtn = document.getElementById('playBtn');
+      playBtn.setAttribute('aria-pressed', !state.playing ? 'true' : 'false');
+      playBtn.textContent = state.playing ? 'หยุด (Space)' : 'เล่นต่อ (Space)';
+
+      const trackEl = document.getElementById('combatTimingTrack');
+      if (state.mode === 'rig') {
+        const spec = ATTACK_SCENARIOS[state.clip];
+        trackEl.hidden = false;
+        const pServ = document.getElementById('pillServer');
+        const pCont = document.getElementById('pillContact');
+        pServ.textContent = `ยืนยันเซิร์ฟเวอร์ (${spec.serverConfirmAt.toFixed(3)}s)`;
+        pCont.textContent = `อาวุธถึงเป้า (${spec.visualContactAt.toFixed(3)}s)`;
+        pServ.classList.toggle('active', state.time <= 0.03);
+        pCont.classList.toggle('active', Math.abs(state.time - spec.visualContactAt) <= 0.018);
+        document.getElementById('statusMetrics').textContent =
+          `ท่า ${state.clip} · Before=${beforePane.metrics.maxClipCm}cm (${beforePane.metrics.worstJoint}) · After=${afterPane.metrics.maxClipCm}cm`;
+      } else {
+        trackEl.hidden = true;
+        const f = DASH_FRAMES[Math.min(DASH_FRAMES.length - 1, Math.round(state.time / DT))];
+        document.getElementById('statusMetrics').textContent =
+          `เฟส ${f.phase} · Before slide=${beforePane.metrics.brakeSlideCm}cm · After slide=${afterPane.metrics.brakeSlideCm}cm`;
+      }
+    }
+
+    function syncUI() {
+      const isMov = state.mode === 'movement';
+      document.getElementById('modeMovementBtn').setAttribute('aria-pressed', isMov ? 'true' : 'false');
+      document.getElementById('modeRigBtn').setAttribute('aria-pressed', !isMov ? 'true' : 'false');
+      document.getElementById('movementPanel').hidden = !isMov;
+      document.getElementById('rigPanel').hidden = isMov;
+      document.getElementById('movOverlays').hidden = !isMov;
+      document.getElementById('rigOverlays').hidden = isMov;
+
+      document.getElementById('layoutSplitBtn').setAttribute('aria-pressed', state.layout === 'split' ? 'true' : 'false');
+      document.getElementById('layoutBeforeBtn').setAttribute('aria-pressed', state.layout === 'before' ? 'true' : 'false');
+      document.getElementById('layoutAfterBtn').setAttribute('aria-pressed', state.layout === 'after' ? 'true' : 'false');
+
+      divSplit.hidden = state.layout !== 'split';
+      badgeBefore.hidden = state.layout === 'after';
+      badgeAfter.hidden = state.layout === 'before';
+      badgeAfter.style.left = state.layout === 'split' ? 'calc(50% + 10px)' : '10px';
+
+      document.getElementById('camSel').value = camState.preset;
+      document.getElementById('rateSel').value = String(state.rate);
+
+      if (isMov) {
+        movPresetSel.value = state.movPresetId;
+        document.getElementById('movSummary').textContent =
+          (MOVEMENT_PRESETS[state.movPresetId]?.summary) || 'กำลังจูนค่าพุ่งและลงน้ำหนักเอง';
+        for (const [key] of MOV_FIELDS) {
+          movInputMap[key].range.value = state.movementParams[key];
+          movInputMap[key].num.value = state.movementParams[key];
+        }
+        document.getElementById('optBrakeFootLock').checked = !!state.movementParams.brakeFootLock;
+        document.getElementById('optAfterimages').checked = !!state.movementParams.showAfterimages;
+        document.getElementById('optDashDust').checked = !!state.movementParams.showDust;
+        document.getElementById('scenarioDesc').textContent = DASH_SCENARIO.desc;
+      } else {
+        clipSel.value = state.clip;
+        rebuildRigPresetDropdown();
+        const rp = RIG_PRESETS[state.rigPresetId];
+        document.getElementById('rigSummary').textContent = rp ? rp.summary : `กำลังแก้ไขท่า ${state.clip} (${state.keyframes.length} keyframes)`;
+        document.getElementById('scenarioDesc').textContent = ATTACK_SCENARIOS[state.clip].desc;
+        rebuildJointEditor();
+        renderKeyframePills();
+      }
+
+      // Marker jump buttons
+      const markerWrap = document.getElementById('markerButtons');
+      markerWrap.innerHTML = '';
+      const markers = isMov ? DASH_SCENARIO.markers : ATTACK_SCENARIOS[state.clip].markers;
+      for (const m of markers) {
+        const b = document.createElement('button');
+        b.textContent = m.label;
+        b.onclick = () => {
+          state.playing = false;
+          state.time = m.t;
+          if (!isMov) rebuildJointEditor();
+          evaluateFrame();
+        };
+        markerWrap.appendChild(b);
+      }
+      updateTimelineUI();
+    }
+
+    function setPersistMessage(text, kind = '') {
+      const el = document.getElementById('persistMsg');
+      el.textContent = text;
+      el.className = 'msg-banner' + (kind ? ` ${kind}` : '');
+    }
+
+    function refreshDraftStatus() {
+      try {
+        const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const btn = document.getElementById('loadDraftBtn');
+        if (!raw) {
+          btn.disabled = true;
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        btn.disabled = false;
+        const when = parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleTimeString('th-TH') : '';
+        setPersistMessage(`พบ Draft ที่บันทึกไว้: ${parsed.mode === 'movement' ? 'Movement (dash_stop)' : `ท่า ${parsed.clip}`} · ${parsed.keyframes?.length || 0} KF (${when})`, 'ok');
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveDraft() {
+      const payload = buildExportPayload({
+        mode: state.mode,
+        heroId: 'knight',
+        clip: state.clip,
+        presetId: state.mode === 'movement' ? state.movPresetId : state.rigPresetId,
+        label: `Draft (${state.mode === 'movement' ? 'dash_stop' : state.clip})`,
+        movementParams: state.movementParams,
+        keyframes: state.keyframes
+      });
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      refreshDraftStatus();
+      return payload;
+    }
+
+    function loadDraft() {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) {
+        setPersistMessage('ไม่พบ Draft ที่บันทึกไว้ในเบราว์เซอร์', 'warn');
+        return false;
+      }
+      const res = validateImportPayload(raw, { heroId: 'knight' });
+      if (!res.ok) {
+        setPersistMessage(`ไม่สามารถโหลด Draft ได้: ${res.errors.join(' | ')}`, 'err');
+        return false;
+      }
+      applyImportedPayload(res.data, 'โหลด Draft กลับมาเรียบร้อย');
+      return true;
+    }
+
+    function exportJson(triggerDownload = true) {
+      const payload = buildExportPayload({
+        mode: state.mode,
+        heroId: 'knight',
+        clip: state.clip,
+        presetId: state.mode === 'movement' ? state.movPresetId : state.rigPresetId,
+        label: state.mode === 'movement' ? 'Movement Tuning (dash_stop)' : `Motion Rig (${state.clip})`,
+        movementParams: state.movementParams,
+        keyframes: state.keyframes
+      });
+      const text = JSON.stringify(payload, null, 2);
+      document.getElementById('jsonBox').value = text;
+      if (triggerDownload) {
+        const blob = new Blob([text], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `knight-${state.mode === 'movement' ? 'dash_stop' : state.clip}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+      }
+      setPersistMessage(`Export JSON เรียบร้อย (${payload.rigVersion} / ${payload.mode === 'rig' ? payload.clip : 'dash_stop'})`, 'ok');
+      return payload;
+    }
+
+    function applyImportedPayload(data, prefixMsg) {
+      snapshotUndo();
+      state.mode = data.mode;
+      if (data.clip) state.clip = data.clip;
+      if (data.movementParams) state.movementParams = { ...MOVEMENT_PRESETS.dash_grounded_r1, ...data.movementParams };
+      state.keyframes = cloneKeyframes(data.keyframes || []);
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      state.playing = false;
+      syncUI();
+      evaluateFrame();
+      setPersistMessage(`${prefixMsg}: ${data.heroId} · ${data.mode === 'rig' ? data.clip : 'dash_stop'} (${data.keyframes.length} KF)`, 'ok');
+    }
+
+    function importJson(rawText) {
+      const res = validateImportPayload(rawText, {
+        heroId: 'knight',
+        mode: state.mode,
+        clip: state.clip
+      });
+      if (!res.ok) {
+        setPersistMessage(`นำเข้าไม่สำเร็จ: ${res.errors.join(' | ')}`, 'err');
+        return { ok: false, errors: res.errors };
+      }
+      applyImportedPayload(res.data, 'Import JSON สำเร็จ');
+      if (res.warnings.length) {
+        setPersistMessage(`Import สำเร็จ (${res.warnings.join('; ')})`, 'warn');
+      }
+      return { ok: true, warnings: res.warnings };
+    }
+
+    // ---- Wire Controls ----
+    document.getElementById('modeMovementBtn').onclick = () => {
+      state.mode = 'movement';
+      state.time = 0.58;
+      state.playing = false;
+      syncUI();
+      evaluateFrame();
+    };
+    document.getElementById('modeRigBtn').onclick = () => {
+      state.mode = 'rig';
+      state.time = state.clip === 'attack2' ? 0.367 : ATTACK_SCENARIOS[state.clip].visualContactAt;
+      state.arcDirty = true;
+      state.playing = false;
+      syncUI();
+      evaluateFrame();
+    };
+    document.getElementById('layoutSplitBtn').onclick = () => { state.layout = 'split'; syncUI(); };
+    document.getElementById('layoutBeforeBtn').onclick = () => { state.layout = 'before'; syncUI(); };
+    document.getElementById('layoutAfterBtn').onclick = () => { state.layout = 'after'; syncUI(); };
+
+    document.getElementById('camSel').onchange = (e) => {
+      camState.preset = e.target.value;
+      camState.yawOffset = 0;
+      camState.pitchOffset = 0;
+      camState.distScale = 1;
+    };
+    document.getElementById('resetCamBtn').onclick = () => {
+      camState.yawOffset = 0;
+      camState.pitchOffset = 0;
+      camState.distScale = 1;
+    };
+
+    // Mouse orbit & wheel zoom
+    let draggingCam = false;
+    let dragX = 0;
+    let dragY = 0;
+    canvasArea.addEventListener('pointerdown', (e) => {
+      if (e.target !== canvas && e.target !== overlay) return;
+      draggingCam = true;
+      dragX = e.clientX;
+      dragY = e.clientY;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!draggingCam) return;
+      camState.yawOffset -= (e.clientX - dragX) * 0.008;
+      camState.pitchOffset = Math.max(-0.5, Math.min(0.9, camState.pitchOffset + (e.clientY - dragY) * 0.006));
+      dragX = e.clientX;
+      dragY = e.clientY;
+    });
+    window.addEventListener('pointerup', () => { draggingCam = false; });
+    canvasArea.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camState.distScale = Math.max(0.35, Math.min(2.2, camState.distScale * (e.deltaY > 0 ? 1.08 : 0.92)));
+    }, { passive: false });
+
+    ['optGrid', 'optRootPath', 'optFootMarkers', 'optSkeleton', 'optAxes', 'optBladeArc', 'optRigFeet', 'optTarget'].forEach(id => {
+      document.getElementById(id).onchange = () => updateVisibility();
+    });
+
+    movPresetSel.onchange = (e) => {
+      snapshotUndo();
+      state.movPresetId = e.target.value;
+      state.movementParams = { ...MOVEMENT_PRESETS[state.movPresetId] };
+      syncUI();
+      evaluateFrame();
+    };
+    document.getElementById('optBrakeFootLock').onchange = (e) => {
+      snapshotUndo();
+      state.movementParams.brakeFootLock = e.target.checked;
+      state.movementParams.enabled = true;
+      evaluateFrame();
+    };
+    document.getElementById('optAfterimages').onchange = (e) => {
+      snapshotUndo();
+      state.movementParams.showAfterimages = e.target.checked;
+      state.movementParams.enabled = true;
+      evaluateFrame();
+    };
+    document.getElementById('optDashDust').onchange = (e) => {
+      snapshotUndo();
+      state.movementParams.showDust = e.target.checked;
+      state.movementParams.enabled = true;
+      evaluateFrame();
+    };
+    document.getElementById('movUndoBtn').onclick = () => applyUndo();
+    document.getElementById('movResetBtn').onclick = () => {
+      snapshotUndo();
+      const base = MOVEMENT_PRESETS[state.movPresetId] || MOVEMENT_PRESETS.dash_grounded_r1;
+      state.movementParams = { ...base };
+      syncUI();
+      evaluateFrame();
+    };
+
+    clipSel.onchange = (e) => {
+      snapshotUndo();
+      state.clip = e.target.value;
+      state.rigPresetId = defaultPresetForClip(state.clip);
+      state.keyframes = cloneKeyframes(RIG_PRESETS[state.rigPresetId].keyframes);
+      state.arcDirty = true;
+      state.time = Math.min(state.time, currentDuration());
+      syncUI();
+      evaluateFrame();
+    };
+    rigPresetSel.onchange = (e) => {
+      const id = e.target.value;
+      if (!RIG_PRESETS[id]) return;
+      snapshotUndo();
+      state.rigPresetId = id;
+      state.keyframes = cloneKeyframes(RIG_PRESETS[id].keyframes);
+      state.arcDirty = true;
+      syncUI();
+      evaluateFrame();
+    };
+
+    document.getElementById('upsertKfBtn').onclick = () => {
+      snapshotUndo();
+      ensureKeyframeAtCurrentTime();
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      rebuildRigPresetDropdown();
+      renderKeyframePills();
+      evaluateFrame();
+      setPersistMessage(`บันทึก Keyframe ที่ ${state.time.toFixed(3)}s เรียบร้อย (อย่าลืมกด Save Draft หรือ Export JSON)`, 'ok');
+    };
+    document.getElementById('deleteKfBtn').onclick = () => {
+      const kf = findKeyframeAt(state.time);
+      if (!kf) return;
+      snapshotUndo();
+      state.keyframes = state.keyframes.filter(item => item !== kf);
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      rebuildRigPresetDropdown();
+      rebuildJointEditor();
+      renderKeyframePills();
+      evaluateFrame();
+    };
+    document.getElementById('rigUndoBtn').onclick = () => applyUndo();
+    document.getElementById('rigResetFrameBtn').onclick = () => {
+      const kf = findKeyframeAt(state.time);
+      if (!kf) return;
+      snapshotUndo();
+      if (state.selectedJoint === 'swordMount') {
+        delete kf.swordMountPosCm;
+        delete kf.swordMountRotDeg;
+      } else {
+        delete kf.joints[state.selectedJoint];
+        if (state.selectedJoint === 'hips') delete kf.hipsYCm;
+      }
+      state.arcDirty = true;
+      rebuildJointEditor();
+      renderKeyframePills();
+      evaluateFrame();
+    };
+    document.getElementById('rigResetAllBtn').onclick = () => {
+      snapshotUndo();
+      const baseId = RIG_PRESETS[`${state.clip}_baseline`].id;
+      state.rigPresetId = baseId;
+      state.keyframes = [];
+      state.arcDirty = true;
+      syncUI();
+      evaluateFrame();
+    };
+
+    document.getElementById('saveDraftBtn').onclick = () => saveDraft();
+    document.getElementById('loadDraftBtn').onclick = () => loadDraft();
+    document.getElementById('exportJsonBtn').onclick = () => exportJson(true);
+    document.getElementById('importFileBtn').onclick = () => document.getElementById('importFileInput').click();
+    document.getElementById('importFileInput').onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      document.getElementById('jsonBox').value = text;
+      importJson(text);
+      e.target.value = '';
+    };
+    document.getElementById('importTextBtn').onclick = () => {
+      importJson(document.getElementById('jsonBox').value);
+    };
+
+    // Timeline controls & shortcuts
+    document.getElementById('replayBtn').onclick = () => {
+      state.time = 0;
+      state.playing = true;
+      evaluateFrame();
+    };
+    document.getElementById('playBtn').onclick = () => {
+      state.playing = !state.playing;
+      updateTimelineUI();
+    };
+    document.getElementById('rateSel').onchange = (e) => {
+      state.rate = Number(e.target.value) || 1;
+    };
+    document.getElementById('prevFrameBtn').onclick = () => {
+      state.playing = false;
+      state.time = Math.max(0, state.time - DT);
+      if (state.mode === 'rig') rebuildJointEditor();
+      evaluateFrame();
+    };
+    document.getElementById('nextFrameBtn').onclick = () => {
+      state.playing = false;
+      state.time = Math.min(currentDuration(), state.time + DT);
+      if (state.mode === 'rig') rebuildJointEditor();
+      evaluateFrame();
+    };
+    document.getElementById('scrub').oninput = (e) => {
+      state.playing = false;
+      state.time = Number(e.target.value) || 0;
+      if (state.mode === 'rig') rebuildJointEditor();
+      evaluateFrame();
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox') {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          applyUndo();
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        applyUndo();
+      } else if (e.code === 'Space' || e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        state.playing = !state.playing;
+        updateTimelineUI();
+      } else if (e.key.toLowerCase() === 'r') {
+        state.time = 0;
+        state.playing = true;
+        evaluateFrame();
+      } else if (e.key === ',') {
+        document.getElementById('prevFrameBtn').click();
+      } else if (e.key === '.') {
+        document.getElementById('nextFrameBtn').click();
+      }
+    });
+
+    // Expose programmatic API for scripted verification & QA
+    window.motionRigLab = {
+      setMode: (m) => {
+        state.mode = m === 'rig' ? 'rig' : 'movement';
+        state.time = state.mode === 'movement' ? 0.58 : (state.clip === 'attack2' ? 0.367 : ATTACK_SCENARIOS[state.clip].visualContactAt);
+        state.arcDirty = true;
+        state.playing = false;
+        syncUI();
+        evaluateFrame();
+      },
+      setLayout: (l) => { state.layout = l; syncUI(); },
+      setCam: (c) => {
+        camState.preset = CAM_BASES[c] ? c : 'game';
+        camState.yawOffset = 0; camState.pitchOffset = 0; camState.distScale = 1;
+        syncUI();
+      },
+      setClip: (c) => {
+        if (!ATTACK_SCENARIOS[c]) return;
+        state.clip = c;
+        state.rigPresetId = defaultPresetForClip(c);
+        state.keyframes = cloneKeyframes(RIG_PRESETS[state.rigPresetId].keyframes);
+        state.arcDirty = true;
+        syncUI();
+        evaluateFrame();
+      },
+      setPreset: (id) => {
+        if (MOVEMENT_PRESETS[id]) {
+          state.movPresetId = id;
+          state.movementParams = { ...MOVEMENT_PRESETS[id] };
+        } else if (RIG_PRESETS[id]) {
+          state.clip = RIG_PRESETS[id].clip;
+          state.rigPresetId = id;
+          state.keyframes = cloneKeyframes(RIG_PRESETS[id].keyframes);
+          state.arcDirty = true;
+        }
+        syncUI();
+        evaluateFrame();
+      },
+      seek: (t) => {
+        state.playing = false;
+        state.time = Math.max(0, Math.min(currentDuration(), Number(t) || 0));
+        if (state.mode === 'rig') rebuildJointEditor();
+        evaluateFrame();
+      },
+      setPaused: (p) => { state.playing = !!p; updateTimelineUI(); },
+      selectJoint: (j) => selectJoint(j),
+      setJointOffset: (jointId, vec3, hipsYCm = null, mountPos = null) => {
+        snapshotUndo();
+        setJointOffsetOnCurrentFrame(jointId, vec3, hipsYCm, mountPos);
+        rebuildJointEditor();
+      },
+      upsertKeyframe: () => document.getElementById('upsertKfBtn').click(),
+      undo: () => applyUndo(),
+      resetPose: () => document.getElementById('rigResetAllBtn').click(),
+      saveDraft: () => saveDraft(),
+      loadDraft: () => loadDraft(),
+      exportJson: (dl = false) => exportJson(dl),
+      importJson: (txt) => importJson(txt),
+      getState: () => ({
+        schema: SCHEMA_ID,
+        rigVersion: RIG_SPEC_VERSION,
+        mode: state.mode,
+        layout: state.layout,
+        cam: camState.preset,
+        clip: state.clip,
+        movPresetId: state.movPresetId,
+        rigPresetId: state.rigPresetId,
+        selectedJoint: state.selectedJoint,
+        time: state.time,
+        keyframes: cloneKeyframes(state.keyframes),
+        movementParams: { ...state.movementParams }
+      }),
+      getMetrics: () => ({
+        before: { ...beforePane.metrics },
+        after: { ...afterPane.metrics }
+      })
+    };
+
+    // Main render loop
+    let lastRealMs = globalThis.Date.now();
+    function tick() {
+      const nowMs = globalThis.Date.now();
+      const realDt = Math.min(0.08, Math.max(0, (nowMs - lastRealMs) / 1000));
+      lastRealMs = nowMs;
+      if (state.playing) {
+        const dur = currentDuration();
+        state.time += realDt * state.rate;
+        if (state.time > dur) state.time = 0;
+        evaluateFrame();
+      }
+      renderScene();
+      requestAnimationFrame(tick);
+    }
+
+    syncUI();
+    refreshDraftStatus();
+    evaluateFrame();
+    renderScene();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
