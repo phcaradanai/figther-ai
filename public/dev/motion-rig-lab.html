@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Movement &amp; Motion Rig Lab — figther-ai (Knight)</title>
+  <title>Movement &amp; Motion Rig Lab — figther-ai (Knight IK &amp; Direct Drag)</title>
   <script type="importmap">
     {
       "imports": {
@@ -40,10 +40,6 @@
       border: 1px solid rgba(235, 198, 128, 0.28);
       backdrop-filter: blur(6px);
     }
-    #topbar button, #topbar .nav-pill, #topbar select {
-      padding: 3px 6px;
-      font-size: 11px;
-    }
     .brand {
       font-weight: 700;
       font-size: 12px;
@@ -54,13 +50,14 @@
       width: 1px;
       height: 18px;
       background: rgba(255, 255, 255, 0.14);
+      flex: 0 0 auto;
     }
     button, select, input, textarea {
       font: inherit;
       color: inherit;
     }
     button, .nav-pill {
-      padding: 4px 9px;
+      padding: 4px 8px;
       border-radius: 7px;
       border: 1px solid rgba(255, 255, 255, 0.18);
       background: rgba(255, 255, 255, 0.06);
@@ -71,6 +68,10 @@
       align-items: center;
       gap: 4px;
     }
+    #topbar button, #topbar .nav-pill, #topbar select {
+      padding: 3px 6px;
+      font-size: 11px;
+    }
     button:hover, .nav-pill:hover { background: rgba(255, 255, 255, 0.14); }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
     button[aria-pressed="true"] {
@@ -78,6 +79,16 @@
       color: #161816;
       border-color: #f8d288;
       font-weight: 700;
+    }
+    #poseEditBtn[aria-pressed="true"] {
+      background: #22c55e;
+      color: #052e16;
+      border-color: #86efac;
+    }
+    #recClipBtn[aria-pressed="true"] {
+      background: #ef4444;
+      color: #fff;
+      border-color: #fca5a5;
     }
     .nav-pill {
       background: rgba(56, 189, 248, 0.14);
@@ -95,13 +106,15 @@
       position: fixed;
       left: 8px;
       top: 50px;
-      right: 360px;
+      right: 368px;
       bottom: 84px;
       border-radius: 10px;
       overflow: hidden;
       border: 1px solid rgba(235, 198, 128, 0.24);
       background: #1b2220;
+      cursor: grab;
     }
+    #canvasArea.dragging-handle { cursor: crosshair; }
     #view, #overlay {
       position: absolute;
       inset: 0;
@@ -143,7 +156,7 @@
       z-index: 7;
       padding: 2px 8px;
       border-radius: 6px;
-      background: rgba(18, 22, 21, 0.78);
+      background: rgba(18, 22, 21, 0.82);
       color: #cbd5e1;
       font-size: 11px;
       pointer-events: none;
@@ -154,16 +167,16 @@
       top: 50px;
       right: 8px;
       bottom: 84px;
-      width: 344px;
+      width: 352px;
       z-index: 15;
       overflow-y: auto;
-      padding: 10px;
+      padding: 9px;
       border-radius: 10px;
       background: rgba(20, 25, 24, 0.94);
       border: 1px solid rgba(235, 198, 128, 0.28);
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
     .card {
       background: rgba(255, 255, 255, 0.04);
@@ -185,13 +198,13 @@
     .row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       flex-wrap: wrap;
     }
     .checks {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px 10px;
+      gap: 5px 10px;
     }
     .checks label {
       display: inline-flex;
@@ -216,28 +229,44 @@
     .slider-row input[type="range"] { width: 100%; accent-color: #eab308; }
     .slider-row input[type="number"] { width: 64px; text-align: right; font-family: Consolas, monospace; }
 
+    .handle-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+    .handle-btn {
+      font-size: 11px;
+      padding: 4px 5px;
+      justify-content: center;
+    }
+    .handle-btn[aria-pressed="true"] {
+      background: #38bdf8;
+      color: #082f49;
+      border-color: #bae6fd;
+    }
+
     #jointList {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 4px;
-      max-height: 158px;
+      max-height: 130px;
       overflow-y: auto;
     }
     .joint-btn {
       justify-content: space-between;
       font-size: 11px;
-      padding: 4px 6px;
+      padding: 3px 6px;
       text-align: left;
     }
     .joint-btn.keyed { border-color: rgba(74, 222, 128, 0.55); }
     .joint-btn[aria-pressed="true"] { background: #38bdf8; color: #0f172a; border-color: #bae6fd; }
 
-    .kf-pills {
+    .kf-pills, .lock-pills {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
     }
-    .kf-pill {
+    .kf-pill, .lock-pill {
       font: 11px Consolas, monospace;
       padding: 2px 6px;
       border-radius: 5px;
@@ -250,6 +279,22 @@
       color: #111827;
       border-color: #fde68a;
       font-weight: 700;
+    }
+    .lock-pill {
+      background: rgba(249, 115, 22, 0.18);
+      border-color: rgba(251, 146, 60, 0.55);
+      color: #fed7aa;
+    }
+
+    details {
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding-top: 6px;
+    }
+    details > summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #7dd3fc;
+      padding: 2px 0;
     }
 
     .msg-banner {
@@ -268,7 +313,7 @@
 
     #jsonBox {
       width: 100%;
-      height: 108px;
+      height: 86px;
       font: 11px/1.35 Consolas, monospace;
       resize: vertical;
       user-select: text;
@@ -299,7 +344,7 @@
       font-size: 11px;
       color: #d6cbb3;
     }
-    #scrub { flex: 1; min-width: 160px; accent-color: #eab308; }
+    #scrub { flex: 1; min-width: 140px; accent-color: #eab308; }
     .timing-pill {
       padding: 2px 7px;
       border-radius: 5px;
@@ -314,8 +359,9 @@
 <body>
   <div id="topbar">
     <span class="brand">Movement &amp; Motion Rig Lab · Knight</span>
-    <button id="modeMovementBtn" aria-pressed="true">Movement (พุ่งแล้วหยุด)</button>
-    <button id="modeRigBtn" aria-pressed="false">Motion Rig (แก้ท่าโจมตี)</button>
+    <button id="modeMovementBtn" aria-pressed="false">Movement (พุ่ง)</button>
+    <button id="modeRigBtn" aria-pressed="true">Motion Rig (แก้ท่า)</button>
+    <button id="poseEditBtn" aria-pressed="true">แก้ท่า (ลาก 3D)</button>
     <span class="sep"></span>
     <button id="layoutSplitBtn" aria-pressed="true">Before | After</button>
     <button id="layoutBeforeBtn" aria-pressed="false">Before เต็ม</button>
@@ -330,6 +376,7 @@
       </select>
     </label>
     <button id="resetCamBtn">รีเซ็ตมุม</button>
+    <button id="recClipBtn" aria-pressed="false">● อัดคลิป</button>
     <span class="sep"></span>
     <a class="nav-pill" href="/dev/art-combat-lab.html">Art &amp; Combat Lab ↗</a>
     <a class="nav-pill" href="/knight_motion_lab.html">Knight Motion Lab ↗</a>
@@ -340,28 +387,29 @@
     <canvas id="overlay"></canvas>
     <div id="divSplit"></div>
     <div id="badgeBefore" class="pane-badge">Before · เกมปัจจุบัน</div>
-    <div id="badgeAfter" class="pane-badge">After · ฉบับทดลอง</div>
-    <div id="camHint">ลากเมาส์หมุนกล้อง · Scroll ซูม</div>
+    <div id="badgeAfter" class="pane-badge">After · แก้ท่า IK / Foot Lock</div>
+    <div id="camHint">ลากซ้ายที่จุดจับ/ลูกศร: แก้ท่า · ลากขวา: หมุนกล้อง · Scroll: ซูม</div>
   </div>
 
   <aside id="sidebar">
     <div class="card">
       <h3>ตัวช่วยแสดงผล (Overlays)</h3>
-      <div id="movOverlays" class="checks">
+      <div id="movOverlays" class="checks" hidden>
         <label><input id="optGrid" type="checkbox" checked /> ตารางพื้น 1m</label>
         <label><input id="optRootPath" type="checkbox" checked /> เส้นทาง Root</label>
         <label><input id="optFootMarkers" type="checkbox" checked /> จุดแตะพื้น/รอยไถลเท้า</label>
       </div>
-      <div id="rigOverlays" class="checks" hidden>
-        <label><input id="optSkeleton" type="checkbox" checked /> เส้นกระดูก &amp; ข้อต่อ</label>
-        <label><input id="optAxes" type="checkbox" checked /> แกนข้อต่อที่เลือก</label>
+      <div id="rigOverlays" class="checks">
+        <label><input id="optHandles" type="checkbox" checked /> จุดจับ &amp; ลูกศรแกน (After)</label>
+        <label><input id="optSkeleton" type="checkbox" checked /> เส้นกระดูก</label>
+        <label><input id="optAxes" type="checkbox" /> แกนข้อต่อละเอียด</label>
         <label><input id="optBladeArc" type="checkbox" checked /> วิถีปลายดาบ</label>
-        <label><input id="optRigFeet" type="checkbox" checked /> ตำแหน่งเท้ากับพื้น</label>
+        <label><input id="optRigFeet" type="checkbox" checked /> จุดวางเท้า &amp; ล็อก</label>
         <label><input id="optTarget" type="checkbox" checked /> วงระยะโจมตี + หุ่นเทียบ</label>
       </div>
     </div>
 
-    <div id="movementPanel" class="card">
+    <div id="movementPanel" class="card" hidden>
       <h3>โหมด Movement — พุ่งแล้วหยุด (dash_stop)</h3>
       <div class="row">
         <label style="flex:1">Preset
@@ -372,8 +420,8 @@
       <div id="movControls" style="display:flex; flex-direction:column; gap:6px;"></div>
       <div class="checks">
         <label><input id="optBrakeFootLock" type="checkbox" checked /> ล็อกเท้าหน้าตอนเบรก (Foot-Lock IK)</label>
-        <label><input id="optAfterimages" type="checkbox" checked /> ภาพติดตาบอกทิศ (Afterimages)</label>
-        <label><input id="optDashDust" type="checkbox" checked /> ฝุ่นออกตัว/เบรก (Dust)</label>
+        <label><input id="optAfterimages" type="checkbox" checked /> ภาพติดตาบอกทิศ</label>
+        <label><input id="optDashDust" type="checkbox" checked /> ฝุ่นออกตัว/เบรก</label>
       </div>
       <div class="row">
         <button id="movUndoBtn">Undo</button>
@@ -381,8 +429,8 @@
       </div>
     </div>
 
-    <div id="rigPanel" class="card" hidden>
-      <h3>โหมด Motion Rig — แก้ท่าโจมตี</h3>
+    <div id="rigPanel" class="card">
+      <h3>โหมด Motion Rig — ลากแก้ท่า (IK)</h3>
       <div class="row">
         <label style="flex:1">ท่า (Clip)
           <select id="clipSel" style="width:100%"></select>
@@ -396,21 +444,32 @@
       <div id="rigSummary" class="msg-banner"></div>
 
       <div>
-        <div style="font-weight:600; margin-bottom:4px; color:#bae6fd;">เลือกข้อต่อ / จุดจับ (คลิกเพื่อแก้)</div>
-        <div id="jointList"></div>
+        <div style="font-weight:600; margin-bottom:4px; color:#7dd3fc;">จุดจับ IK บนตัวละคร (คลิกหรือลากในช่อง After)</div>
+        <div id="handleGrid" class="handle-grid"></div>
+        <div id="handleReadout" style="margin-top:4px; font:11px Consolas,monospace; color:#fde68a;"></div>
       </div>
 
-      <div id="jointEditor" style="display:flex; flex-direction:column; gap:6px; border-top:1px solid rgba(255,255,255,0.1); padding-top:6px;">
-        <div class="row" style="justify-content:space-between;">
-          <strong id="selJointTitle" style="color:#7dd3fc;">-</strong>
-          <span id="selJointReadout" style="font:11px Consolas,monospace; color:#fde68a;"></span>
+      <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:6px; display:flex; flex-direction:column; gap:5px;">
+        <div style="font-weight:600; color:#fed7aa;">ขาและเท้า (Snap to Ground &amp; ล็อกเท้าตามช่วงเฟรม)</div>
+        <div class="row">
+          <button id="snapFootBtn" style="flex:1; background:rgba(56,189,248,0.18); border-color:rgba(56,189,248,0.5); color:#bae6fd;">Snap เท้าลงพื้น</button>
+          <select id="lockFootSel">
+            <option value="footL">เท้าซ้าย (footL)</option>
+            <option value="footR">เท้าขวา (footR)</option>
+          </select>
         </div>
-        <div id="jointSliders" style="display:flex; flex-direction:column; gap:5px;"></div>
+        <div class="row">
+          <label>เริ่ม(s) <input id="lockStartNum" type="number" min="0" max="2" step="0.01" value="0.20" style="width:58px" /></label>
+          <label>จบ(s) <input id="lockEndNum" type="number" min="0" max="2" step="0.01" value="0.40" style="width:58px" /></label>
+          <button id="lockFootBtn" style="background:rgba(249,115,22,0.25); border-color:rgba(251,146,60,0.65); color:#fed7aa;">ล็อกเท้า</button>
+          <button id="unlockFootBtn">ปลดล็อก</button>
+        </div>
+        <div id="footLockList" class="lock-pills"></div>
       </div>
 
       <div style="border-top:1px solid rgba(255,255,255,0.1); padding-top:6px; display:flex; flex-direction:column; gap:5px;">
         <div class="row">
-          <button id="upsertKfBtn" style="flex:1; background:rgba(34,197,94,0.22); border-color:rgba(74,222,128,0.55); color:#bbf7d0;">เพิ่ม/แก้ Keyframe เฟรมนี้</button>
+          <button id="upsertKfBtn" style="flex:1; background:rgba(34,197,94,0.22); border-color:rgba(74,222,128,0.55); color:#bbf7d0;">เพิ่ม/แก้ KF เฟรมนี้</button>
           <button id="deleteKfBtn">ลบ KF</button>
         </div>
         <div class="row">
@@ -421,6 +480,20 @@
         <div style="font-size:11px; color:#94a3b8;">Keyframes ที่บันทึกในท่า:</div>
         <div id="kfPills" class="kf-pills"></div>
       </div>
+
+      <details id="fineDetails">
+        <summary>ละเอียด (หมุนข้อต่อ / Fine Rotation)</summary>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
+          <div id="jointList"></div>
+          <div id="jointEditor" style="display:flex; flex-direction:column; gap:5px; border-top:1px solid rgba(255,255,255,0.1); padding-top:5px;">
+            <div class="row" style="justify-content:space-between;">
+              <strong id="selJointTitle" style="color:#7dd3fc;">-</strong>
+              <span id="selJointReadout" style="font:11px Consolas,monospace; color:#fde68a;"></span>
+            </div>
+            <div id="jointSliders" style="display:flex; flex-direction:column; gap:4px;"></div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="card">
@@ -434,7 +507,7 @@
         <button id="importFileBtn" style="flex:1">Import ไฟล์ JSON</button>
         <input id="importFileInput" type="file" accept=".json,application/json" hidden />
       </div>
-      <textarea id="jsonBox" placeholder="กด Export JSON หรือวาง JSON เพื่อกด Import จากช่องนี้..."></textarea>
+      <textarea id="jsonBox" placeholder="กด Export JSON หรือวาง JSON เพื่อ Import..."></textarea>
       <div class="row">
         <button id="importTextBtn" style="flex:1">Import JSON จากช่องด้านบน</button>
       </div>
@@ -445,7 +518,7 @@
   <div id="bottombar">
     <div class="timeline-row">
       <button id="replayBtn">เล่นซ้ำ (R)</button>
-      <button id="playBtn" aria-pressed="false">หยุด (Space)</button>
+      <button id="playBtn" aria-pressed="true">เล่นต่อ (Space)</button>
       <label>ความเร็ว
         <select id="rateSel">
           <option value="1">1x</option>
@@ -457,12 +530,12 @@
       <button id="prevFrameBtn">-1 เฟรม (,)</button>
       <button id="nextFrameBtn">+1 เฟรม (.)</button>
       <span id="markerButtons" class="row"></span>
-      <input id="scrub" type="range" min="0" max="1.35" step="0.0166667" value="0" />
-      <span id="timeLabel" style="font:12px Consolas,monospace; min-width:96px; text-align:right;">0.000 / 1.350s</span>
+      <input id="scrub" type="range" min="0" max="0.4" step="0.0166667" value="0.367" />
+      <span id="timeLabel" style="font:12px Consolas,monospace; min-width:96px; text-align:right;">0.367 / 0.400s</span>
     </div>
     <div class="status-row">
       <span id="scenarioDesc"></span>
-      <span id="combatTimingTrack" class="row" hidden>
+      <span id="combatTimingTrack" class="row">
         <span id="pillServer" class="timing-pill server">ยืนยันเซิร์ฟเวอร์ (0.000s)</span>
         <span id="pillContact" class="timing-pill contact">อาวุธถึงเป้า (0.100s)</span>
       </span>
@@ -486,6 +559,7 @@
       RIG_PRESETS,
       presetsForClip,
       defaultPresetForClip,
+      cloneFootLocks,
       cloneKeyframes,
       sampleRigKeyframes,
       buildExportPayload,
@@ -497,18 +571,32 @@
       precomputeDashPath,
       ATTACK_SCENARIOS
     } from '/dev/motion_rig_scenarios.js';
+    import {
+      BLADE_BASE_LOCAL,
+      BLADE_TIP_LOCAL,
+      applyMotionRigPose,
+      getActiveFootLock
+    } from '/dev/motion_rig_ik.js';
 
     const DT = 1 / 60;
     const D2R = Math.PI / 180;
     const R2D = 180 / Math.PI;
     const DRAFT_STORAGE_KEY = 'figther_ai.motion_rig_lab.draft.v1';
 
-    // Keep internal ChibiView clocks strictly deterministic during 60 Hz seeks and replays.
     let simNowMs = 1000;
     performance.now = () => simNowMs;
 
     const DASH_FRAMES = precomputeDashPath(DT);
     const KNIGHT_GEAR = { weapon: 'knight', armor: 'knight', helmet: 'knight', trinket: 'knight' };
+
+    const HANDLE_SPECS = [
+      { id: 'hipsPos', label: 'สะโพก', color: 0xfacc15 },
+      { id: 'footL', label: 'เท้าซ้าย', color: 0x22d3ee },
+      { id: 'footR', label: 'เท้าขวา', color: 0x22d3ee },
+      { id: 'handR', label: 'มือขวา (ด้าม)', color: 0xf59e0b },
+      { id: 'bladeTip', label: 'ปลายดาบ', color: 0xe879f9 },
+      { id: 'handL', label: 'มือซ้าย (โล่)', color: 0x60a5fa }
+    ];
 
     const canvasArea = document.getElementById('canvasArea');
     const canvas = document.getElementById('view');
@@ -528,8 +616,9 @@
     renderer.setScissorTest(true);
 
     const camera = new THREE.PerspectiveCamera(24, 1, 0.2, 180);
+    const rayCamera = new THREE.PerspectiveCamera(24, 1, 0.2, 180);
+    const raycaster = new THREE.Raycaster();
 
-    // Checker texture + 1m grid helper shared across both panes
     const floorTex = (() => {
       const c = document.createElement('canvas');
       c.width = c.height = 128;
@@ -563,7 +652,6 @@
       const bodyMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.25, depthWrite: false });
       const shieldMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.3, depthWrite: false });
       const trimMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.25, depthWrite: false });
-
       const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.34, 4, 8), bodyMat);
       torso.position.y = 0.72;
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), trimMat);
@@ -579,7 +667,28 @@
       return g;
     }
 
-    function buildPane(label) {
+    function makeAxisArrow(axis, hex) {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({ color: hex, depthTest: false, transparent: true, opacity: 0.96 });
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.26, 8), mat);
+      shaft.position.y = 0.13;
+      shaft.renderOrder = 21;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.085, 10), mat);
+      cone.position.y = 0.29;
+      cone.renderOrder = 21;
+      const collider = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.048, 0.048, 0.38, 8),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      collider.position.y = 0.19;
+      collider.userData = { gizmoAxis: axis };
+      group.add(shaft, cone, collider);
+      if (axis === 'x') group.rotation.z = -Math.PI / 2;
+      else if (axis === 'z') group.rotation.x = Math.PI / 2;
+      return { group, collider, mat };
+    }
+
+    function buildPane(label, withHandles = false) {
       const scene = new THREE.Scene();
       scene.background = new THREE.Color('#273134');
       scene.fog = new THREE.Fog('#273134', 28, 70);
@@ -604,7 +713,7 @@
       grid.position.y = 0.004;
       scene.add(grid);
 
-      // Movement path overlay
+      // Movement overlays
       const pathPts = DASH_FRAMES.map(f => new THREE.Vector3(f.x, 0.015, f.z));
       const rootPathLine = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(pathPts),
@@ -614,30 +723,38 @@
       const stopPt = DASH_FRAMES[DASH_FRAMES.length - 1];
       const markerGeo = new THREE.RingGeometry(0.10, 0.16, 20);
       const dashStartRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide }));
-      dashStartRing.rotation.x = -Math.PI / 2;
-      dashStartRing.position.set(0, 0.016, 0);
+      dashStartRing.rotation.x = -Math.PI / 2; dashStartRing.position.set(0, 0.016, 0);
       const dashBurstRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide }));
-      dashBurstRing.rotation.x = -Math.PI / 2;
-      dashBurstRing.position.set(burstEndPt.x, 0.016, burstEndPt.z);
+      dashBurstRing.rotation.x = -Math.PI / 2; dashBurstRing.position.set(burstEndPt.x, 0.016, burstEndPt.z);
       const dashStopRing = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0x4ade80, side: THREE.DoubleSide }));
-      dashStopRing.rotation.x = -Math.PI / 2;
-      dashStopRing.position.set(stopPt.x, 0.016, stopPt.z);
+      dashStopRing.rotation.x = -Math.PI / 2; dashStopRing.position.set(stopPt.x, 0.016, stopPt.z);
       const movGroup = new THREE.Group();
       movGroup.add(rootPathLine, dashStartRing, dashBurstRing, dashStopRing);
 
-      // Ground contact foot rings & slide trail
+      // Foot contact rings & trails
       const footRingGeo = new THREE.RingGeometry(0.08, 0.13, 20);
       const footRingL = new THREE.Mesh(footRingGeo, new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide }));
       const footRingR = new THREE.Mesh(footRingGeo, new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide }));
       footRingL.rotation.x = -Math.PI / 2;
       footRingR.rotation.x = -Math.PI / 2;
-
       const brakeAnchorRing = new THREE.Mesh(
         new THREE.RingGeometry(0.14, 0.19, 24),
-        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+        new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide })
       );
       brakeAnchorRing.rotation.x = -Math.PI / 2;
       brakeAnchorRing.visible = false;
+      const footLockRingL = new THREE.Mesh(
+        new THREE.RingGeometry(0.14, 0.20, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide })
+      );
+      footLockRingL.rotation.x = -Math.PI / 2;
+      footLockRingL.visible = false;
+      const footLockRingR = new THREE.Mesh(
+        new THREE.RingGeometry(0.14, 0.20, 24),
+        new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide })
+      );
+      footLockRingR.rotation.x = -Math.PI / 2;
+      footLockRingR.visible = false;
 
       const footTrailGeoL = new THREE.BufferGeometry();
       footTrailGeoL.setAttribute('position', new THREE.BufferAttribute(new Float32Array(256 * 3), 3));
@@ -646,69 +763,113 @@
       footTrailGeoR.setAttribute('position', new THREE.BufferAttribute(new Float32Array(256 * 3), 3));
       const footTrailR = new THREE.Line(footTrailGeoR, new THREE.LineBasicMaterial({ color: 0xf97316 }));
       const footGroup = new THREE.Group();
-      footGroup.add(footRingL, footRingR, brakeAnchorRing, footTrailL, footTrailR);
+      footGroup.add(footRingL, footRingR, brakeAnchorRing, footLockRingL, footLockRingR, footTrailL, footTrailR);
 
       const ghosts = [makeAfterimageGhost(), makeAfterimageGhost(), makeAfterimageGhost(), makeAfterimageGhost()];
       ghosts.forEach(g => scene.add(g));
       scene.add(movGroup, footGroup);
 
-      // Motion Rig Overlays
+      // Rig overlays
       const rigGroup = new THREE.Group();
       const boneLinePos = new Float32Array(SKEL_EDGES.length * 2 * 3);
       const boneLineGeo = new THREE.BufferGeometry();
       boneLineGeo.setAttribute('position', new THREE.BufferAttribute(boneLinePos, 3));
       const boneLines = new THREE.LineSegments(
         boneLineGeo,
-        new THREE.LineBasicMaterial({ color: 0x7dd3fc, depthTest: false, transparent: true, opacity: 0.92 })
+        new THREE.LineBasicMaterial({ color: 0x7dd3fc, depthTest: false, transparent: true, opacity: 0.78 })
       );
       boneLines.renderOrder = 10;
-
       const jointSpheres = {};
-      const sphereGeo = new THREE.SphereGeometry(0.032, 10, 8);
+      const sphereGeo = new THREE.SphereGeometry(0.026, 10, 8);
       for (const j of SKEL_JOINTS) {
-        const m = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.95 }));
+        const m = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.88 }));
         m.renderOrder = 11;
         jointSpheres[j] = m;
         rigGroup.add(m);
       }
       rigGroup.add(boneLines);
 
-      const axesHelper = new THREE.AxesHelper(0.32);
+      const axesHelper = new THREE.AxesHelper(0.28);
       axesHelper.material.depthTest = false;
       axesHelper.renderOrder = 12;
 
       const bladeArcGeo = new THREE.BufferGeometry();
       const bladeArcLine = new THREE.Line(bladeArcGeo, new THREE.LineBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 0.9 }));
       bladeArcLine.renderOrder = 9;
-      const bladeContactDot = new THREE.Mesh(new THREE.SphereGeometry(0.052, 12, 10), new THREE.MeshBasicMaterial({ color: 0x4ade80, depthTest: false }));
+      const bladeContactDot = new THREE.Mesh(new THREE.SphereGeometry(0.048, 12, 10), new THREE.MeshBasicMaterial({ color: 0x4ade80, depthTest: false }));
       bladeContactDot.renderOrder = 12;
-      const bladeCurrDot = new THREE.Mesh(new THREE.SphereGeometry(0.044, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+      const bladeCurrDot = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
       bladeCurrDot.renderOrder = 13;
       const clipDotsGroup = new THREE.Group();
       const bladeGroup = new THREE.Group();
       bladeGroup.add(bladeArcLine, bladeContactDot, bladeCurrDot, clipDotsGroup);
 
-      // Target dummy & attack range ring
       const targetGroup = new THREE.Group();
       const rangeRing = new THREE.Mesh(
         new THREE.RingGeometry(2.26, 2.34, 48),
-        new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.65 })
+        new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
       );
       rangeRing.rotation.x = -Math.PI / 2;
       rangeRing.position.y = 0.01;
       const dummyMesh = new THREE.Mesh(
         new THREE.CylinderGeometry(0.24, 0.24, 1.32, 14),
-        new THREE.MeshLambertMaterial({ color: 0x64748b, transparent: true, opacity: 0.45 })
+        new THREE.MeshLambertMaterial({ color: 0x64748b, transparent: true, opacity: 0.42 })
       );
       dummyMesh.position.y = 0.66;
       const dummyHead = new THREE.Mesh(
         new THREE.SphereGeometry(0.20, 12, 10),
-        new THREE.MeshLambertMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.5 })
+        new THREE.MeshLambertMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.48 })
       );
       dummyHead.position.y = 1.48;
       targetGroup.add(rangeRing, dummyMesh, dummyHead);
 
       scene.add(rigGroup, axesHelper, bladeGroup, targetGroup);
+
+      // Direct 3D IK Handles + Axis Gizmo (After pane only)
+      let handlesGroup = null;
+      let handleNodes = null;
+      let handleHits = [];
+      let axisGizmo = null;
+      let gizmoColliders = [];
+      let bladeAimLine = null;
+      if (withHandles) {
+        handlesGroup = new THREE.Group();
+        handleNodes = {};
+        const hitGeo = new THREE.SphereGeometry(0.11, 10, 8);
+        const visGeo = new THREE.SphereGeometry(0.048, 12, 10);
+        const ringGeo = new THREE.RingGeometry(0.062, 0.082, 20);
+        for (const hs of HANDLE_SPECS) {
+          const holder = new THREE.Group();
+          const visMat = new THREE.MeshBasicMaterial({ color: hs.color, depthTest: false, transparent: true, opacity: 0.94 });
+          const vis = new THREE.Mesh(visGeo, visMat);
+          vis.renderOrder = 18;
+          const ringMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide, depthTest: false, transparent: true, opacity: 0.95 });
+          const ring = new THREE.Mesh(ringGeo, ringMat);
+          ring.renderOrder = 19;
+          ring.visible = false;
+          const hit = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+          hit.userData = { handleId: hs.id };
+          holder.add(vis, ring, hit);
+          handlesGroup.add(holder);
+          handleNodes[hs.id] = { holder, vis, visMat, ring, hit, baseColor: hs.color };
+          handleHits.push(hit);
+        }
+        const aimPos = new Float32Array(6);
+        const aimGeo = new THREE.BufferGeometry();
+        aimGeo.setAttribute('position', new THREE.BufferAttribute(aimPos, 3));
+        bladeAimLine = new THREE.Line(aimGeo, new THREE.LineBasicMaterial({ color: 0xe879f9, depthTest: false, transparent: true, opacity: 0.85 }));
+        bladeAimLine.renderOrder = 16;
+        handlesGroup.add(bladeAimLine);
+
+        axisGizmo = new THREE.Group();
+        for (const [ax, hex] of [['x', 0xef4444], ['y', 0x22c55e], ['z', 0x3b82f6]]) {
+          const arrow = makeAxisArrow(ax, hex);
+          axisGizmo.add(arrow.group);
+          gizmoColliders.push(arrow.collider);
+        }
+        handlesGroup.add(axisGizmo);
+        scene.add(handlesGroup);
+      }
 
       const fx = new FxSystem(scene);
       const player = {
@@ -741,6 +902,8 @@
         footRingL,
         footRingR,
         brakeAnchorRing,
+        footLockRingL,
+        footLockRingR,
         footTrailL,
         footTrailR,
         ghosts,
@@ -757,18 +920,25 @@
         rangeRing,
         dummyMesh,
         dummyHead,
+        handlesGroup,
+        handleNodes,
+        handleHits,
+        axisGizmo,
+        gizmoColliders,
+        bladeAimLine,
         fx,
         player,
         view,
         restSwordMount,
-        metrics: { brakeSlideCm: 0, torsoLeanDeg: 0, minFootCm: 0, maxClipCm: 0, worstJoint: '-' }
+        viewportRect: null,
+        camSnapshot: null,
+        metrics: { brakeSlideCm: 0, torsoLeanDeg: 0, minFootCm: 0, maxClipCm: 0, worstJoint: '-', handMountDistCm: 7.2 }
       };
     }
 
-    const beforePane = buildPane('Before');
-    const afterPane = buildPane('After');
+    const beforePane = buildPane('Before', false);
+    const afterPane = buildPane('After', true);
 
-    // Orbit camera state relative to active target
     const camState = {
       preset: 'game',
       yawOffset: 0,
@@ -783,19 +953,26 @@
       closeup: { azim: Math.PI / 4 + 0.55, pitch: 0.24, dist: 4.8, targetY: 0.85 }
     };
 
-    // Mutable Lab State
+    const initParams = new URLSearchParams(location.search);
+    const initMode = initParams.get('mode') === 'movement' ? 'movement' : 'rig';
+    const initPreset = RIG_PRESETS[defaultPresetForClip('attack2')];
+
     const state = {
-      mode: 'movement', // 'movement' | 'rig'
-      layout: 'split',  // 'split' | 'before' | 'after'
-      playing: true,
+      mode: initMode,
+      poseEdit: true,
+      layout: 'split',
+      playing: false,
       rate: 1,
-      time: 0,
+      time: initMode === 'movement' ? 0.58 : 0.367,
       movPresetId: 'dash_grounded_r1',
       movementParams: { ...MOVEMENT_PRESETS.dash_grounded_r1 },
       clip: 'attack2',
-      rigPresetId: 'attack2_clean_r1',
-      keyframes: cloneKeyframes(RIG_PRESETS.attack2_clean_r1.keyframes),
+      rigPresetId: initPreset.id,
+      keyframes: cloneKeyframes(initPreset.keyframes),
+      footLocks: cloneFootLocks(initPreset.footLocks || []),
+      selectedHandle: 'handR',
       selectedJoint: 'handR',
+      hoveredHandle: null,
       undoStack: [],
       arcDirty: true
     };
@@ -811,7 +988,9 @@
         movPresetId: state.movPresetId,
         movementParams: state.movementParams,
         rigPresetId: state.rigPresetId,
-        keyframes: state.keyframes
+        keyframes: state.keyframes,
+        footLocks: state.footLocks,
+        selectedHandle: state.selectedHandle
       }));
       if (state.undoStack.length > 60) state.undoStack.shift();
     }
@@ -825,9 +1004,12 @@
       state.movementParams = { ...prev.movementParams };
       state.rigPresetId = prev.rigPresetId;
       state.keyframes = cloneKeyframes(prev.keyframes);
+      state.footLocks = cloneFootLocks(prev.footLocks || []);
+      if (prev.selectedHandle) state.selectedHandle = prev.selectedHandle;
       state.arcDirty = true;
       syncUI();
       evaluateFrame();
+      setPersistMessage('ย้อนกลับ 1 ขั้น (Undo) เรียบร้อย', 'ok');
       return true;
     }
 
@@ -859,9 +1041,7 @@
     const _vTmp = new THREE.Vector3();
     const _vFootL = new THREE.Vector3();
     const _vFootR = new THREE.Vector3();
-    const _vHip = new THREE.Vector3();
     const _vTarget = new THREE.Vector3();
-    const _vAnkle = new THREE.Vector3();
     const _invBody = new THREE.Matrix4();
     const _shoeMat = new THREE.Matrix4();
 
@@ -891,17 +1071,13 @@
       const R = pane.view.R;
       const s = R.rigScale;
       const t = frameData.t;
-
-      // Envelope weights across dash_stop timeline
       const wStart = DASH_SCENARIO.windupAt;
       const dStart = DASH_SCENARIO.dashAt;
-      const bStart = DASH_SCENARIO.burstEndAt - 0.08; // 0.53s deceleration catch begins
+      const bStart = DASH_SCENARIO.burstEndAt - 0.08;
       const recDur = Math.max(0.10, Number(params.recoverDuration || 0.22));
       const bEnd = bStart + recDur;
 
-      const windupW = t >= wStart && t < dStart
-        ? Math.sin(Math.PI * ((t - wStart) / Math.max(1e-5, dStart - wStart)))
-        : 0;
+      const windupW = t >= wStart && t < dStart ? Math.sin(Math.PI * ((t - wStart) / Math.max(1e-5, dStart - wStart))) : 0;
       const dashW = t >= dStart && t < bStart + 0.06
         ? smoothstep01(dStart, dStart + 0.045, t) * (1 - smoothstep01(bStart - 0.04, bStart + 0.06, t))
         : 0;
@@ -910,20 +1086,12 @@
         : 0;
 
       if (params.enabled) {
-        const leanDeg =
-          (params.windupLeanDeg || 0) * windupW +
-          (params.dashLeanDeg || 0) * dashW +
-          (params.brakeLeanDeg || 0) * brakeW;
+        const leanDeg = (params.windupLeanDeg || 0) * windupW + (params.dashLeanDeg || 0) * dashW + (params.brakeLeanDeg || 0) * brakeW;
         const leanRad = leanDeg * D2R;
-        const hipDropCm =
-          (params.windupHipDropCm || 0) * windupW +
-          (params.dashHipDropCm || 0) * dashW +
-          (params.brakeHipDropCm || 0) * brakeW;
-
+        const hipDropCm = (params.windupHipDropCm || 0) * windupW + (params.dashHipDropCm || 0) * dashW + (params.brakeHipDropCm || 0) * brakeW;
         R.torso.rotateX(leanRad);
         R.head.rotateX(-leanRad * 0.65);
         R.hips.position.y -= (hipDropCm / 100) / s;
-
         if (dashW > 0.01) {
           R.armL.rotateX(-0.22 * dashW);
           R.armR.rotateX(0.24 * dashW);
@@ -934,7 +1102,6 @@
           R.legR.rotateX(trailF * 0.55);
           R.footR.rotateX(trailF * 0.55);
         }
-
         if (brakeW > 0.01 && params.brakeFootLock) {
           pane.view.root.updateMatrixWorld(true);
           R.footL.getWorldPosition(_vFootL);
@@ -946,7 +1113,6 @@
           const fw = pane.view.footwork;
           if (fw) {
             solveAnatomicalLeg(R.hips, R.legL, R.shinL, R.footL, _vTarget, fw.legs[0].upper, fw.legs[0].lower, 1);
-            // Keep planted boot level on stone floor during braking catch
             R.hips.updateMatrixWorld(true);
             R.shinL.getWorldQuaternion(_qTmp);
             _eTmp.setFromQuaternion(_qTmp, 'YXZ');
@@ -964,82 +1130,32 @@
 
       enforceHeroAnatomy(R, { lockShield: true, clampWristR: true, clampWristL: false, softenKnees: true });
       pane.view.root.updateMatrixWorld(true);
-
-      // Keep lowest boot from sinking beneath ground plane during hip drops
       const soleY = computeLowestSoleY(pane.view);
       if (soleY < 0) {
         R.hips.position.y += -soleY / s;
         pane.view.root.updateMatrixWorld(true);
       }
-
-      // Measure torso lean relative to world vertical for HUD
       R.torso.getWorldQuaternion(_qTmp);
       _eTmp.setFromQuaternion(_qTmp, 'YXZ');
       pane.metrics.torsoLeanDeg = Number((_eTmp.x * R2D).toFixed(1));
     }
 
-    function updateMovementVisuals(pane, frameIdx, params) {
-      const f = DASH_FRAMES[frameIdx];
-      const R = pane.view.R;
-      R.footL.getWorldPosition(_vFootL);
-      R.footR.getWorldPosition(_vFootR);
-
-      const liftL = _vFootL.y - R.restFootY;
-      const liftR = _vFootR.y - R.restFootY;
-      pane.footRingL.position.set(_vFootL.x, 0.012, _vFootL.z);
-      pane.footRingR.position.set(_vFootR.x, 0.012, _vFootR.z);
-      pane.footRingL.material.color.setHex(liftL < 0.035 ? 0x22c55e : 0xfacc15);
-      pane.footRingR.material.color.setHex(liftR < 0.035 ? 0x22c55e : 0xfacc15);
-
-      // Directional Afterimages
-      const showGhost = params.enabled && params.showAfterimages && f.t >= DASH_SCENARIO.dashAt + 0.03 && f.t <= DASH_SCENARIO.burstEndAt + 0.08;
-      const yaw = Math.PI / 2 - f.facing;
-      const leanRad = (params.dashLeanDeg || 24) * D2R;
-      for (let i = 0; i < pane.ghosts.length; i++) {
-        const g = pane.ghosts[i];
-        const backIdx = Math.max(0, frameIdx - (i + 1) * 2);
-        const bf = DASH_FRAMES[backIdx];
-        if (showGhost && bf.t >= DASH_SCENARIO.dashAt - 0.02 && Math.hypot(f.x - bf.x, f.z - bf.z) > 0.12) {
-          g.visible = true;
-          g.position.set(bf.x, 0, bf.z);
-          g.rotation.set(leanRad * 0.6, yaw, 0, 'YXZ');
-          const alpha = 0.34 - i * 0.07;
-          g.userData.mats.forEach(m => { m.opacity = Math.max(0.06, alpha); });
-        } else {
-          g.visible = false;
-        }
-      }
-    }
-
-    function simulateDashTo(pane, targetFrame, params, trailStore) {
+    function simulateDashTo(pane, targetFrame, params) {
       simNowMs = 1000;
       resetChibiView(pane, DASH_PHYSICS.facing);
       pane.fx.clear?.();
       const env = { dt: DT, fx: pane.fx, floorY: () => 0 };
       const anchorState = { locked: false, pos: new THREE.Vector3() };
-
-      const brakeTrailsL = [];
-      const brakeTrailsR = [];
-      let launchDusted = false;
-      let brakeDusted = false;
-      let brakeStartL = null;
-      let maxDriftCm = 0;
+      const brakeTrailsL = [], brakeTrailsR = [];
+      let launchDusted = false, brakeDusted = false, brakeStartL = null, maxDriftCm = 0;
 
       for (let i = 0; i <= targetFrame; i++) {
         const s = DASH_FRAMES[i];
         simNowMs = 1000 + Math.round(s.t * 1000);
         Object.assign(pane.player, {
-          x: s.x,
-          y: 0,
-          z: s.z,
-          vx: s.vx,
-          vz: s.vz,
-          vy: 0,
-          facing: s.facing,
-          grounded: true,
-          state: s.isDashing ? 'run' : (s.speed > 0.8 ? 'run' : 'idle'),
-          isDashing: s.isDashing,
-          isSprinting: s.speed > 6.0
+          x: s.x, y: 0, z: s.z, vx: s.vx, vz: s.vz, vy: 0, facing: s.facing,
+          grounded: true, state: s.isDashing ? 'run' : (s.speed > 0.8 ? 'run' : 'idle'),
+          isDashing: s.isDashing, isSprinting: s.speed > 6.0
         });
         pane.view.update(pane.player, env);
         applyMovementModifiers(pane, s, params, anchorState);
@@ -1056,7 +1172,6 @@
         }
         pane.fx.update(DT);
 
-        // Track braking foot slide across [0.533s .. 0.78s]
         if (s.t >= 0.533 && s.t <= 0.78) {
           pane.view.R.footL.getWorldPosition(_vFootL);
           pane.view.R.footR.getWorldPosition(_vFootR);
@@ -1067,8 +1182,6 @@
           if (drift > maxDriftCm) maxDriftCm = drift;
         }
       }
-
-      // Write foot slide trail buffers
       for (const [line, pts] of [[pane.footTrailL, brakeTrailsL], [pane.footTrailR, brakeTrailsR]]) {
         const attr = line.geometry.attributes.position;
         const count = Math.min(256, Math.floor(pts.length / 3));
@@ -1076,18 +1189,43 @@
         attr.needsUpdate = true;
         line.geometry.setDrawRange(0, count);
       }
-
       pane.metrics.brakeSlideCm = Number(maxDriftCm.toFixed(1));
-      updateMovementVisuals(pane, targetFrame, params);
+      const f = DASH_FRAMES[targetFrame];
+      const R = pane.view.R;
+      R.footL.getWorldPosition(_vFootL);
+      R.footR.getWorldPosition(_vFootR);
+      pane.footRingL.position.set(_vFootL.x, 0.012, _vFootL.z);
+      pane.footRingR.position.set(_vFootR.x, 0.012, _vFootR.z);
+      pane.footRingL.material.color.setHex((_vFootL.y - R.restFootY) < 0.035 ? 0x22c55e : 0xfacc15);
+      pane.footRingR.material.color.setHex((_vFootR.y - R.restFootY) < 0.035 ? 0x22c55e : 0xfacc15);
+      pane.footLockRingL.visible = false;
+      pane.footLockRingR.visible = false;
+
+      const showGhost = params.enabled && params.showAfterimages && f.t >= DASH_SCENARIO.dashAt + 0.03 && f.t <= DASH_SCENARIO.burstEndAt + 0.08;
+      const yaw = Math.PI / 2 - f.facing;
+      const leanRad = (params.dashLeanDeg || 24) * D2R;
+      for (let i = 0; i < pane.ghosts.length; i++) {
+        const g = pane.ghosts[i];
+        const bf = DASH_FRAMES[Math.max(0, targetFrame - (i + 1) * 2)];
+        if (showGhost && bf.t >= DASH_SCENARIO.dashAt - 0.02 && Math.hypot(f.x - bf.x, f.z - bf.z) > 0.12) {
+          g.visible = true;
+          g.position.set(bf.x, 0, bf.z);
+          g.rotation.set(leanRad * 0.6, yaw, 0, 'YXZ');
+          g.userData.mats.forEach(m => { m.opacity = Math.max(0.06, 0.34 - i * 0.07); });
+        } else {
+          g.visible = false;
+        }
+      }
     }
 
-    // Approximate body collision spheres for live Rig diagnostic feedback (helmet, chest, armL)
     const _vHead = new THREE.Vector3();
     const _vTorso = new THREE.Vector3();
     const _vArmL = new THREE.Vector3();
     const _vTip = new THREE.Vector3();
+    const _vBaseW = new THREE.Vector3();
+    const _vHandR = new THREE.Vector3();
 
-    function applyRigPose(pane, clipId, t, keyframes, computeArc = false) {
+    function applyRigPoseToPane(pane, clipId, t, keyframes, footLocks, computeArc = false) {
       const view = pane.view;
       const R = view.R;
       const spec = ATTACK_SCENARIOS[clipId];
@@ -1106,58 +1244,14 @@
         view.mixer.update(0);
         view.root.position.set(0, 0, 0);
         view.root.rotation.set(0, yaw, 0);
-
-        // Always restore rest swordMount before layering keyframes
-        R.swordMount.position.copy(pane.restSwordMount.pos);
-        R.swordMount.quaternion.copy(pane.restSwordMount.quat);
-
-        const sample = sampleRigKeyframes(keyframes, sampleT);
-        for (const [jointId, degs] of Object.entries(sample.joints)) {
-          if (!R[jointId]) continue;
-          _qTmp.setFromEuler(_eTmp.set(degs[0] * D2R, degs[1] * D2R, degs[2] * D2R, 'XYZ'));
-          R[jointId].quaternion.multiply(_qTmp);
-        }
-
-        const hasHandLOverride = Boolean(sample.joints.handL);
-        enforceHeroAnatomy(R, {
-          lockShield: !hasHandLOverride,
-          clampWristR: true,
-          clampWristL: false,
-          softenKnees: true
-        });
-
-        view.root.updateMatrixWorld(true);
-        const soleY = computeLowestSoleY(view);
-        if (Math.abs(soleY) > 1e-5) {
-          R.hips.position.y += -soleY / R.rigScale;
-        }
-        if (sample.hipsYCm) {
-          R.hips.position.y += (sample.hipsYCm / 100) / R.rigScale;
-        }
-        if (sample.swordMountPosCm) {
-          R.swordMount.position.x += sample.swordMountPosCm[0] / 100;
-          R.swordMount.position.y += sample.swordMountPosCm[1] / 100;
-          R.swordMount.position.z += sample.swordMountPosCm[2] / 100;
-        }
-        if (sample.swordMountRotDeg) {
-          _qTmp.setFromEuler(_eTmp.set(
-            sample.swordMountRotDeg[0] * D2R,
-            sample.swordMountRotDeg[1] * D2R,
-            sample.swordMountRotDeg[2] * D2R,
-            'XYZ'
-          ));
-          R.swordMount.quaternion.multiply(_qTmp);
-        }
         view.root.updateMatrixWorld(true);
 
-        // Evaluate approximate blade proximity to helmet, torso & left arm
-        R.head.getWorldPosition(_vHead);
-        _vHead.y += 0.14;
-        R.torso.getWorldPosition(_vTorso);
-        _vTorso.y += 0.12;
+        applyMotionRigPose(view, pane.restSwordMount, sampleT, keyframes, footLocks);
+
+        R.head.getWorldPosition(_vHead); _vHead.y += 0.14;
+        R.torso.getWorldPosition(_vTorso); _vTorso.y += 0.12;
         R.foreL.getWorldPosition(_vArmL);
-        let maxClip = 0;
-        let part = '-';
+        let maxClip = 0, part = '-';
         for (let s = 0; s <= 12; s++) {
           _vTip.set(0, 0, 0.16 + 0.88 * (s / 12)).applyMatrix4(R.swordMount.matrixWorld);
           const checks = [
@@ -1169,8 +1263,11 @@
             if (depth > maxClip) { maxClip = depth; part = pName; }
           }
         }
-        _vTip.set(0, 0, 1.04).applyMatrix4(R.swordMount.matrixWorld);
-        return { tip: _vTip.clone(), clipCm: Number((maxClip * 100).toFixed(1)), part };
+        _vTip.set(...BLADE_TIP_LOCAL).applyMatrix4(R.swordMount.matrixWorld);
+        R.handR.getWorldPosition(_vHandR);
+        R.swordMount.getWorldPosition(_vBaseW);
+        const handMountDistCm = Number((_vHandR.distanceTo(_vBaseW) * 100).toFixed(2));
+        return { tip: _vTip.clone(), clipCm: Number((maxClip * 100).toFixed(1)), part, handMountDistCm };
       }
 
       if (computeArc) {
@@ -1178,21 +1275,17 @@
         const clipPts = [];
         const steps = 24;
         for (let i = 0; i <= steps; i++) {
-          const st = (i / steps) * clip.duration;
-          const res = poseAt(st);
+          const res = poseAt((i / steps) * clip.duration);
           samples.push(res.tip);
           if (res.clipCm > 2.0) clipPts.push(res.tip);
         }
         pane.bladeArcLine.geometry.dispose();
         pane.bladeArcLine.geometry = new THREE.BufferGeometry().setFromPoints(samples);
-
-        const cRes = poseAt(spec.visualContactAt);
-        pane.bladeContactDot.position.copy(cRes.tip);
+        pane.bladeContactDot.position.copy(poseAt(spec.visualContactAt).tip);
 
         while (pane.clipDotsGroup.children.length) {
           const ch = pane.clipDotsGroup.children.pop();
-          ch.geometry.dispose();
-          ch.material.dispose();
+          ch.geometry.dispose(); ch.material.dispose();
         }
         for (const pt of clipPts) {
           const dot = new THREE.Mesh(
@@ -1209,19 +1302,15 @@
       pane.bladeCurrDot.position.copy(cur.tip);
       pane.metrics.maxClipCm = cur.clipCm;
       pane.metrics.worstJoint = cur.part;
+      pane.metrics.handMountDistCm = cur.handMountDistCm;
 
-      // Update skeleton overlay + axes helper
       const posArr = pane.boneLines.geometry.attributes.position.array;
       for (let i = 0; i < SKEL_EDGES.length; i++) {
         const [aName, bName] = SKEL_EDGES[i];
         R[aName].getWorldPosition(_vTmp);
-        posArr[i * 6] = _vTmp.x;
-        posArr[i * 6 + 1] = _vTmp.y;
-        posArr[i * 6 + 2] = _vTmp.z;
+        posArr[i * 6] = _vTmp.x; posArr[i * 6 + 1] = _vTmp.y; posArr[i * 6 + 2] = _vTmp.z;
         R[bName].getWorldPosition(_vTmp);
-        posArr[i * 6 + 3] = _vTmp.x;
-        posArr[i * 6 + 4] = _vTmp.y;
-        posArr[i * 6 + 5] = _vTmp.z;
+        posArr[i * 6 + 3] = _vTmp.x; posArr[i * 6 + 4] = _vTmp.y; posArr[i * 6 + 5] = _vTmp.z;
       }
       pane.boneLines.geometry.attributes.position.needsUpdate = true;
       for (const j of SKEL_JOINTS) {
@@ -1230,14 +1319,13 @@
         sp.position.copy(_vTmp);
         const sel = j === state.selectedJoint;
         sp.material.color.setHex(sel ? 0xfacc15 : 0x38bdf8);
-        sp.scale.setScalar(sel ? 1.55 : 1.0);
+        sp.scale.setScalar(sel ? 1.45 : 1.0);
       }
 
       const axisNode = R[state.selectedJoint] || R.handR;
       axisNode.getWorldPosition(pane.axesHelper.position);
       axisNode.getWorldQuaternion(pane.axesHelper.quaternion);
 
-      // Update target dummy & range ring + feet
       const tx = Math.cos(spec.facing) * (spec.attackRange * 0.85);
       const tz = Math.sin(spec.facing) * (spec.attackRange * 0.85);
       pane.dummyMesh.position.set(tx, 0.66, tz);
@@ -1248,15 +1336,65 @@
       R.footR.getWorldPosition(_vFootR);
       pane.footRingL.position.set(_vFootL.x, 0.012, _vFootL.z);
       pane.footRingR.position.set(_vFootR.x, 0.012, _vFootR.z);
-      pane.metrics.minFootCm = Number((Math.min(_vFootL.y, _vFootR.y) - R.restFootY).toFixed(3) * 100);
+      pane.footRingL.material.color.setHex((_vFootL.y - R.restFootY) < 0.03 ? 0x22c55e : 0xfacc15);
+      pane.footRingR.material.color.setHex((_vFootR.y - R.restFootY) < 0.03 ? 0x22c55e : 0xfacc15);
+
+      const lkL = getActiveFootLock(footLocks, 'footL', t);
+      const lkR = getActiveFootLock(footLocks, 'footR', t);
+      if (lkL) {
+        _vTmp.set(...lkL.lock.pos); view.root.localToWorld(_vTmp);
+        pane.footLockRingL.visible = true;
+        pane.footLockRingL.position.set(_vTmp.x, 0.016, _vTmp.z);
+      } else pane.footLockRingL.visible = false;
+      if (lkR) {
+        _vTmp.set(...lkR.lock.pos); view.root.localToWorld(_vTmp);
+        pane.footLockRingR.visible = true;
+        pane.footLockRingR.position.set(_vTmp.x, 0.016, _vTmp.z);
+      } else pane.footLockRingR.visible = false;
+
+      pane.metrics.footLWorld = _vFootL.toArray().map(v => Number(v.toFixed(4)));
+      pane.metrics.footRWorld = _vFootR.toArray().map(v => Number(v.toFixed(4)));
+      pane.metrics.minFootCm = Number(((Math.min(_vFootL.y, _vFootR.y) - R.restFootY) * 100).toFixed(1));
       pane.ghosts.forEach(g => { g.visible = false; });
       pane.brakeAnchorRing.visible = false;
       pane.footTrailL.geometry.setDrawRange(0, 0);
       pane.footTrailR.geometry.setDrawRange(0, 0);
+
+      // Update 3D IK Handles & Axis Gizmo on After pane
+      if (pane.handleNodes) {
+        const hPos = {
+          hipsPos: R.hips.getWorldPosition(new THREE.Vector3()),
+          footL: _vFootL.clone(),
+          footR: _vFootR.clone(),
+          handR: R.handR.getWorldPosition(new THREE.Vector3()),
+          bladeTip: _vTip.clone(),
+          handL: R.handL.getWorldPosition(new THREE.Vector3())
+        };
+        for (const hs of HANDLE_SPECS) {
+          const hn = pane.handleNodes[hs.id];
+          hn.holder.position.copy(hPos[hs.id]);
+          const isSel = hs.id === state.selectedHandle;
+          const isHov = hs.id === state.hoveredHandle;
+          const isLockedFoot = (hs.id === 'footL' && lkL) || (hs.id === 'footR' && lkR);
+          hn.visMat.color.setHex(isLockedFoot ? 0xf97316 : hs.color);
+          hn.vis.scale.setScalar(isSel ? 1.28 : (isHov ? 1.16 : 1.0));
+          hn.ring.visible = isSel || isHov;
+          hn.ring.lookAt(camera.position);
+        }
+        const bPos = pane.bladeAimLine.geometry.attributes.position.array;
+        _vBaseW.set(...BLADE_BASE_LOCAL).applyMatrix4(R.swordMount.matrixWorld);
+        bPos[0] = _vBaseW.x; bPos[1] = _vBaseW.y; bPos[2] = _vBaseW.z;
+        bPos[3] = _vTip.x; bPos[4] = _vTip.y; bPos[5] = _vTip.z;
+        pane.bladeAimLine.geometry.attributes.position.needsUpdate = true;
+
+        pane.axisGizmo.position.copy(hPos[state.selectedHandle] || hPos.handR);
+        pane.axisGizmo.quaternion.set(0, 0, 0, 1); // world XYZ axes for crisp cardinal nudging
+      }
     }
 
     function updateVisibility() {
       const isMov = state.mode === 'movement';
+      const showHandles = !isMov && state.poseEdit && document.getElementById('optHandles').checked;
       const showGrid = document.getElementById('optGrid').checked;
       const showRootPath = document.getElementById('optRootPath').checked;
       const showFootMarkers = document.getElementById('optFootMarkers').checked;
@@ -1274,6 +1412,7 @@
         pane.axesHelper.visible = !isMov && showAxes;
         pane.bladeGroup.visible = !isMov && showBladeArc;
         pane.targetGroup.visible = !isMov && showTarget;
+        if (pane.handlesGroup) pane.handlesGroup.visible = showHandles;
       }
     }
 
@@ -1286,14 +1425,15 @@
         simulateDashTo(beforePane, frameIdx, MOVEMENT_PRESETS.baseline);
         simulateDashTo(afterPane, frameIdx, state.movementParams);
       } else {
-        const baseKeyframes = (RIG_PRESETS[`${state.clip}_baseline`]?.keyframes) || [];
-        applyRigPose(beforePane, state.clip, state.time, baseKeyframes, state.arcDirty);
-        applyRigPose(afterPane, state.clip, state.time, state.keyframes, state.arcDirty);
+        const baseP = RIG_PRESETS[`${state.clip}_baseline`];
+        applyRigPoseToPane(beforePane, state.clip, state.time, baseP?.keyframes || [], baseP?.footLocks || [], state.arcDirty);
+        applyRigPoseToPane(afterPane, state.clip, state.time, state.keyframes, state.footLocks, state.arcDirty);
         state.arcDirty = false;
       }
 
       updateVisibility();
       updateTimelineUI();
+      updateHandleReadout();
       updateSelectedJointReadout();
     }
 
@@ -1314,6 +1454,9 @@
           ? [[beforePane, 0, 0, W, H]]
           : [[afterPane, 0, 0, W, H]];
 
+      beforePane.viewportRect = null;
+      afterPane.viewportRect = null;
+
       const base = CAM_BASES[camState.preset] || CAM_BASES.game;
       const azim = base.azim + camState.yawOffset;
       const pitch = Math.max(-0.2, Math.min(1.35, base.pitch + camState.pitchOffset));
@@ -1324,15 +1467,33 @@
         const focusX = state.mode === 'movement' && camState.preset === 'game' ? 1.05 : p.x;
         const focusZ = state.mode === 'movement' && camState.preset === 'game' ? -1.05 : p.z;
         const target = new THREE.Vector3(focusX, base.targetY, focusZ);
-        const dir = new THREE.Vector3(
-          Math.cos(pitch) * Math.cos(azim),
-          Math.sin(pitch),
-          Math.cos(pitch) * Math.sin(azim)
-        );
+        const dir = new THREE.Vector3(Math.cos(pitch) * Math.cos(azim), Math.sin(pitch), Math.cos(pitch) * Math.sin(azim));
         camera.position.copy(target).addScaledVector(dir, dist);
         camera.lookAt(target);
         camera.aspect = w / Math.max(1, h);
         camera.updateProjectionMatrix();
+        camera.updateMatrixWorld();
+
+        pane.viewportRect = { x, y, w, h, left: rect.left + x, top: rect.top + y };
+        pane.camSnapshot = { pos: camera.position.clone(), quat: camera.quaternion.clone(), aspect: camera.aspect, fov: camera.fov };
+
+        if (pane.handleNodes) {
+          for (const hs of HANDLE_SPECS) {
+            const hn = pane.handleNodes[hs.id];
+            hn.ring.lookAt(camera.position);
+            if (typeof handleBtns !== 'undefined' && handleBtns[hs.id]) {
+              const ndc = hn.holder.position.clone().project(camera);
+              handleBtns[hs.id].dataset.sx = String(Math.round(pane.viewportRect.left + (ndc.x * 0.5 + 0.5) * pane.viewportRect.w));
+              handleBtns[hs.id].dataset.sy = String(Math.round(pane.viewportRect.top + (-ndc.y * 0.5 + 0.5) * pane.viewportRect.h));
+            }
+          }
+        }
+        const hint = document.getElementById('camHint');
+        if (hint) {
+          hint.dataset.yaw = camState.yawOffset.toFixed(4);
+          hint.dataset.pitch = camState.pitchOffset.toFixed(4);
+          hint.dataset.dist = camState.distScale.toFixed(4);
+        }
 
         pane.sun.position.set(target.x - 5, 11, target.z + 4);
         pane.sun.target.position.copy(target);
@@ -1343,6 +1504,7 @@
       }
 
       draw2DOverlay(W, H);
+      drawRecorderFrame();
     }
 
     function draw2DOverlay(W, H) {
@@ -1350,51 +1512,465 @@
       octx.font = '12px Consolas, monospace';
       if (state.mode === 'movement') {
         const f = DASH_FRAMES[Math.min(DASH_FRAMES.length - 1, Math.round(state.time / DT))];
-        const line1 = `phase=${f.phase}  speed=${f.speed.toFixed(2)}u/s  travel=${Math.hypot(f.x, f.z).toFixed(2)}u`;
-        const bText = `Before slide=${beforePane.metrics.brakeSlideCm}cm  lean=${beforePane.metrics.torsoLeanDeg}°`;
-        const aText = `After  slide=${afterPane.metrics.brakeSlideCm}cm  lean=${afterPane.metrics.torsoLeanDeg}°`;
         octx.fillStyle = 'rgba(15, 23, 42, 0.82)';
         octx.fillRect(10, H - 56, 442, 46);
         octx.fillStyle = '#e2e8f0';
-        octx.fillText(line1, 18, H - 38);
+        octx.fillText(`phase=${f.phase}  speed=${f.speed.toFixed(2)}u/s  travel=${Math.hypot(f.x, f.z).toFixed(2)}u`, 18, H - 38);
         octx.fillStyle = '#fde68a';
-        octx.fillText(`${bText} | ${aText}`, 18, H - 20);
+        octx.fillText(`Before slide=${beforePane.metrics.brakeSlideCm}cm lean=${beforePane.metrics.torsoLeanDeg}° | After slide=${afterPane.metrics.brakeSlideCm}cm lean=${afterPane.metrics.torsoLeanDeg}°`, 18, H - 20);
       } else {
         const spec = ATTACK_SCENARIOS[state.clip];
         const bClip = beforePane.metrics.maxClipCm > 2 ? `CLIP ${beforePane.metrics.maxClipCm}cm (${beforePane.metrics.worstJoint})` : `CLEAR (${beforePane.metrics.maxClipCm}cm)`;
         const aClip = afterPane.metrics.maxClipCm > 2 ? `CLIP ${afterPane.metrics.maxClipCm}cm (${afterPane.metrics.worstJoint})` : `CLEAR (${afterPane.metrics.maxClipCm}cm)`;
         octx.fillStyle = 'rgba(15, 23, 42, 0.82)';
-        octx.fillRect(10, H - 56, 468, 46);
+        octx.fillRect(10, H - 56, 476, 46);
         octx.fillStyle = '#e9d5ff';
-        octx.fillText(`ServerConfirm=${spec.serverConfirmAt.toFixed(3)}s | VisualContact=${spec.visualContactAt.toFixed(3)}s`, 18, H - 38);
+        octx.fillText(`ServerConfirm=${spec.serverConfirmAt.toFixed(3)}s | VisualContact=${spec.visualContactAt.toFixed(3)}s | HiltGap=${afterPane.metrics.handMountDistCm}cm`, 18, H - 38);
         octx.fillStyle = '#fde68a';
         octx.fillText(`Before: ${bClip}  |  After: ${aClip}`, 18, H - 20);
       }
     }
 
-    // ---- UI Population & Binding ----
-    const movPresetSel = document.getElementById('movPresetSel');
-    for (const id of MOVEMENT_PRESET_ORDER) {
-      movPresetSel.add(new Option(MOVEMENT_PRESETS[id].label, id));
+    // ---- Direct 3D Mouse Dragging & Camera Separation ----
+    const cursorState = { x: 0, y: 0, down: false, button: -1, inside: false };
+    let dragState = null;
+    let draggingCam = false;
+    let camDragX = 0, camDragY = 0;
+
+    function setupAfterRay(clientX, clientY) {
+      const vp = afterPane.viewportRect;
+      const snap = afterPane.camSnapshot;
+      if (!vp || !snap) return null;
+      const lx = clientX - vp.left;
+      const ly = clientY - vp.top;
+      if (lx < 0 || lx > vp.w || ly < 0 || ly > vp.h) return null;
+      const ndcX = (lx / vp.w) * 2 - 1;
+      const ndcY = -(ly / vp.h) * 2 + 1;
+      rayCamera.fov = snap.fov;
+      rayCamera.aspect = snap.aspect;
+      rayCamera.position.copy(snap.pos);
+      rayCamera.quaternion.copy(snap.quat);
+      rayCamera.updateProjectionMatrix();
+      rayCamera.updateMatrixWorld();
+      raycaster.setFromCamera({ x: ndcX, y: ndcY }, rayCamera);
+      return { ray: raycaster.ray, cam: rayCamera };
     }
 
-    const clipSel = document.getElementById('clipSel');
-    for (const [id, spec] of Object.entries(ATTACK_SCENARIOS)) {
-      clipSel.add(new Option(spec.label, id));
+    function ensureKeyframeAtCurrentTime() {
+      const t = Number(state.time.toFixed(3));
+      let kf = state.keyframes.find(item => Math.abs(item.t - t) <= 0.009) || null;
+      if (!kf) {
+        const sampled = sampleRigKeyframes(state.keyframes, t);
+        const ikClone = {};
+        for (const [ch, v] of Object.entries(sampled.ik || {})) {
+          if (v?.pos) ikClone[ch] = v.pos.map(n => Number(n.toFixed(4)));
+        }
+        kf = {
+          t,
+          joints: Object.fromEntries(Object.entries(sampled.joints).map(([k, v]) => [k, v.map(n => Number(n.toFixed(1)))])),
+          ...(Object.keys(ikClone).length ? { ik: ikClone } : {}),
+          ...(Math.abs(sampled.hipsYCm) > 0.01 ? { hipsYCm: Number(sampled.hipsYCm.toFixed(1)) } : {})
+        };
+        state.keyframes.push(kf);
+        state.keyframes = cloneKeyframes(state.keyframes);
+        kf = state.keyframes.find(item => Math.abs(item.t - t) <= 0.009);
+      }
+      return kf;
     }
+
+    function commitIkHandleRootPos(handleId, rootLocalVec) {
+      const kf = ensureKeyframeAtCurrentTime();
+      if (!kf.ik) kf.ik = {};
+      kf.ik[handleId] = [
+        Number(rootLocalVec.x.toFixed(4)),
+        Number(rootLocalVec.y.toFixed(4)),
+        Number(rootLocalVec.z.toFixed(4))
+      ];
+      // If dragging a foot currently locked at this frame, keep lock anchor synced live
+      if (handleId === 'footL' || handleId === 'footR') {
+        const lk = getActiveFootLock(state.footLocks, handleId, state.time, 0);
+        if (lk) {
+          lk.lock.pos = kf.ik[handleId].slice();
+        }
+      }
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+    }
+
+    canvasArea.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvasArea.addEventListener('pointerdown', (e) => {
+      if (e.target !== canvas && e.target !== overlay) return;
+      const rect = canvasArea.getBoundingClientRect();
+      cursorState.x = e.clientX - rect.left;
+      cursorState.y = e.clientY - rect.top;
+      cursorState.down = true;
+      cursorState.button = e.button;
+      cursorState.inside = true;
+
+      if (e.button === 2) {
+        draggingCam = true;
+        camDragX = e.clientX;
+        camDragY = e.clientY;
+        return;
+      }
+
+      if (e.button === 0 && state.mode === 'rig' && state.poseEdit) {
+        const pick = setupAfterRay(e.clientX, e.clientY);
+        if (!pick) return;
+
+        // 1. Check Axis Gizmo arrows first
+        let hitHandle = null;
+        let dragAxis = null;
+        if (afterPane.axisGizmo.visible) {
+          const gHits = raycaster.intersectObjects(afterPane.gizmoColliders, false);
+          if (gHits.length) {
+            hitHandle = state.selectedHandle;
+            dragAxis = gHits[0].object.userData.gizmoAxis;
+          }
+        }
+        // 2. Otherwise check 6 IK spheres
+        if (!hitHandle) {
+          const hHits = raycaster.intersectObjects(afterPane.handleHits, false);
+          if (hHits.length) {
+            hitHandle = hHits[0].object.userData.handleId;
+          }
+        }
+
+        if (hitHandle) {
+          state.selectedHandle = hitHandle;
+          const startTargetWorld = afterPane.handleNodes[hitHandle].holder.position.clone();
+          const camDir = new THREE.Vector3();
+          pick.cam.getWorldDirection(camDir);
+          const planeNormal = dragAxis
+            ? (() => {
+                const axVec = new THREE.Vector3(dragAxis === 'x' ? 1 : 0, dragAxis === 'y' ? 1 : 0, dragAxis === 'z' ? 1 : 0);
+                const perp = new THREE.Vector3().crossVectors(axVec, camDir);
+                if (perp.lengthSq() < 1e-5) perp.set(0, 1, 0);
+                return new THREE.Vector3().crossVectors(axVec, perp).normalize();
+              })()
+            : camDir.clone().negate();
+
+          const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(planeNormal, startTargetWorld);
+          const startHit = new THREE.Vector3();
+          pick.ray.intersectPlane(plane, startHit);
+
+          snapshotUndo();
+          state.playing = false;
+          dragState = {
+            handleId: hitHandle,
+            axis: dragAxis,
+            plane,
+            startHitWorld: startHit.clone(),
+            startTargetWorld,
+            moved: false
+          };
+          canvasArea.classList.add('dragging-handle');
+          canvasArea.setPointerCapture(e.pointerId);
+          updateHandleReadout();
+          evaluateFrame();
+        }
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      const rect = canvasArea.getBoundingClientRect();
+      cursorState.x = e.clientX - rect.left;
+      cursorState.y = e.clientY - rect.top;
+      cursorState.inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+
+      if (dragState) {
+        const pick = setupAfterRay(e.clientX, e.clientY);
+        if (!pick) return;
+        const hitWorld = new THREE.Vector3();
+        if (!pick.ray.intersectPlane(dragState.plane, hitWorld)) return;
+        const delta = hitWorld.sub(dragState.startHitWorld);
+        if (dragState.axis) {
+          const ax = dragState.axis;
+          const mask = new THREE.Vector3(ax === 'x' ? 1 : 0, ax === 'y' ? 1 : 0, ax === 'z' ? 1 : 0);
+          delta.copy(mask.multiplyScalar(delta.dot(mask)));
+        }
+        const newWorld = dragState.startTargetWorld.clone().add(delta);
+        if ((dragState.handleId === 'footL' || dragState.handleId === 'footR') && newWorld.y < afterPane.view.R.restFootY) {
+          newWorld.y = afterPane.view.R.restFootY;
+        }
+        if (delta.lengthSq() > 1e-6) dragState.moved = true;
+        const rootLocal = afterPane.view.root.worldToLocal(newWorld.clone());
+        commitIkHandleRootPos(dragState.handleId, rootLocal);
+        evaluateFrame();
+        return;
+      }
+
+      if (draggingCam) {
+        camState.yawOffset -= (e.clientX - camDragX) * 0.008;
+        camState.pitchOffset = Math.max(-0.5, Math.min(0.9, camState.pitchOffset + (e.clientY - camDragY) * 0.006));
+        camDragX = e.clientX;
+        camDragY = e.clientY;
+        return;
+      }
+
+      if (state.mode === 'rig' && state.poseEdit) {
+        const pick = setupAfterRay(e.clientX, e.clientY);
+        if (pick) {
+          const hits = raycaster.intersectObjects(afterPane.handleHits, false);
+          state.hoveredHandle = hits.length ? hits[0].object.userData.handleId : null;
+        } else {
+          state.hoveredHandle = null;
+        }
+      }
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      cursorState.down = false;
+      cursorState.button = -1;
+      if (draggingCam && e.button === 2) draggingCam = false;
+      if (!dragState) return;
+      canvasArea.classList.remove('dragging-handle');
+      try { canvasArea.releasePointerCapture(e.pointerId); } catch {}
+      if (!dragState.moved) {
+        state.undoStack.pop();
+      } else {
+        rebuildRigPresetDropdown();
+        renderKeyframePills();
+        renderFootLockList();
+        setPersistMessage(`บันทึก Keyframe จากการลาก ${dragState.handleId} ที่ ${state.time.toFixed(3)}s (Ctrl+Z ย้อนได้)`, 'ok');
+      }
+      dragState = null;
+    });
+
+    canvasArea.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camState.distScale = Math.max(0.35, Math.min(2.2, camState.distScale * (e.deltaY > 0 ? 1.08 : 0.92)));
+    }, { passive: false });
+
+    // ---- WebM Video Recorder (composites 3D canvas + HUD + live mouse cursor) ----
+    const recCanvas = document.createElement('canvas');
+    const recCtx = recCanvas.getContext('2d');
+    let recorder = null;
+    let recChunks = [];
+    let lastVideoUrl = null;
+    let lastVideoBlob = null;
+
+    function drawRecorderFrame() {
+      if (!recorder || recorder.state !== 'recording') return;
+      const w = overlay.width || canvasArea.clientWidth;
+      const h = overlay.height || canvasArea.clientHeight;
+      if (recCanvas.width !== w || recCanvas.height !== h) {
+        recCanvas.width = w;
+        recCanvas.height = h;
+      }
+      recCtx.clearRect(0, 0, w, h);
+      recCtx.drawImage(canvas, 0, 0, w, h);
+      recCtx.drawImage(overlay, 0, 0, w, h);
+
+      // Draw live mouse cursor & drag badge for visual proof in recorded clip
+      if (cursorState.inside) {
+        const cx = cursorState.x, cy = cursorState.y;
+        if (cursorState.down) {
+          recCtx.beginPath();
+          recCtx.arc(cx, cy, 13, 0, Math.PI * 2);
+          recCtx.strokeStyle = cursorState.button === 2 ? '#38bdf8' : '#facc15';
+          recCtx.lineWidth = 2.5;
+          recCtx.stroke();
+        }
+        recCtx.fillStyle = '#ffffff';
+        recCtx.strokeStyle = '#0f172a';
+        recCtx.lineWidth = 2;
+        recCtx.beginPath();
+        recCtx.moveTo(cx, cy);
+        recCtx.lineTo(cx + 12, cy + 10);
+        recCtx.lineTo(cx + 5, cy + 12);
+        recCtx.lineTo(cx + 2, cy + 18);
+        recCtx.closePath();
+        recCtx.fill();
+        recCtx.stroke();
+        if (dragState) {
+          recCtx.fillStyle = 'rgba(15,23,42,0.85)';
+          recCtx.fillRect(cx + 16, cy - 6, 128, 18);
+          recCtx.fillStyle = '#fde68a';
+          recCtx.font = '11px Consolas, monospace';
+          recCtx.fillText(`DRAG ${dragState.handleId}${dragState.axis ? ':' + dragState.axis.toUpperCase() : ''}`, cx + 20, cy + 7);
+        }
+      }
+    }
+
+    function startRecording() {
+      if (recorder && recorder.state === 'recording') return false;
+      const w = overlay.width || canvasArea.clientWidth || 900;
+      const h = overlay.height || canvasArea.clientHeight || 580;
+      recCanvas.width = w;
+      recCanvas.height = h;
+      const stream = recCanvas.captureStream(30);
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8') ? 'video/webm;codecs=vp8' : 'video/webm';
+      recChunks = [];
+      recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_500_000 });
+      recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) recChunks.push(ev.data); };
+      recorder.onstop = () => {
+        if (!recChunks.length) return;
+        lastVideoBlob = new Blob(recChunks, { type: 'video/webm' });
+        if (lastVideoUrl) URL.revokeObjectURL(lastVideoUrl);
+        lastVideoUrl = URL.createObjectURL(lastVideoBlob);
+        const a = document.createElement('a');
+        a.href = lastVideoUrl;
+        a.download = `knight-${state.clip}-drag-demo.webm`;
+        a.click();
+        document.getElementById('recClipBtn').setAttribute('aria-pressed', 'false');
+        document.getElementById('recClipBtn').textContent = '● อัดคลิป';
+        setPersistMessage(`บันทึกคลิป WebM (${Math.round(lastVideoBlob.size / 1024)} KB) เรียบร้อย`, 'ok');
+      };
+      recorder.start(100);
+      document.getElementById('recClipBtn').setAttribute('aria-pressed', 'true');
+      document.getElementById('recClipBtn').textContent = '■ หยุดอัด';
+      return true;
+    }
+
+    function stopRecording() {
+      if (!recorder || recorder.state !== 'recording') return false;
+      recorder.stop();
+      return true;
+    }
+
+    document.getElementById('recClipBtn').onclick = () => {
+      if (recorder && recorder.state === 'recording') stopRecording();
+      else startRecording();
+    };
+
+    // ---- Sidebar UI Builders ----
+    const movPresetSel = document.getElementById('movPresetSel');
+    for (const id of MOVEMENT_PRESET_ORDER) movPresetSel.add(new Option(MOVEMENT_PRESETS[id].label, id));
+
+    const clipSel = document.getElementById('clipSel');
+    for (const [id, spec] of Object.entries(ATTACK_SCENARIOS)) clipSel.add(new Option(spec.label, id));
 
     const rigPresetSel = document.getElementById('rigPresetSel');
     function rebuildRigPresetDropdown() {
       rigPresetSel.innerHTML = '';
-      for (const p of presetsForClip(state.clip)) {
-        rigPresetSel.add(new Option(p.label, p.id));
-      }
-      if (state.rigPresetId === 'custom_draft') {
-        rigPresetSel.add(new Option('Draft · แก้ไขเอง', 'custom_draft'));
-      }
+      for (const p of presetsForClip(state.clip)) rigPresetSel.add(new Option(p.label, p.id));
+      if (state.rigPresetId === 'custom_draft') rigPresetSel.add(new Option('Draft · แก้ไขเอง', 'custom_draft'));
       rigPresetSel.value = state.rigPresetId;
     }
 
+    const handleGridEl = document.getElementById('handleGrid');
+    const handleBtns = {};
+    for (const hs of HANDLE_SPECS) {
+      const btn = document.createElement('button');
+      btn.className = 'handle-btn';
+      btn.dataset.handle = hs.id;
+      btn.textContent = hs.label;
+      btn.onclick = () => {
+        state.selectedHandle = hs.id;
+        updateHandleReadout();
+        evaluateFrame();
+      };
+      handleGridEl.appendChild(btn);
+      handleBtns[hs.id] = btn;
+    }
+
+    function updateHandleReadout() {
+      for (const hs of HANDLE_SPECS) {
+        handleBtns[hs.id].setAttribute('aria-pressed', hs.id === state.selectedHandle ? 'true' : 'false');
+      }
+      const hn = afterPane.handleNodes?.[state.selectedHandle];
+      if (!hn) return;
+      const rootLocal = afterPane.view.root.worldToLocal(hn.holder.position.clone());
+      const hrEl = document.getElementById('handleReadout');
+      hrEl.textContent =
+        `${state.selectedHandle}: rootLocal=(${rootLocal.x.toFixed(3)}, ${rootLocal.y.toFixed(3)}, ${rootLocal.z.toFixed(3)}) · ด้ามในมือ=${afterPane.metrics.handMountDistCm}cm`;
+      if (afterPane.metrics.footLWorld) hrEl.dataset.footL = afterPane.metrics.footLWorld.join(',');
+      if (afterPane.metrics.footRWorld) hrEl.dataset.footR = afterPane.metrics.footRWorld.join(',');
+    }
+
+    function renderFootLockList() {
+      const wrap = document.getElementById('footLockList');
+      wrap.innerHTML = '';
+      state.footLocks = cloneFootLocks(state.footLocks);
+      for (let i = 0; i < state.footLocks.length; i++) {
+        const lk = state.footLocks[i];
+        const pill = document.createElement('button');
+        pill.className = 'lock-pill';
+        pill.textContent = `${lk.foot} ${lk.startT.toFixed(2)}–${lk.endT.toFixed(2)}s ×`;
+        pill.title = 'คลิกเพื่อปลดล็อกช่วงนี้';
+        pill.onclick = () => {
+          snapshotUndo();
+          state.footLocks.splice(i, 1);
+          state.rigPresetId = 'custom_draft';
+          state.arcDirty = true;
+          renderFootLockList();
+          evaluateFrame();
+        };
+        wrap.appendChild(pill);
+      }
+      if (!state.footLocks.length) {
+        const span = document.createElement('span');
+        span.style.cssText = 'font-size:11px;color:#94a3b8;';
+        span.textContent = 'ยังไม่มีช่วงล็อกเท้า';
+        wrap.appendChild(span);
+      }
+    }
+
+    function snapFootToGround(footId = null) {
+      const targetFoot = footId || ((state.selectedHandle === 'footL' || state.selectedHandle === 'footR') ? state.selectedHandle : document.getElementById('lockFootSel').value);
+      const node = afterPane.view.R[targetFoot];
+      if (!node) return false;
+      snapshotUndo();
+      state.playing = false;
+      const wp = node.getWorldPosition(new THREE.Vector3());
+      wp.y = afterPane.view.root.position.y + afterPane.view.R.restFootY;
+      const rootLocal = afterPane.view.root.worldToLocal(wp);
+      commitIkHandleRootPos(targetFoot, rootLocal);
+      state.selectedHandle = targetFoot;
+      rebuildRigPresetDropdown();
+      renderKeyframePills();
+      evaluateFrame();
+      setPersistMessage(`Snap ${targetFoot} ลงพื้นเรียบร้อยที่ ${state.time.toFixed(3)}s`, 'ok');
+      return true;
+    }
+
+    function lockFootRange(footId, startT, endT) {
+      const node = afterPane.view.R[footId];
+      if (!node) return false;
+      snapshotUndo();
+      const wp = node.getWorldPosition(new THREE.Vector3());
+      wp.y = afterPane.view.root.position.y + afterPane.view.R.restFootY;
+      const rootLocal = afterPane.view.root.worldToLocal(wp);
+      const sT = Math.max(0, Math.min(10, Number(startT) || 0));
+      const eT = Math.max(sT, Math.min(10, Number(endT) || sT));
+      state.footLocks = state.footLocks.filter(l => l.foot !== footId || l.endT < sT || l.startT > eT);
+      state.footLocks.push({ foot: footId, startT: sT, endT: eT, pos: rootLocal.toArray().map(v => Number(v.toFixed(4))), snapGround: true });
+      state.footLocks = cloneFootLocks(state.footLocks);
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      rebuildRigPresetDropdown();
+      renderFootLockList();
+      evaluateFrame();
+      setPersistMessage(`ล็อก ${footId} ช่วง ${sT.toFixed(3)}–${eT.toFixed(3)}s เรียบร้อย`, 'ok');
+      return true;
+    }
+
+    function unlockFoot(footId) {
+      snapshotUndo();
+      state.footLocks = state.footLocks.filter(l => l.foot !== footId);
+      state.rigPresetId = 'custom_draft';
+      state.arcDirty = true;
+      rebuildRigPresetDropdown();
+      renderFootLockList();
+      evaluateFrame();
+      setPersistMessage(`ปลดล็อก ${footId} แล้ว`, 'ok');
+    }
+
+    document.getElementById('snapFootBtn').onclick = () => snapFootToGround();
+    document.getElementById('lockFootBtn').onclick = () => {
+      lockFootRange(
+        document.getElementById('lockFootSel').value,
+        Number(document.getElementById('lockStartNum').value),
+        Number(document.getElementById('lockEndNum').value)
+      );
+    };
+    document.getElementById('unlockFootBtn').onclick = () => {
+      unlockFoot(document.getElementById('lockFootSel').value);
+    };
+
+    // Movement sliders
     const MOV_FIELDS = [
       ['windupLeanDeg', 'โน้มเตรียมก่อนพุ่ง (°)', -25, 10, 0.5],
       ['windupHipDropCm', 'ย่อสะโพกตอนเตรียม (cm)', 0, 14, 0.5],
@@ -1406,46 +1982,33 @@
       ['brakeHipDropCm', 'ย่อสะโพกตอนลงน้ำหนัก (cm)', 0, 16, 0.5],
       ['recoverDuration', 'ช่วงคืนท่าเข้ายีน (s)', 0.10, 0.45, 0.01]
     ];
-
     const movControlsEl = document.getElementById('movControls');
     const movInputMap = {};
     for (const [key, label, min, max, step] of MOV_FIELDS) {
-      const row = document.createElement('div');
-      row.className = 'slider-row';
-      const lbl = document.createElement('label');
-      lbl.textContent = label;
-      const range = document.createElement('input');
-      range.type = 'range';
-      range.min = min; range.max = max; range.step = step;
-      const num = document.createElement('input');
-      num.type = 'number';
-      num.min = min; num.max = max; num.step = step;
+      const row = document.createElement('div'); row.className = 'slider-row';
+      const lbl = document.createElement('label'); lbl.textContent = label;
+      const range = document.createElement('input'); range.type = 'range'; range.min = min; range.max = max; range.step = step;
+      const num = document.createElement('input'); num.type = 'number'; num.min = min; num.max = max; num.step = step;
       row.append(lbl, range, num);
       movControlsEl.appendChild(row);
       movInputMap[key] = { range, num };
-
       const commit = (val, pushUndo) => {
         if (pushUndo) snapshotUndo();
         const clamped = Math.max(min, Math.min(max, Number(val) || 0));
-        state.movementParams[key] = clamped;
-        state.movementParams.enabled = true;
-        range.value = clamped;
-        num.value = clamped;
-        evaluateFrame();
+        state.movementParams[key] = clamped; state.movementParams.enabled = true;
+        range.value = clamped; num.value = clamped; evaluateFrame();
       };
       range.addEventListener('pointerdown', () => snapshotUndo());
       range.addEventListener('input', () => commit(range.value, false));
       num.addEventListener('change', () => commit(num.value, true));
     }
 
-    // Joint list + joint sliders
+    // Fine rotation controls
     const jointListEl = document.getElementById('jointList');
     const jointBtns = {};
     for (const spec of JOINT_SPECS) {
       const btn = document.createElement('button');
-      btn.className = 'joint-btn';
-      btn.dataset.joint = spec.id;
-      btn.textContent = spec.label;
+      btn.className = 'joint-btn'; btn.dataset.joint = spec.id; btn.textContent = spec.label;
       btn.onclick = () => selectJoint(spec.id);
       jointListEl.appendChild(btn);
       jointBtns[spec.id] = btn;
@@ -1453,23 +2016,6 @@
 
     function findKeyframeAt(t, tol = 0.009) {
       return state.keyframes.find(kf => Math.abs(kf.t - t) <= tol) || null;
-    }
-
-    function ensureKeyframeAtCurrentTime() {
-      const t = Number(state.time.toFixed(3));
-      let kf = findKeyframeAt(t);
-      if (!kf) {
-        const sampled = sampleRigKeyframes(state.keyframes, t);
-        kf = {
-          t,
-          joints: Object.fromEntries(Object.entries(sampled.joints).map(([k, v]) => [k, v.map(n => Number(n.toFixed(1)))])),
-          ...(Math.abs(sampled.hipsYCm) > 0.01 ? { hipsYCm: Number(sampled.hipsYCm.toFixed(1)) } : {})
-        };
-        state.keyframes.push(kf);
-        state.keyframes = cloneKeyframes(state.keyframes);
-        kf = findKeyframeAt(t);
-      }
-      return kf;
     }
 
     function setJointOffsetOnCurrentFrame(jointId, vec3, hipsYCm = null, isMountPos = null) {
@@ -1493,7 +2039,6 @@
       const spec = JOINT_SPEC_MAP[state.selectedJoint] || JOINT_SPECS[0];
       document.getElementById('selJointTitle').textContent = spec.label;
       jointSlidersEl.innerHTML = '';
-
       const sample = sampleRigKeyframes(state.keyframes, state.time);
       const curRot = spec.isMount ? (sample.swordMountRotDeg || [0, 0, 0]) : (sample.joints[spec.id] || [0, 0, 0]);
 
@@ -1501,30 +2046,18 @@
         const axisKey = axisName.toLowerCase();
         const [min, max] = spec.rangeDeg[axisKey];
         const disabled = min === max;
-        const row = document.createElement('div');
-        row.className = 'slider-row';
-        const lbl = document.createElement('label');
-        lbl.textContent = `หมุนแกน ${axisName} (°)${disabled ? ' [ล็อกตามสรีระ]' : ''}`;
-        const range = document.createElement('input');
-        range.type = 'range';
-        range.min = min; range.max = max; range.step = 0.5;
-        range.value = curRot[idx] || 0;
-        range.disabled = disabled;
-        range.dataset.axis = axisKey;
-        const num = document.createElement('input');
-        num.type = 'number';
-        num.min = min; num.max = max; num.step = 0.5;
-        num.value = Number((curRot[idx] || 0).toFixed(1));
-        num.disabled = disabled;
-        num.dataset.axisNum = axisKey;
-
+        const row = document.createElement('div'); row.className = 'slider-row';
+        const lbl = document.createElement('label'); lbl.textContent = `หมุนแกน ${axisName} (°)${disabled ? ' [ล็อก]' : ''}`;
+        const range = document.createElement('input'); range.type = 'range'; range.min = min; range.max = max; range.step = 0.5;
+        range.value = curRot[idx] || 0; range.disabled = disabled; range.dataset.axis = axisKey;
+        const num = document.createElement('input'); num.type = 'number'; num.min = min; num.max = max; num.step = 0.5;
+        num.value = Number((curRot[idx] || 0).toFixed(1)); num.disabled = disabled; num.dataset.axisNum = axisKey;
         const apply = (val, pushUndo) => {
           if (pushUndo) snapshotUndo();
           const sNow = sampleRigKeyframes(state.keyframes, state.time);
           const next = (spec.isMount ? sNow.swordMountRotDeg : (sNow.joints[spec.id] || [0, 0, 0])).slice();
           next[idx] = Math.max(min, Math.min(max, Number(val) || 0));
-          range.value = next[idx];
-          num.value = next[idx];
+          range.value = next[idx]; num.value = next[idx];
           setJointOffsetOnCurrentFrame(spec.id, next, null, null);
         };
         range.addEventListener('pointerdown', () => snapshotUndo());
@@ -1536,21 +2069,16 @@
 
       if (spec.hasHipsY) {
         const [minY, maxY] = spec.hipsYRangeCm;
-        const row = document.createElement('div');
-        row.className = 'slider-row';
-        const lbl = document.createElement('label');
-        lbl.textContent = 'ความสูงสะโพก (cm)';
-        const range = document.createElement('input');
-        range.type = 'range'; range.min = minY; range.max = maxY; range.step = 0.5;
+        const row = document.createElement('div'); row.className = 'slider-row';
+        const lbl = document.createElement('label'); lbl.textContent = 'ความสูงสะโพก (cm)';
+        const range = document.createElement('input'); range.type = 'range'; range.min = minY; range.max = maxY; range.step = 0.5;
         range.value = sample.hipsYCm || 0;
-        const num = document.createElement('input');
-        num.type = 'number'; num.min = minY; num.max = maxY; num.step = 0.5;
+        const num = document.createElement('input'); num.type = 'number'; num.min = minY; num.max = maxY; num.step = 0.5;
         num.value = Number((sample.hipsYCm || 0).toFixed(1));
         const apply = (val, pushUndo) => {
           if (pushUndo) snapshotUndo();
           const c = Math.max(minY, Math.min(maxY, Number(val) || 0));
-          range.value = c; num.value = c;
-          setJointOffsetOnCurrentFrame('hips', null, c, null);
+          range.value = c; num.value = c; setJointOffsetOnCurrentFrame('hips', null, c, null);
         };
         range.addEventListener('pointerdown', () => snapshotUndo());
         range.addEventListener('input', () => apply(range.value, false));
@@ -1562,15 +2090,11 @@
       if (spec.isMount) {
         ['X', 'Y', 'Z'].forEach((axisName, idx) => {
           const [minP, maxP] = spec.posRangeCm;
-          const row = document.createElement('div');
-          row.className = 'slider-row';
-          const lbl = document.createElement('label');
-          lbl.textContent = `เลื่อนจุดจับดาบ ${axisName} (cm)`;
-          const range = document.createElement('input');
-          range.type = 'range'; range.min = minP; range.max = maxP; range.step = 0.2;
-          range.value = (sample.swordMountPosCm?.[idx] || 0);
-          const num = document.createElement('input');
-          num.type = 'number'; num.min = minP; num.max = maxP; num.step = 0.2;
+          const row = document.createElement('div'); row.className = 'slider-row';
+          const lbl = document.createElement('label'); lbl.textContent = `เลื่อนจุดจับดาบ ${axisName} (cm)`;
+          const range = document.createElement('input'); range.type = 'range'; range.min = minP; range.max = maxP; range.step = 0.2;
+          range.value = sample.swordMountPosCm?.[idx] || 0;
+          const num = document.createElement('input'); num.type = 'number'; num.min = minP; num.max = maxP; num.step = 0.2;
           num.value = Number((sample.swordMountPosCm?.[idx] || 0).toFixed(1));
           const apply = (val, pushUndo) => {
             if (pushUndo) snapshotUndo();
@@ -1596,7 +2120,6 @@
       _eTmp.setFromQuaternion(node.quaternion, 'XYZ');
       const deg = [(_eTmp.x * R2D).toFixed(0), (_eTmp.y * R2D).toFixed(0), (_eTmp.z * R2D).toFixed(0)].join(',');
       document.getElementById('selJointReadout').textContent = `Local=(${deg})°`;
-
       const kf = findKeyframeAt(state.time);
       for (const spec of JOINT_SPECS) {
         const btn = jointBtns[spec.id];
@@ -1638,13 +2161,11 @@
     function updateTimelineUI() {
       const dur = currentDuration();
       const scrub = document.getElementById('scrub');
-      scrub.max = dur;
-      scrub.value = state.time;
+      scrub.max = dur; scrub.value = state.time;
       document.getElementById('timeLabel').textContent = `${state.time.toFixed(3)} / ${dur.toFixed(3)}s`;
       const playBtn = document.getElementById('playBtn');
       playBtn.setAttribute('aria-pressed', !state.playing ? 'true' : 'false');
       playBtn.textContent = state.playing ? 'หยุด (Space)' : 'เล่นต่อ (Space)';
-
       const trackEl = document.getElementById('combatTimingTrack');
       if (state.mode === 'rig') {
         const spec = ATTACK_SCENARIOS[state.clip];
@@ -1669,6 +2190,8 @@
       const isMov = state.mode === 'movement';
       document.getElementById('modeMovementBtn').setAttribute('aria-pressed', isMov ? 'true' : 'false');
       document.getElementById('modeRigBtn').setAttribute('aria-pressed', !isMov ? 'true' : 'false');
+      document.getElementById('poseEditBtn').hidden = isMov;
+      document.getElementById('poseEditBtn').setAttribute('aria-pressed', state.poseEdit ? 'true' : 'false');
       document.getElementById('movementPanel').hidden = !isMov;
       document.getElementById('rigPanel').hidden = isMov;
       document.getElementById('movOverlays').hidden = !isMov;
@@ -1682,14 +2205,12 @@
       badgeBefore.hidden = state.layout === 'after';
       badgeAfter.hidden = state.layout === 'before';
       badgeAfter.style.left = state.layout === 'split' ? 'calc(50% + 10px)' : '10px';
-
       document.getElementById('camSel').value = camState.preset;
       document.getElementById('rateSel').value = String(state.rate);
 
       if (isMov) {
         movPresetSel.value = state.movPresetId;
-        document.getElementById('movSummary').textContent =
-          (MOVEMENT_PRESETS[state.movPresetId]?.summary) || 'กำลังจูนค่าพุ่งและลงน้ำหนักเอง';
+        document.getElementById('movSummary').textContent = (MOVEMENT_PRESETS[state.movPresetId]?.summary) || 'กำลังจูนค่าพุ่งและลงน้ำหนักเอง';
         for (const [key] of MOV_FIELDS) {
           movInputMap[key].range.value = state.movementParams[key];
           movInputMap[key].num.value = state.movementParams[key];
@@ -1702,13 +2223,14 @@
         clipSel.value = state.clip;
         rebuildRigPresetDropdown();
         const rp = RIG_PRESETS[state.rigPresetId];
-        document.getElementById('rigSummary').textContent = rp ? rp.summary : `กำลังแก้ไขท่า ${state.clip} (${state.keyframes.length} keyframes)`;
+        document.getElementById('rigSummary').textContent = rp ? rp.summary : `กำลังแก้ไขท่า ${state.clip} (${state.keyframes.length} KF, ${state.footLocks.length} ล็อกเท้า)`;
         document.getElementById('scenarioDesc').textContent = ATTACK_SCENARIOS[state.clip].desc;
         rebuildJointEditor();
         renderKeyframePills();
+        renderFootLockList();
+        updateHandleReadout();
       }
 
-      // Marker jump buttons
       const markerWrap = document.getElementById('markerButtons');
       markerWrap.innerHTML = '';
       const markers = isMov ? DASH_SCENARIO.markers : ATTACK_SCENARIOS[state.clip].markers;
@@ -1736,18 +2258,13 @@
       try {
         const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
         const btn = document.getElementById('loadDraftBtn');
-        if (!raw) {
-          btn.disabled = true;
-          return null;
-        }
+        if (!raw) { btn.disabled = true; return null; }
         const parsed = JSON.parse(raw);
         btn.disabled = false;
         const when = parsed.updatedAt ? new Date(parsed.updatedAt).toLocaleTimeString('th-TH') : '';
-        setPersistMessage(`พบ Draft ที่บันทึกไว้: ${parsed.mode === 'movement' ? 'Movement (dash_stop)' : `ท่า ${parsed.clip}`} · ${parsed.keyframes?.length || 0} KF (${when})`, 'ok');
+        setPersistMessage(`พบ Draft ที่บันทึกไว้: ${parsed.mode === 'movement' ? 'Movement (dash_stop)' : `ท่า ${parsed.clip}`} · ${parsed.keyframes?.length || 0} KF · ${parsed.footLocks?.length || 0} ล็อกเท้า (${when})`, 'ok');
         return parsed;
-      } catch {
-        return null;
-      }
+      } catch { return null; }
     }
 
     function saveDraft() {
@@ -1758,7 +2275,8 @@
         presetId: state.mode === 'movement' ? state.movPresetId : state.rigPresetId,
         label: `Draft (${state.mode === 'movement' ? 'dash_stop' : state.clip})`,
         movementParams: state.movementParams,
-        keyframes: state.keyframes
+        keyframes: state.keyframes,
+        footLocks: state.footLocks
       });
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
       refreshDraftStatus();
@@ -1767,15 +2285,9 @@
 
     function loadDraft() {
       const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (!raw) {
-        setPersistMessage('ไม่พบ Draft ที่บันทึกไว้ในเบราว์เซอร์', 'warn');
-        return false;
-      }
+      if (!raw) { setPersistMessage('ไม่พบ Draft ที่บันทึกไว้ในเบราว์เซอร์', 'warn'); return false; }
       const res = validateImportPayload(raw, { heroId: 'knight' });
-      if (!res.ok) {
-        setPersistMessage(`ไม่สามารถโหลด Draft ได้: ${res.errors.join(' | ')}`, 'err');
-        return false;
-      }
+      if (!res.ok) { setPersistMessage(`ไม่สามารถโหลด Draft ได้: ${res.errors.join(' | ')}`, 'err'); return false; }
       applyImportedPayload(res.data, 'โหลด Draft กลับมาเรียบร้อย');
       return true;
     }
@@ -1788,7 +2300,8 @@
         presetId: state.mode === 'movement' ? state.movPresetId : state.rigPresetId,
         label: state.mode === 'movement' ? 'Movement Tuning (dash_stop)' : `Motion Rig (${state.clip})`,
         movementParams: state.movementParams,
-        keyframes: state.keyframes
+        keyframes: state.keyframes,
+        footLocks: state.footLocks
       });
       const text = JSON.stringify(payload, null, 2);
       document.getElementById('jsonBox').value = text;
@@ -1800,7 +2313,7 @@
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1500);
       }
-      setPersistMessage(`Export JSON เรียบร้อย (${payload.rigVersion} / ${payload.mode === 'rig' ? payload.clip : 'dash_stop'})`, 'ok');
+      setPersistMessage(`Export JSON เรียบร้อย (${payload.rigVersion} / ${payload.keyframes.length} KF / ${payload.footLocks.length} ล็อกเท้า)`, 'ok');
       return payload;
     }
 
@@ -1810,129 +2323,72 @@
       if (data.clip) state.clip = data.clip;
       if (data.movementParams) state.movementParams = { ...MOVEMENT_PRESETS.dash_grounded_r1, ...data.movementParams };
       state.keyframes = cloneKeyframes(data.keyframes || []);
+      state.footLocks = cloneFootLocks(data.footLocks || []);
       state.rigPresetId = 'custom_draft';
       state.arcDirty = true;
       state.playing = false;
       syncUI();
       evaluateFrame();
-      setPersistMessage(`${prefixMsg}: ${data.heroId} · ${data.mode === 'rig' ? data.clip : 'dash_stop'} (${data.keyframes.length} KF)`, 'ok');
+      setPersistMessage(`${prefixMsg}: ${data.heroId} · ${data.mode === 'rig' ? data.clip : 'dash_stop'} (${data.keyframes.length} KF, ${state.footLocks.length} ล็อกเท้า)`, 'ok');
     }
 
     function importJson(rawText) {
-      const res = validateImportPayload(rawText, {
-        heroId: 'knight',
-        mode: state.mode,
-        clip: state.clip
-      });
-      if (!res.ok) {
-        setPersistMessage(`นำเข้าไม่สำเร็จ: ${res.errors.join(' | ')}`, 'err');
-        return { ok: false, errors: res.errors };
-      }
+      const res = validateImportPayload(rawText, { heroId: 'knight', mode: state.mode, clip: state.clip });
+      if (!res.ok) { setPersistMessage(`นำเข้าไม่สำเร็จ: ${res.errors.join(' | ')}`, 'err'); return { ok: false, errors: res.errors }; }
       applyImportedPayload(res.data, 'Import JSON สำเร็จ');
-      if (res.warnings.length) {
-        setPersistMessage(`Import สำเร็จ (${res.warnings.join('; ')})`, 'warn');
-      }
+      if (res.warnings.length) setPersistMessage(`Import สำเร็จ (${res.warnings.join('; ')})`, 'warn');
       return { ok: true, warnings: res.warnings };
     }
 
-    // ---- Wire Controls ----
+    // ---- Wire Remaining Buttons ----
     document.getElementById('modeMovementBtn').onclick = () => {
-      state.mode = 'movement';
-      state.time = 0.58;
-      state.playing = false;
-      syncUI();
-      evaluateFrame();
+      state.mode = 'movement'; state.time = 0.58; state.playing = false; syncUI(); evaluateFrame();
     };
     document.getElementById('modeRigBtn').onclick = () => {
-      state.mode = 'rig';
-      state.time = state.clip === 'attack2' ? 0.367 : ATTACK_SCENARIOS[state.clip].visualContactAt;
-      state.arcDirty = true;
-      state.playing = false;
-      syncUI();
-      evaluateFrame();
+      state.mode = 'rig'; state.time = state.clip === 'attack2' ? 0.367 : ATTACK_SCENARIOS[state.clip].visualContactAt;
+      state.arcDirty = true; state.playing = false; syncUI(); evaluateFrame();
     };
-    document.getElementById('layoutSplitBtn').onclick = () => { state.layout = 'split'; syncUI(); };
-    document.getElementById('layoutBeforeBtn').onclick = () => { state.layout = 'before'; syncUI(); };
-    document.getElementById('layoutAfterBtn').onclick = () => { state.layout = 'after'; syncUI(); };
-
+    document.getElementById('poseEditBtn').onclick = () => {
+      state.poseEdit = !state.poseEdit; syncUI(); updateVisibility();
+    };
+    document.getElementById('layoutSplitBtn').onclick = () => { state.layout = 'split'; syncUI(); renderScene(); };
+    document.getElementById('layoutBeforeBtn').onclick = () => { state.layout = 'before'; syncUI(); renderScene(); };
+    document.getElementById('layoutAfterBtn').onclick = () => { state.layout = 'after'; syncUI(); renderScene(); };
     document.getElementById('camSel').onchange = (e) => {
-      camState.preset = e.target.value;
-      camState.yawOffset = 0;
-      camState.pitchOffset = 0;
-      camState.distScale = 1;
+      camState.preset = e.target.value; camState.yawOffset = 0; camState.pitchOffset = 0; camState.distScale = 1;
     };
     document.getElementById('resetCamBtn').onclick = () => {
-      camState.yawOffset = 0;
-      camState.pitchOffset = 0;
-      camState.distScale = 1;
+      camState.yawOffset = 0; camState.pitchOffset = 0; camState.distScale = 1;
     };
 
-    // Mouse orbit & wheel zoom
-    let draggingCam = false;
-    let dragX = 0;
-    let dragY = 0;
-    canvasArea.addEventListener('pointerdown', (e) => {
-      if (e.target !== canvas && e.target !== overlay) return;
-      draggingCam = true;
-      dragX = e.clientX;
-      dragY = e.clientY;
-    });
-    window.addEventListener('pointermove', (e) => {
-      if (!draggingCam) return;
-      camState.yawOffset -= (e.clientX - dragX) * 0.008;
-      camState.pitchOffset = Math.max(-0.5, Math.min(0.9, camState.pitchOffset + (e.clientY - dragY) * 0.006));
-      dragX = e.clientX;
-      dragY = e.clientY;
-    });
-    window.addEventListener('pointerup', () => { draggingCam = false; });
-    canvasArea.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      camState.distScale = Math.max(0.35, Math.min(2.2, camState.distScale * (e.deltaY > 0 ? 1.08 : 0.92)));
-    }, { passive: false });
-
-    ['optGrid', 'optRootPath', 'optFootMarkers', 'optSkeleton', 'optAxes', 'optBladeArc', 'optRigFeet', 'optTarget'].forEach(id => {
+    ['optGrid', 'optRootPath', 'optFootMarkers', 'optHandles', 'optSkeleton', 'optAxes', 'optBladeArc', 'optRigFeet', 'optTarget'].forEach(id => {
       document.getElementById(id).onchange = () => updateVisibility();
     });
 
     movPresetSel.onchange = (e) => {
-      snapshotUndo();
-      state.movPresetId = e.target.value;
-      state.movementParams = { ...MOVEMENT_PRESETS[state.movPresetId] };
-      syncUI();
-      evaluateFrame();
+      snapshotUndo(); state.movPresetId = e.target.value; state.movementParams = { ...MOVEMENT_PRESETS[state.movPresetId] }; syncUI(); evaluateFrame();
     };
     document.getElementById('optBrakeFootLock').onchange = (e) => {
-      snapshotUndo();
-      state.movementParams.brakeFootLock = e.target.checked;
-      state.movementParams.enabled = true;
-      evaluateFrame();
+      snapshotUndo(); state.movementParams.brakeFootLock = e.target.checked; state.movementParams.enabled = true; evaluateFrame();
     };
     document.getElementById('optAfterimages').onchange = (e) => {
-      snapshotUndo();
-      state.movementParams.showAfterimages = e.target.checked;
-      state.movementParams.enabled = true;
-      evaluateFrame();
+      snapshotUndo(); state.movementParams.showAfterimages = e.target.checked; state.movementParams.enabled = true; evaluateFrame();
     };
     document.getElementById('optDashDust').onchange = (e) => {
-      snapshotUndo();
-      state.movementParams.showDust = e.target.checked;
-      state.movementParams.enabled = true;
-      evaluateFrame();
+      snapshotUndo(); state.movementParams.showDust = e.target.checked; state.movementParams.enabled = true; evaluateFrame();
     };
     document.getElementById('movUndoBtn').onclick = () => applyUndo();
     document.getElementById('movResetBtn').onclick = () => {
-      snapshotUndo();
-      const base = MOVEMENT_PRESETS[state.movPresetId] || MOVEMENT_PRESETS.dash_grounded_r1;
-      state.movementParams = { ...base };
-      syncUI();
-      evaluateFrame();
+      snapshotUndo(); state.movementParams = { ...(MOVEMENT_PRESETS[state.movPresetId] || MOVEMENT_PRESETS.dash_grounded_r1) }; syncUI(); evaluateFrame();
     };
 
     clipSel.onchange = (e) => {
       snapshotUndo();
       state.clip = e.target.value;
       state.rigPresetId = defaultPresetForClip(state.clip);
-      state.keyframes = cloneKeyframes(RIG_PRESETS[state.rigPresetId].keyframes);
+      const p = RIG_PRESETS[state.rigPresetId];
+      state.keyframes = cloneKeyframes(p.keyframes);
+      state.footLocks = cloneFootLocks(p.footLocks || []);
       state.arcDirty = true;
       state.time = Math.min(state.time, currentDuration());
       syncUI();
@@ -1944,6 +2400,7 @@
       snapshotUndo();
       state.rigPresetId = id;
       state.keyframes = cloneKeyframes(RIG_PRESETS[id].keyframes);
+      state.footLocks = cloneFootLocks(RIG_PRESETS[id].footLocks || []);
       state.arcDirty = true;
       syncUI();
       evaluateFrame();
@@ -1957,7 +2414,7 @@
       rebuildRigPresetDropdown();
       renderKeyframePills();
       evaluateFrame();
-      setPersistMessage(`บันทึก Keyframe ที่ ${state.time.toFixed(3)}s เรียบร้อย (อย่าลืมกด Save Draft หรือ Export JSON)`, 'ok');
+      setPersistMessage(`บันทึก Keyframe ที่ ${state.time.toFixed(3)}s เรียบร้อย`, 'ok');
     };
     document.getElementById('deleteKfBtn').onclick = () => {
       const kf = findKeyframeAt(state.time);
@@ -1966,36 +2423,26 @@
       state.keyframes = state.keyframes.filter(item => item !== kf);
       state.rigPresetId = 'custom_draft';
       state.arcDirty = true;
-      rebuildRigPresetDropdown();
-      rebuildJointEditor();
-      renderKeyframePills();
-      evaluateFrame();
+      rebuildRigPresetDropdown(); rebuildJointEditor(); renderKeyframePills(); evaluateFrame();
     };
     document.getElementById('rigUndoBtn').onclick = () => applyUndo();
     document.getElementById('rigResetFrameBtn').onclick = () => {
       const kf = findKeyframeAt(state.time);
       if (!kf) return;
       snapshotUndo();
-      if (state.selectedJoint === 'swordMount') {
-        delete kf.swordMountPosCm;
-        delete kf.swordMountRotDeg;
-      } else {
-        delete kf.joints[state.selectedJoint];
-        if (state.selectedJoint === 'hips') delete kf.hipsYCm;
-      }
+      state.keyframes = state.keyframes.filter(item => item !== kf);
+      state.rigPresetId = 'custom_draft';
       state.arcDirty = true;
-      rebuildJointEditor();
-      renderKeyframePills();
-      evaluateFrame();
+      rebuildJointEditor(); renderKeyframePills(); evaluateFrame();
+      setPersistMessage(`Reset เฟรม ${state.time.toFixed(3)}s เรียบร้อย`, 'ok');
     };
     document.getElementById('rigResetAllBtn').onclick = () => {
       snapshotUndo();
-      const baseId = RIG_PRESETS[`${state.clip}_baseline`].id;
-      state.rigPresetId = baseId;
+      state.rigPresetId = RIG_PRESETS[`${state.clip}_baseline`].id;
       state.keyframes = [];
+      state.footLocks = [];
       state.arcDirty = true;
-      syncUI();
-      evaluateFrame();
+      syncUI(); evaluateFrame();
     };
 
     document.getElementById('saveDraftBtn').onclick = () => saveDraft();
@@ -2010,147 +2457,131 @@
       importJson(text);
       e.target.value = '';
     };
-    document.getElementById('importTextBtn').onclick = () => {
-      importJson(document.getElementById('jsonBox').value);
-    };
+    document.getElementById('importTextBtn').onclick = () => importJson(document.getElementById('jsonBox').value);
 
-    // Timeline controls & shortcuts
-    document.getElementById('replayBtn').onclick = () => {
-      state.time = 0;
-      state.playing = true;
-      evaluateFrame();
-    };
-    document.getElementById('playBtn').onclick = () => {
-      state.playing = !state.playing;
-      updateTimelineUI();
-    };
-    document.getElementById('rateSel').onchange = (e) => {
-      state.rate = Number(e.target.value) || 1;
-    };
+    document.getElementById('replayBtn').onclick = () => { state.time = 0; state.playing = true; evaluateFrame(); };
+    document.getElementById('playBtn').onclick = () => { state.playing = !state.playing; updateTimelineUI(); };
+    document.getElementById('rateSel').onchange = (e) => { state.rate = Number(e.target.value) || 1; };
     document.getElementById('prevFrameBtn').onclick = () => {
-      state.playing = false;
-      state.time = Math.max(0, state.time - DT);
+      state.playing = false; state.time = Math.max(0, state.time - DT);
       if (state.mode === 'rig') rebuildJointEditor();
       evaluateFrame();
     };
     document.getElementById('nextFrameBtn').onclick = () => {
-      state.playing = false;
-      state.time = Math.min(currentDuration(), state.time + DT);
+      state.playing = false; state.time = Math.min(currentDuration(), state.time + DT);
       if (state.mode === 'rig') rebuildJointEditor();
       evaluateFrame();
     };
     document.getElementById('scrub').oninput = (e) => {
-      state.playing = false;
-      state.time = Number(e.target.value) || 0;
+      state.playing = false; state.time = Number(e.target.value) || 0;
       if (state.mode === 'rig') rebuildJointEditor();
       evaluateFrame();
     };
 
     window.addEventListener('keydown', (e) => {
       if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox') {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-          e.preventDefault();
-          applyUndo();
-        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); applyUndo(); }
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        applyUndo();
-      } else if (e.code === 'Space' || e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        state.playing = !state.playing;
-        updateTimelineUI();
-      } else if (e.key.toLowerCase() === 'r') {
-        state.time = 0;
-        state.playing = true;
-        evaluateFrame();
-      } else if (e.key === ',') {
-        document.getElementById('prevFrameBtn').click();
-      } else if (e.key === '.') {
-        document.getElementById('nextFrameBtn').click();
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); applyUndo(); }
+      else if (e.code === 'Space' || e.key.toLowerCase() === 'p') { e.preventDefault(); state.playing = !state.playing; updateTimelineUI(); }
+      else if (e.key.toLowerCase() === 'r') { state.time = 0; state.playing = true; evaluateFrame(); }
+      else if (e.key === ',') document.getElementById('prevFrameBtn').click();
+      else if (e.key === '.') document.getElementById('nextFrameBtn').click();
     });
 
-    // Expose programmatic API for scripted verification & QA
+    function projectWorldToAfterClient(worldVec) {
+      const vp = afterPane.viewportRect;
+      const snap = afterPane.camSnapshot;
+      if (!vp || !snap) return null;
+      rayCamera.fov = snap.fov; rayCamera.aspect = snap.aspect;
+      rayCamera.position.copy(snap.pos); rayCamera.quaternion.copy(snap.quat);
+      rayCamera.updateProjectionMatrix(); rayCamera.updateMatrixWorld();
+      const ndc = worldVec.clone().project(rayCamera);
+      return {
+        x: Math.round(vp.left + (ndc.x * 0.5 + 0.5) * vp.w),
+        y: Math.round(vp.top + (-ndc.y * 0.5 + 0.5) * vp.h),
+        world: worldVec.toArray().map(v => Number(v.toFixed(4)))
+      };
+    }
+
     window.motionRigLab = {
       setMode: (m) => {
         state.mode = m === 'rig' ? 'rig' : 'movement';
         state.time = state.mode === 'movement' ? 0.58 : (state.clip === 'attack2' ? 0.367 : ATTACK_SCENARIOS[state.clip].visualContactAt);
-        state.arcDirty = true;
-        state.playing = false;
-        syncUI();
-        evaluateFrame();
+        state.arcDirty = true; state.playing = false; syncUI(); evaluateFrame();
       },
-      setLayout: (l) => { state.layout = l; syncUI(); },
-      setCam: (c) => {
-        camState.preset = CAM_BASES[c] ? c : 'game';
-        camState.yawOffset = 0; camState.pitchOffset = 0; camState.distScale = 1;
-        syncUI();
-      },
+      setPoseEdit: (on) => { state.poseEdit = !!on; syncUI(); updateVisibility(); },
+      setLayout: (l) => { state.layout = l; syncUI(); renderScene(); },
+      setCam: (c) => { camState.preset = CAM_BASES[c] ? c : 'game'; camState.yawOffset = 0; camState.pitchOffset = 0; camState.distScale = 1; syncUI(); renderScene(); },
       setClip: (c) => {
         if (!ATTACK_SCENARIOS[c]) return;
-        state.clip = c;
-        state.rigPresetId = defaultPresetForClip(c);
-        state.keyframes = cloneKeyframes(RIG_PRESETS[state.rigPresetId].keyframes);
-        state.arcDirty = true;
-        syncUI();
-        evaluateFrame();
+        state.clip = c; state.rigPresetId = defaultPresetForClip(c);
+        const p = RIG_PRESETS[state.rigPresetId];
+        state.keyframes = cloneKeyframes(p.keyframes); state.footLocks = cloneFootLocks(p.footLocks || []);
+        state.arcDirty = true; syncUI(); evaluateFrame();
       },
       setPreset: (id) => {
-        if (MOVEMENT_PRESETS[id]) {
-          state.movPresetId = id;
-          state.movementParams = { ...MOVEMENT_PRESETS[id] };
-        } else if (RIG_PRESETS[id]) {
-          state.clip = RIG_PRESETS[id].clip;
-          state.rigPresetId = id;
+        if (MOVEMENT_PRESETS[id]) { state.movPresetId = id; state.movementParams = { ...MOVEMENT_PRESETS[id] }; }
+        else if (RIG_PRESETS[id]) {
+          state.clip = RIG_PRESETS[id].clip; state.rigPresetId = id;
           state.keyframes = cloneKeyframes(RIG_PRESETS[id].keyframes);
+          state.footLocks = cloneFootLocks(RIG_PRESETS[id].footLocks || []);
           state.arcDirty = true;
         }
-        syncUI();
-        evaluateFrame();
+        syncUI(); evaluateFrame();
       },
       seek: (t) => {
         state.playing = false;
         state.time = Math.max(0, Math.min(currentDuration(), Number(t) || 0));
         if (state.mode === 'rig') rebuildJointEditor();
         evaluateFrame();
+        renderScene();
       },
       setPaused: (p) => { state.playing = !!p; updateTimelineUI(); },
+      selectHandle: (h) => { state.selectedHandle = h; updateHandleReadout(); evaluateFrame(); renderScene(); },
+      getHandleScreenPos: (h) => {
+        const hn = afterPane.handleNodes?.[h || state.selectedHandle];
+        return hn ? projectWorldToAfterClient(hn.holder.position) : null;
+      },
+      getGizmoAxisScreenPos: (axis) => {
+        const basePos = afterPane.axisGizmo?.position;
+        if (!basePos) return null;
+        const off = new THREE.Vector3(axis === 'x' ? 0.22 : 0, axis === 'y' ? 0.22 : 0, axis === 'z' ? 0.22 : 0);
+        return projectWorldToAfterClient(basePos.clone().add(off));
+      },
+      snapFootToGround,
+      lockFoot: lockFootRange,
+      unlockFoot,
       selectJoint: (j) => selectJoint(j),
       setJointOffset: (jointId, vec3, hipsYCm = null, mountPos = null) => {
-        snapshotUndo();
-        setJointOffsetOnCurrentFrame(jointId, vec3, hipsYCm, mountPos);
-        rebuildJointEditor();
+        snapshotUndo(); setJointOffsetOnCurrentFrame(jointId, vec3, hipsYCm, mountPos); rebuildJointEditor();
       },
       upsertKeyframe: () => document.getElementById('upsertKfBtn').click(),
       undo: () => applyUndo(),
       resetPose: () => document.getElementById('rigResetAllBtn').click(),
-      saveDraft: () => saveDraft(),
-      loadDraft: () => loadDraft(),
+      saveDraft,
+      loadDraft,
       exportJson: (dl = false) => exportJson(dl),
-      importJson: (txt) => importJson(txt),
+      importJson,
+      startRecording,
+      stopRecording,
+      getRecordingStatus: () => ({
+        recording: !!(recorder && recorder.state === 'recording'),
+        bytes: lastVideoBlob?.size || 0,
+        url: lastVideoUrl
+      }),
+      getCamState: () => ({ ...camState }),
       getState: () => ({
-        schema: SCHEMA_ID,
-        rigVersion: RIG_SPEC_VERSION,
-        mode: state.mode,
-        layout: state.layout,
-        cam: camState.preset,
-        clip: state.clip,
-        movPresetId: state.movPresetId,
-        rigPresetId: state.rigPresetId,
-        selectedJoint: state.selectedJoint,
-        time: state.time,
-        keyframes: cloneKeyframes(state.keyframes),
+        schema: SCHEMA_ID, rigVersion: RIG_SPEC_VERSION, mode: state.mode, poseEdit: state.poseEdit,
+        layout: state.layout, cam: camState.preset, clip: state.clip, movPresetId: state.movPresetId,
+        rigPresetId: state.rigPresetId, selectedHandle: state.selectedHandle, selectedJoint: state.selectedJoint,
+        time: state.time, keyframes: cloneKeyframes(state.keyframes), footLocks: cloneFootLocks(state.footLocks),
         movementParams: { ...state.movementParams }
       }),
-      getMetrics: () => ({
-        before: { ...beforePane.metrics },
-        after: { ...afterPane.metrics }
-      })
+      getMetrics: () => ({ before: { ...beforePane.metrics }, after: { ...afterPane.metrics } })
     };
 
-    // Main render loop
     let lastRealMs = globalThis.Date.now();
     function tick() {
       const nowMs = globalThis.Date.now();

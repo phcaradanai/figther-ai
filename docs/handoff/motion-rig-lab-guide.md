@@ -5,15 +5,22 @@
 ---
 
 ## 1. การเปิดใช้งานและการควบคุม
-1. สตาร์ตเซิร์ฟเวอร์เกมจากรากโปรเจกต์ (`npm start` หรือ `$env:PORT=3010; node server.js` หากพอร์ต 3000 มีโปรเซสอื่นใช้อยู่)
+1. สตาร์ตเซิร์ฟเวอร์เกมจากรากโปรเจกต์ (`npm start` หรือ `$env:PORT=3012; node server.js` หากพอร์ต `3000` / `3010` มีโปรเซสอื่นใช้อยู่)
 2. เปิด Chrome ไปที่:
-   - `http://localhost:3000/dev/motion-rig-lab.html` (หรือพอร์ตที่รันอยู่ เช่น `:3010`)
+   - `http://localhost:3012/dev/motion-rig-lab.html` (หรือพอร์ตที่เซิร์ฟเวอร์กำลังรันอยู่ เช่น `:3000`, `:3010`)
    - ลิงก์เชื่อมโยงไป-กลับจากแถบบนของ [Art & Combat Lab](../../public/dev/art-combat-lab.html) และ [Knight Motion Lab](../../public/knight_motion_lab.html)
 3. **คีย์ลัดและปุ่มหลัก**:
    - `Space` / `P`: หยุดภาพ / เล่นต่อ, `R`: เล่นซ้ำตั้งแต่ `0.000s`, `,` / `.`: ถอย / เดินทีละ 1 เฟรม (`1/60s`)
+   - `Ctrl+Z`: ย้อนกลับ 1 ขั้นจากการลากจุดจับ (`Undo`) และปุ่ม `Reset เฟรมนี้` เพื่อคืนค่าเฉพาะเฟรมปัจจุบัน
    - **มุมมอง**: `Before | After` (ค่าเริ่มต้น), `Before เต็ม`, `After เต็ม`
-   - **กล้อง**: `มุมเกมจริง (game)`, `ด้านข้าง (side)`, `ด้านหน้า (front)`, `3/4 ข้อต่อชัด (closeup)` + ลากเมาส์หมุน / Scroll ซูม
+   - **โหมด `แก้ท่า (ลาก 3D)` ในช่อง After**:
+     - คลิก-ลากซ้ายที่จุดจับ 3D (`hipsPos`, `footL`, `footR`, `handR`, `bladeTip`, `handL`) เพื่อลากอิสระบนระนาบกล้อง หรือจับลูกศรแกน X/Y/Z เพื่อขยับทีละทิศ (ระหว่างจับจุด กล้องจะหยุดนิ่งจนปล่อยเมาส์)
+     - ลากขวาเพื่อหมุนกล้อง และ Scroll เพื่อซูม (ปุ่ม `Reset มุมกล้อง` สำหรับคืนค่ามุมเดิม)
+     - **การวางขาและล็อกเท้า**: กด `Snap เท้าลงพื้น` เพื่อวาง `footL` / `footR` ลงระดับพื้น (`Y = 0.135m`) และกด `ล็อกเท้า` / `ปลดล็อก` เพื่อตรึงตำแหน่งเท้าตลอดช่วงเฟรม (เช่น `0.200–0.400s`) ระหว่างลาก `hipsPos` หรือช่วงบน โดยส่วนหมุนข้อต่อแบบเดิมถูกพับไว้ใน `<details>` (`รายละเอียด`)
+     - **บันทึกคลิปหลักฐาน**: กด `● อัดคลิป` เพื่อบันทึก `.webm` พร้อมเคอร์เซอร์เมาส์และป้ายสถานะ `DRAG` ระหว่างทดลองลากจริง
+   - **กล้อง**: `มุมเกมจริง (game)`, `ด้านข้าง (side)`, `ด้านหน้า (front)`, `3/4 ข้อต่อชัด (closeup)` + ลากขวาหมุน / Scroll ซูม
    - **ไฟล์ข้อมูล Preset & Scenario (โหลดได้ทันทีจาก checkout ใหม่)**:
+     - IK Solver & Foot Lock: [motion_rig_ik.js](../../public/dev/motion_rig_ik.js)
      - Presets & Validation: [motion_rig_presets.js](../../public/dev/motion_rig_presets.js)
      - Scenarios & Dash Physics: [motion_rig_scenarios.js](../../public/dev/motion_rig_scenarios.js)
 
@@ -65,17 +72,32 @@
 | `0.367s` | `[10, 24, 34]` | `[-14, -8, 0]` | `[14, 22, -6]` | **แก้ทะลุหมวก `6.0cm -> 0.0cm` และขจัด snap** |
 | `0.400s` | `[8, 20, 32]` | `[-6, -6, 0]` | `[-6, 16, -16]` | **แก้ทะลุหมวก `2.4cm -> 0.0cm`** |
 
-- **หลักฐานภาพเปรียบเทียบ**:
+- **หลักฐานภาพเปรียบเทียบ (`attack2_clean_r1`)**:
   - มุม `closeup` เฟรมคืนท่า (`0.367s`): [attack2_recovery_closeup.png](evidence/motion-rig-lab/attack2_recovery_closeup.png) (ฝั่ง `Before` เห็นจุดเตือนสีแดงและดาบจมหลังปีกหมวก ส่วนฝั่ง `After` ดาบหลบพ้นนอกแนวหมวก ไร้จุดแดง)
   - กล้องเล่นจริง (`game`) เฟรมสัมผัส (`0.100s`): [attack2_contact_game.png](evidence/motion-rig-lab/attack2_contact_game.png) (ระยะฟันถึงเป้า 2.3u และ `VisualContact 0.100s` ตรงกันทั้งสองฝั่ง)
+
+### ท่าแก้ใหม่ด้วยระบบลาก 3D IK + Foot Lock (`attack2_ik_r2` · ค่าเริ่มต้นใหม่ของ `attack2`)
+- **ปัญหาที่แก้**: สร้างและปรับแก้จากโหมดลากจุดจับ 3D โดยตรง (`แก้ท่า (ลาก 3D)`) ด้วย `handR` + `bladeTip` และตรึงเท้าด้วย `footLocks` ให้เห็นทางดาบอ้อมออกข้างตัวตอนเตรียม/ฟัน/ดึงกลับโดยไม่เสียระยะด้ามในมือและไม่จมหมวก
+- **เฟรมที่แก้และผลที่ได้**:
+  - `0.000s`: ยก `handR` `[0.02, 1.44, 0.46]` และเล็ง `bladeTip` `[0.36, 2.02, 0.85]` เพื่อตั้งแนวเตรียมฟันสูงชัดเจน
+  - `0.100s`: **คงท่าสัมผัส Baseline เดิม 100%** (ไม่แกะ timing หรือระยะสัมผัส `VisualContact 0.100s` / `attack2_hit 0.40s` ใน Art & Combat Lab)
+  - `0.200s`, `0.333s`, `0.367s`, `0.400s`: วาดแนว `handR` (`[-0.36, 0.96, -0.36]` -> `[-0.40, 1.24, -0.26]` -> `[-0.42, 1.28, -0.14]` -> `[-0.40, 1.30, -0.06]`) และ `bladeTip` (`[-0.95, 1.18, -0.92]` -> `[-0.92, 1.92, -0.36]` -> `[-0.92, 1.88, 0.22]` -> `[-0.92, 1.76, 0.48]`) ให้วงดาบอ้อมพ้นปีกหมวกและไหล่อย่างเป็นธรรมชาติ
+  - **Foot Lock ช่วง `0.200–0.400s`**: ตรึง `footL` (`[0.108, 0.135, -0.154]`) และ `footR` (`[-0.109, 0.135, 0.214]`) แบบ `snapGround: true` คงความนิ่งของฐานเท้า `< 1mm` แม้ขณะลากสะโพก (`hipsPos`) หรือแขน
+  - **ด้ามในมือคงที่**: `solveBladeAim` คงระยะฐานใบดาบถึงข้อมือขวาที่ `7.23cm` (`±0.1cm`) ไม่แยกหลุดจากมือ และลดจุดชน `>2cm` จาก `3/13` เฟรม (`6.0cm`) เหลือ `0/13` เฟรม (`0.0cm`)
+- **หลักฐานวิดีโอและภาพจากการทดสอบจริง**:
+  - วิดีโอบันทึกการลากจุดจับ 3D ด้วยเมาส์จริง + เล่นวนเทียบ Before | After: [knight-attack2-drag-demo.webm](evidence/motion-rig-lab/knight-attack2-drag-demo.webm)
+  - ภาพ `closeup` (`0.367s`) ในโหมดลาก 3D เห็นจุดจับและกิซโมแกน X/Y/Z: [motion_rig_drag_closeup.png](evidence/motion-rig-lab/motion_rig_drag_closeup.png)
+  - ผลรวมใน **Art & Combat Lab** ฉาก `attack2_hit` (`A/B เดิม` เทียบ `C attack2_ik_r2`):
+    - มุมกลาง (`cam=24`) เฟรมคืนท่า (`0.67s`): [art_combat_attack2_recovery_cam24.png](evidence/motion-rig-lab/art_combat_attack2_recovery_cam24.png)
+    - มุมเกมจริง (`cam=41`) เฟรมสัมผัส (`0.40s`): [art_combat_attack2_contact_cam41.png](evidence/motion-rig-lab/art_combat_attack2_contact_cam41.png)
 
 ---
 
 ## 5. ระบบ Save Draft / Export / Import JSON และการตรวจสอบความเข้ากันได้
-- **Storage Key**: `figther_ai.motion_rig_lab.draft.v1` (รอดการรีโหลดหน้าเว็บ กด `Load Draft` เพื่อกู้คืนได้ทันที)
-- **Schema มาตรฐาน (`figther-ai.motion-rig.v1`)**: ระบุ `rigVersion: "knight-skinned-v1"`, `heroId: "knight"`, `clip`, `mode`, `movementParams`, `keyframes` (`t`, `joints`, และ optional `hipsYCm` / `swordMountPosCm` / `swordMountRotDeg`)
+- **Storage Key**: `figther_ai.motion_rig_lab.draft.v1` (รอดการรีโหลดหน้าเว็บ กด `Load Draft` เพื่อกู้คืนทั้ง `keyframes.ik` และ `footLocks` ได้ทันที)
+- **Schema มาตรฐาน (`figther-ai.motion-rig.v1`)**: ระบุ `rigVersion: "knight-skinned-v1"`, `heroId: "knight"`, `clip`, `mode`, `movementParams`, `footLocks` (`{ foot, startT, endT, pos, snapGround }`), และ `keyframes` (`t`, `joints`, optional `ik` `{ hipsPos, footL, footR, handR, bladeTip, handL }`, และ optional `hipsYCm` / `swordMountPosCm` / `swordMountRotDeg` เพื่อความเข้ากันได้ย้อนหลังกับไฟล์เดิม)
 - **Validation ก่อน Import**:
-  - ปฏิเสธทันทีพร้อมข้อความภาษาไทยเมื่อ `schema` ผิด, `rigVersion` ไม่ตรง (เช่น `ninja-skinned-v1`), `heroId` ไม่ตรง, `clip` คนละท่ากับที่เปิดอยู่, หรือมีชื่อกระดูกที่ไม่อยู่ใน rig
+  - ปฏิเสธทันทีพร้อมข้อความภาษาไทยเมื่อ `schema` ผิด, `rigVersion` ไม่ตรง (เช่น `ninja-skinned-v1`), `heroId` ไม่ตรง, `clip` คนละท่ากับที่เปิดอยู่, หรือมีชื่อกระดูก / `ik` channel / `foot` ใน `footLocks` ที่ไม่อยู่ใน rig
 - **ขั้นตอนนำผลที่ผ่านเกณฑ์เข้าเกมจริง (แยกจากรอบ Lab นี้)**:
   1. นำค่า `dash_grounded_r1` ไปทดสอบเป็น candidate ใน `knight_motion.js` / `knight_footwork.js` (ตรวจเทียบเคียงกับ `tests/knight_animation.test.mjs`)
-  2. นำคีย์ `attack2_clean_r1` ไปเบก/แพตช์ลง `public/assets/anims/knight/attack2.json` แล้วรัน `node tools/rig/self-collision.mjs attack2`, `node tools/rig/anatomy-audit.mjs --strict`, และ `tests/knight_animation.test.mjs` เพื่อยืนยันก่อนใช้งานจริง
+  2. นำคีย์ `attack2_ik_r2` (หรือ `attack2_clean_r1`) ไปเบกผลลัพธ์ข้อต่อจาก `applyMotionRigPose` ลง `public/assets/anims/knight/attack2.json` แล้วรัน `node tools/rig/self-collision.mjs attack2`, `node tools/rig/anatomy-audit.mjs --strict`, และ `tests/knight_animation.test.mjs` เพื่อยืนยันก่อนใช้งานจริง

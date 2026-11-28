@@ -14,7 +14,7 @@ export const DUEL_CAMERA = Object.freeze({
   target: [0, 0.35, 0]
 });
 
-export const SCENARIO_ORDER = ['hit', 'block', 'miss'];
+export const SCENARIO_ORDER = ['hit', 'block', 'miss', 'attack2_hit'];
 
 const KNIGHT_START = Object.freeze({
   x: 0.62,
@@ -95,5 +95,34 @@ export const SCENARIOS = {
     outcome: 'miss',
     ninjaGuarding: false,
     lunge: 2.4
+  },
+
+  attack2_hit: {
+    id: 'attack2_hit',
+    label: 'ฟันสวน · attack2',
+    desc: 'เทียบ attack2 เดิม (A/B) กับฉบับแก้ attack2_ik_r2 (C): สัมผัสเป้า 0.40s (clip 0.100s) และคืนท่า 0.67s (clip 0.367s)',
+    comboStep: 2,
+    swingDuration: 0.42,
+    length: 1.25,
+    standTime: 0.15,
+    swingAt: 0.30,
+    contactAt: 0.40,
+    inspectContactTime: 0.40,
+    inspectRecoveryTime: 0.667,
+    knightStart: KNIGHT_START,
+    ninjaStart: {
+      x: -0.62,
+      y: 0,
+      z: 0.62,
+      facing: -Math.PI / 4
+    },
+    outcome: 'hit',
+    ninjaGuarding: false,
+    damage: 11,
+    knockback: 3.5 * 0.85,
+    lunge: 2.4,
+    stunSec: 0.38,
+    knightHitStopMs: 70,
+    ninjaHitStopMs: 75
   }
 };
