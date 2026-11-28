@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A LAN multiplayer 2.5D arena brawler (Lost Saga–style gameplay, Tree of Savior–style art): 10 heroes, each with 4 gear pieces (weapon/armor/helmet/trinket) that carry one skill apiece (40 skills total). Gear can be knocked off on hit, dropped on the floor, and picked up by anyone, so a player can wear a mix of heroes' gear. Plain Node.js + vanilla browser JS — no bundler, no framework, no TypeScript.
+A LAN multiplayer 2.5D arena brawler with its own character and combat direction: 10 heroes, each with 4 gear pieces (weapon/armor/helmet/trinket) that carry one skill apiece (40 skills total). Gear can be knocked off on hit, dropped on the floor, and picked up by anyone, so a player can wear a mix of heroes' gear. Plain Node.js + vanilla browser JS - no bundler, no framework, no TypeScript.
+
+Read the [game concept and case studies](docs/handoff/game-concept-direction.md) before making art direction or combat design decisions. Tree of Savior is the primary visual reference for consistent character art. The [game feel knowledge base](docs/handoff/game-feel-knowledge-base.md) indexes the clips in `C:\Users\phcar\game-learning\technic` and explains how to record and verify changes in a LAN match.
 
 ## Commands
 
